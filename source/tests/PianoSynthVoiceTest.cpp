@@ -4,12 +4,14 @@
 #include <complex>
 
 #include "Audio/AudioEngine.h"
+#include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
 
 using devpiano::audio::HammerVoicing;
 using devpiano::audio::isValidHammerVoicing;
 using devpiano::audio::kHammerVoicingMaxHardnessDelta;
 using devpiano::audio::kHammerVoicingMaxRolloffDelta;
+using devpiano::audio::PianoMainString;
 using devpiano::audio::sampleHammerVoicing;
 
 // =============================================================================
@@ -541,12 +543,12 @@ private:
             const auto midTau6 = PianoSynthVoice::partialDecaySeconds(60, 5);
             expect(midTau6 < midTau1, "mid-register 6th partial decays faster than fundamental");
 
-            expect(PianoSynthVoice::bridgeHillGain(1800.0) > 1.35f, "1.8kHz Bridge Hill peak gain ~ 1.40");
-            expect(PianoSynthVoice::bridgeHillGain(100.0) < 1.05f, "low frequency not affected by Bridge Hill");
+            expect(PianoMainString::bridgeHillGain(1800.0) > 1.35f, "1.8kHz Bridge Hill peak gain ~ 1.40");
+            expect(PianoMainString::bridgeHillGain(100.0) < 1.05f, "low frequency not affected by Bridge Hill");
 
-            expect(PianoSynthVoice::hammerElasticModulation(440.0, 0.0018f) >= 0.7f,
+            expect(PianoMainString::hammerElasticModulation(440.0, 0.0018f) >= 0.7f,
                    "elastic modulation lower bounded by 0.7");
-            expect(PianoSynthVoice::hammerElasticModulation(440.0, 0.0018f) <= 1.0f,
+            expect(PianoMainString::hammerElasticModulation(440.0, 0.0018f) <= 1.0f,
                    "elastic modulation upper bounded by 1.0");
 
             VoiceFixture fixture;
@@ -578,15 +580,15 @@ private:
     void testHammerAndTransientDynamics() {
         beginTest("striking position comb filter and notch response (Phase 17-A)");
         {
-            const auto bassComb7 = PianoSynthVoice::strikeCombGain(6, 0.125f);
-            const auto bassComb8 = PianoSynthVoice::strikeCombGain(7, 0.125f);
+            const auto bassComb7 = PianoMainString::strikeCombGain(6, 0.125f);
+            const auto bassComb8 = PianoMainString::strikeCombGain(7, 0.125f);
             expect(bassComb7 > 0.35f, "7th harmonic has strike transmission");
             expect(bassComb8 < 0.10f, "8th harmonic is physically notched by 1/8 striking point");
             expect(bassComb7 > 4.0f * bassComb8, "7th harmonic transmission is over 4x the 8th notch");
 
-            const auto midComb4 = PianoSynthVoice::strikeCombGain(3, 0.1333f);
-            const auto midComb7 = PianoSynthVoice::strikeCombGain(6, 0.1333f);
-            const auto midComb8 = PianoSynthVoice::strikeCombGain(7, 0.1333f);
+            const auto midComb4 = PianoMainString::strikeCombGain(3, 0.1333f);
+            const auto midComb7 = PianoMainString::strikeCombGain(6, 0.1333f);
+            const auto midComb8 = PianoMainString::strikeCombGain(7, 0.1333f);
             expect(midComb4 > 0.90f, "mid 4th harmonic has peak strike transmission");
             expect(midComb7 < 0.30f, "mid 7th harmonic is attenuated by 1/7.5 strike point");
             expect(midComb8 < 0.30f, "mid 8th harmonic is attenuated by 1/7.5 strike point");
@@ -653,48 +655,48 @@ private:
 
             expect(ffRms > ppRms * 2.5f, "ff strike produces much higher energy than pp strike");
 
-            const auto gainNull = PianoSynthVoice::strikeCombGain(6, 1.0f / 7.0f);
+            const auto gainNull = PianoMainString::strikeCombGain(6, 1.0f / 7.0f);
             expect(gainNull < 0.10f, "strikeCombGain suppresses 7th partial at 1/7 strike position");
             expect(gainNull >= 0.03f, "strikeCombGain respects physical 0.03 floor");
 
-            const auto gainPeak = PianoSynthVoice::strikeCombGain(0, 0.5f);
+            const auto gainPeak = PianoMainString::strikeCombGain(0, 0.5f);
             expect(gainPeak > 0.95f, "strikeCombGain passes peak antinode near 1.0");
 
-            const auto ppSpectrumHigh = PianoSynthVoice::hammerSpectrumGain(10, 0.5f, 0.20f, 2800.0, 0.0035f);
-            const auto ffSpectrumHigh = PianoSynthVoice::hammerSpectrumGain(10, 0.5f, 0.85f, 2800.0, 0.0012f);
+            const auto ppSpectrumHigh = PianoMainString::hammerSpectrumGain(10, 0.5f, 0.20f, 2800.0, 0.0035f);
+            const auto ffSpectrumHigh = PianoMainString::hammerSpectrumGain(10, 0.5f, 0.85f, 2800.0, 0.0012f);
             expect(ffSpectrumHigh > ppSpectrumHigh * 1.5f,
                    "harder strike preserves substantially more high frequency partial energy");
         }
 
         beginTest("attack transient crack and longitudinal mode tuning (Phase 23-D)");
         {
-            PianoSynthVoice::HammerTransient softTransient;
+            devpiano::audio::HammerTransient softTransient;
             softTransient.trigger(kSampleRate, 72, 0.30f, 0.5f, 0.30f, 1.0f);
             const auto s1 = softTransient.getNextSample();
 
-            PianoSynthVoice::HammerTransient loudTransient;
+            devpiano::audio::HammerTransient loudTransient;
             loudTransient.trigger(kSampleRate, 72, 0.90f, 0.5f, 0.30f, 1.0f);
             const auto s2 = loudTransient.getNextSample();
 
             expect(std::abs(s2) > std::abs(s1) * 3.0f,
                    "loud strike attack crack produces much higher transient spike than soft strike");
 
-            PianoSynthVoice::HammerTransient bassLongTransient;
+            devpiano::audio::HammerTransient bassLongTransient;
             bassLongTransient.trigger(kSampleRate, 30, 0.85f, 0.5f, 1.50f, 1.0f);
             expect(bassLongTransient.isActive(), "bass strike activates longitudinal precursor mode");
 
-            PianoSynthVoice::HammerTransient compensatedBassLongTransient;
+            devpiano::audio::HammerTransient compensatedBassLongTransient;
             compensatedBassLongTransient.trigger(kSampleRate, 30, 0.85f, 0.5f, 1.50f, 6.0f);
             expectWithinAbsoluteError(bassLongTransient.longAmplitude, compensatedBassLongTransient.longAmplitude,
                                       1e-9f, "string phase compensation must not amplify the independent precursor");
 
-            expectWithinAbsoluteError(PianoSynthVoice::HammerTransient::longitudinalPrecursorGain(47), 1.0f, 1e-6f,
+            expectWithinAbsoluteError(devpiano::audio::HammerTransient::longitudinalPrecursorGain(47), 1.0f, 1e-6f,
                                       "low bass retains the precursor before the fade");
-            expect(PianoSynthVoice::HammerTransient::longitudinalPrecursorGain(55) > 0.0f,
+            expect(devpiano::audio::HammerTransient::longitudinalPrecursorGain(55) > 0.0f,
                    "the precursor fades rather than clicks off on the last audible note");
-            expect(PianoSynthVoice::HammerTransient::longitudinalPrecursorGain(55) < 0.05f,
+            expect(devpiano::audio::HammerTransient::longitudinalPrecursorGain(55) < 0.05f,
                    "the upper fade leaves only a residual precursor");
-            expectEquals(PianoSynthVoice::HammerTransient::longitudinalPrecursorGain(56), 0.0f,
+            expectEquals(devpiano::audio::HammerTransient::longitudinalPrecursorGain(56), 0.0f,
                          "the precursor is absent at and above its documented boundary");
 
             for (auto i = 0; i < 900; ++i) {
@@ -759,7 +761,7 @@ private:
             }
             expect(tailDelta < earlyDelta, "tails converge after the short contact runs out");
 
-            PianoSynthVoice::SpatialDiffusionEngine diffusionEngine;
+            PianoMainString::SpatialDiffusionEngine diffusionEngine;
             diffusionEngine.trigger(kSampleRate);
             const auto d0 = diffusionEngine.getDiffusionFactor();
             expect(d0 < 0.10f, "initial strike is tightly localized point source");
@@ -1294,7 +1296,7 @@ private:
         beginTest("ZeroTrig mechanical transients render finite and stably decaying");
         {
             constexpr double sr = 48000.0;
-            PianoSynthVoice::HammerTransient hammer;
+            devpiano::audio::HammerTransient hammer;
             hammer.trigger(sr, 60, 0.8f, 0.5f, 1.0f, 1.0f);
             expect(hammer.isActive());
             auto hammerMax = 0.0f;
@@ -1318,12 +1320,18 @@ private:
             }
             expect(damperMax > 0.0005f, "damper release transient must render audible sound");
 
-            fixture.voice()->controllerMoved(64, 127);
-            expect(fixture.voice()->isPedalTransientActive());
+            devpiano::audio::BuiltinSynthesiser pedalSynth;
+            pedalSynth.setCurrentPlaybackSampleRate(sr);
+            pedalSynth.addSound(new PianoSynthSound());
+            pedalSynth.addVoice(new PianoSynthVoice());
+            pedalSynth.setPedalAcousticsEnabled(true);
+            pedalSynth.setPedalNoiseLevel(0.8f);
+            pedalSynth.handleController(1, 64, 127);
+            expect(pedalSynth.isPedalAcousticsActive());
             auto pedalMax = 0.0f;
             for (int b = 0; b < 20; ++b) {
                 buf.clear();
-                fixture.renderBlock(buf);
+                pedalSynth.renderNextBlock(buf, juce::MidiBuffer(), 0, 512);
                 pedalMax = std::max(pedalMax, buf.getMagnitude(0, 0, 512));
             }
             expect(pedalMax > 0.0005f, "pedal whoosh and shock must render audible sound");
@@ -1343,13 +1351,13 @@ private:
                 voice->setFeltAgeingAmount(0.0f);
                 synth.noteOn(1, 93, 0.35f);
 
-                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> energy {};
-                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> maximum {};
-                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> previous {};
-                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> beforePrevious {};
-                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> numerator {};
-                std::array<std::array<double, 3>, PianoSynthVoice::maxPartials> denominator {};
-                const auto active = voice->numActivePartials;
+                std::array<std::array<double, 3>, PianoMainString::maxPartials> energy {};
+                std::array<std::array<double, 3>, PianoMainString::maxPartials> maximum {};
+                std::array<std::array<double, 3>, PianoMainString::maxPartials> previous {};
+                std::array<std::array<double, 3>, PianoMainString::maxPartials> beforePrevious {};
+                std::array<std::array<double, 3>, PianoMainString::maxPartials> numerator {};
+                std::array<std::array<double, 3>, PianoMainString::maxPartials> denominator {};
+                const auto active = voice->mainString.activePartials;
                 constexpr auto samples = 4096;
                 juce::AudioBuffer<float> block(2, 1);
                 const juce::MidiBuffer empty;
@@ -1358,7 +1366,7 @@ private:
                     synth.renderNextBlock(block, empty, 0, 1);
                     for (auto index = 0; index < active; ++index) {
                         const auto n = static_cast<std::size_t>(index);
-                        const auto& partial = voice->partials[n];
+                        const auto& partial = voice->mainString.partials[n];
                         const std::array<double, 3> values { partial.sinState, partial.sinState2, partial.sinState3 };
                         for (auto string = 0; string < partial.stringCount; ++string) {
                             const auto s = static_cast<std::size_t>(string);
@@ -1376,7 +1384,7 @@ private:
                 for (auto index = 0; index < active; ++index) {
                     const auto n = static_cast<std::size_t>(index);
                     auto measuredCentre = 0.0;
-                    for (auto string = 0; string < voice->partials[n].stringCount; ++string) {
+                    for (auto string = 0; string < voice->mainString.partials[n].stringCount; ++string) {
                         const auto s = static_cast<std::size_t>(string);
                         expect(maximum[n][s] <= 1.001, "fixed-frequency component must not acquire ellipse gain");
                         expectWithinAbsoluteError(
@@ -1385,7 +1393,7 @@ private:
                         measuredCentre += rate * std::acos(std::clamp(numerator[n][s] / denominator[n][s], -1.0, 1.0))
                             / juce::MathConstants<double>::twoPi;
                     }
-                    measuredCentre /= static_cast<double>(voice->partials[n].stringCount);
+                    measuredCentre /= static_cast<double>(voice->mainString.partials[n].stringCount);
                     const auto requestedFrequency
                         = PianoSynthVoice::partialFrequency(93, index, voice->getTemperament(), reference, true);
                     expectWithinAbsoluteError(

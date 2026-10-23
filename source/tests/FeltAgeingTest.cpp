@@ -28,8 +28,8 @@ private:
         for (const auto salt : salts) {
             float sum = 0.0f;
             for (int note = 21; note <= 108; ++note) {
-                const auto val1 = PianoSynthVoice::deterministicNoteJitter(note, salt);
-                const auto val2 = PianoSynthVoice::deterministicNoteJitter(note, salt);
+                const auto val1 = devpiano::audio::deterministicNoteJitter(note, salt);
+                const auto val2 = devpiano::audio::deterministicNoteJitter(note, salt);
 
                 // Strictly deterministic: same input -> same output
                 expectEquals(val1, val2);

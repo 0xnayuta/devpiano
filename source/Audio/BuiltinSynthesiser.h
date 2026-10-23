@@ -1,5 +1,7 @@
 #pragma once
 
+#include "PianoPedalAcoustics.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -82,6 +84,26 @@ public:
     void setSoftPedal(int midiChannel, bool isDown, float amount = 1.0f) noexcept;
     void resetSoftPedalState() noexcept;
 
+    // Whole-piano mechanical pedal acoustics. The owner is cold-created with
+    // the Piano synthesizer and is not used by SineSynthVoice or VST3.
+    void setPedalAcousticsEnabled(bool enabled) noexcept;
+    [[nodiscard]] bool isPedalAcousticsEnabled() const noexcept {
+        return pedalAcousticsEnabled;
+    }
+    void setPedalNoiseLevel(float level) noexcept;
+    void setPedalTuning(Temperament temperament, double referencePitchA4, bool stretchTuningEnabled) noexcept;
+    void setPedalLidPosition(LidPosition position) noexcept;
+    void setPedalSoundPerspective(SoundPerspective perspective) noexcept;
+    [[nodiscard]] PianoPedalAcoustics& getPedalAcoustics() noexcept {
+        return pedalAcoustics;
+    }
+    [[nodiscard]] const PianoPedalAcoustics& getPedalAcoustics() const noexcept {
+        return pedalAcoustics;
+    }
+    [[nodiscard]] bool isPedalAcousticsActive() const noexcept {
+        return pedalAcoustics.isActive();
+    }
+
     [[nodiscard]] bool isSustainPedalDown(int midiChannel = 1) const noexcept {
         const auto ch = (midiChannel >= 1 && midiChannel <= 16) ? static_cast<std::size_t>(midiChannel) : 1;
         return sustainPedalByChannel[ch];
@@ -103,14 +125,29 @@ private:
     void setSoftPedalInternal(int midiChannel, bool isDown, float amount) noexcept;
     void applySoftPedalToVoice(juce::SynthesiserVoice* voice, int midiChannel) noexcept;
 
+    // Single control entry for CC64. It updates the existing per-channel truth
+    // and emits at most one owner edge for a broadcast operation.
+    void applySustainPedal(int midiChannel, int controllerValue) noexcept;
+    void updateVoiceSustainForChannel(int midiChannel, int controllerValue) noexcept;
+    void clearSustainState(int midiChannel) noexcept;
+    [[nodiscard]] bool anySustainDown() const noexcept;
+
+    // allowTailOff=false is a hard stop. preservePedalState=true is used only
+    // by CC123, which must honor sustain/sostenuto and must not flush the
+    // whole-piano pedal tail.
+    void allNotesOffInternal(int midiChannel, bool allowTailOff, bool preservePedalState) noexcept;
+
     double currentPlaybackSampleRate = 0.0;
     int minimumSubBlockSize = 1;
     bool subBlockSubdivisionIsStrict = true;
     bool noteStealing = true;
+    bool pedalAcousticsEnabled = false;
 
+    std::array<int, 17> lastSustainControllerValues {};
     std::array<SoftPedalState, 17> softPedalByChannel {};
     std::array<bool, 17> sustainPedalByChannel {};
     std::array<bool, 17> sostenutoPedalByChannel {};
+    PianoPedalAcoustics pedalAcoustics;
 };
 
 } // namespace devpiano::audio

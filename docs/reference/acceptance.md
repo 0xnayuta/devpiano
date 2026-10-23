@@ -19,7 +19,7 @@
 | MIDI 导出 | Type 1、默认 960 PPQ、单轨、tick 0 120 BPM；保持显式起音/释放，不合成曲名或拍号；非 MIDI 与 SysEx 不输出 | Phase A/D/H，实际文件 header、消息和覆盖结果 |
 | 身份与时序 | 原身份 FIFO/最后持有者释放；暂停捕获闭合；末尾 Off、设备时间域、Seek/loop 状态和完整预备拍在音频边界执行 | Phase C/D/E；CPU release/prepare 不等于物理热插拔 |
 | 实时与 WAV | 自有回调零锁/零分配/零库函数三角；Take 最终音乐身份不重复变换，参数/层状态按采样点执行；独立缓冲混音后一次公共 Master/Reverb；单声道消费端统一经由双通道完整声学与混响渲染再下混（0.5 * (L + R)），消除空间声学与混响丢失 | [最终身份契约](features/recording-playback.md) 与 [固定双层边界](features/plugin-offline-rendering.md)；不向 VST3 注入内置物理参数，不作逐比特保证；第三方框架锁/2048 消息上限分层 |
-| 声学状态与整音 | 41/70/98 三锚点的硬度/响度/滚降增量在同一 Piano 核心执行；出厂与缺省为中性零偏移，显式合法配置保留，非法配置拒绝；设置、普通预设、Take 与实时/离线声音一致，不留旧整音迁移链 | 当前字段见 [预设分册](features/performance-presets.md) 与 [原生文件分册](features/performance-persistence.md)，历史消费者见 [Task 39-4](../roadmap/current-iteration.md#task-39-4状态预设与真实渲染闭环)；不把字段往返当声音证明 |
+| 声学状态与整音 | 41/70/98 三锚点的硬度/响度/滚降增量在同一 Piano 核心执行；出厂与缺省为中性零偏移，显式合法配置保留，非法配置拒绝；设置、普通预设、Take 与实时/离线声音一致，不留旧整音迁移链 | 当前字段见 [预设分册](features/performance-presets.md) 与 [原生文件分册](features/performance-persistence.md)，历史消费者见 [Task 39-4](../archive/phase39-acoustic-baseline-and-voicing-calibration.md#task-39-4状态预设与真实渲染闭环)；不把字段往返当声音证明 |
 | UI 与诊断 | 双看板同一投影，输入身份不受输出反馈污染；静音最高优先，Notes 确认/取消正确；日志会话有界并报告故障，MIDI raw 力度准确 | Phase F/G/H 实际窗口、音频捕获、文件及像素 |
 | 工程门禁 | Windows Debug app/tests 构建、默认 CTest、格式、迭代边界全量 tidy；确认 Chord/lifecycle 实际执行、用户目录无副作用、fixture 不依赖可选 NRVO | Phase G/H 的实际命令/receipt；不重写旧默认缓存失败为已消失 |
 

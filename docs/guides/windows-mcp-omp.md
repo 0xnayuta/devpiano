@@ -187,4 +187,4 @@ sha256sum /mnt/g/tools/windows-mcp/1.3.28/Sbroenne.WindowsMcp.exe
 - NTFS 盘符上的 cwd 行为（当前镜像盘为 ReFS）；
 - 超出当前已验证控件的自绘参数编辑能力、`Random seed` 数字读回、确定性重复与完整声学验收。
 
-历史诊断记录（2026-10-12）：官方 headless 冷启动的完整执行状态一致性未通过（该路径未恢复必要参数，当时未启动 v2 Pilot；GUI 工具迁移不替代声学准入）。后续 GUI Pilot 与 Task 39-2 已闭环结束，归档证据见 [Task 39-2 历史迭代记录](../roadmap/current-iteration.md#task-39-2-实施记录官方-925-状态闭环2026-10-12)。
+历史诊断记录（2026-10-12）：官方 headless 冷启动的完整执行状态一致性未通过（该路径未恢复必要参数，当时未启动 v2 Pilot；GUI 工具迁移不替代声学准入）。后续 GUI Pilot 与 Task 39-2 已闭环结束，归档证据见 [Task 39-2 历史迭代记录](../archive/phase39-acoustic-baseline-and-voicing-calibration.md#task-39-2-实施记录官方-925-状态闭环2026-10-12)。

@@ -3,8 +3,15 @@
 #include "HammerVoicing.h"
 #include "PerspectiveProcessor.h"
 #include "Piano88KeyTable.h"
+#include "PianoDspMath.h"
+#include "PianoLidAcoustics.h"
+#include "PianoMainString.h"
+#include "PianoMechanicalTransients.h"
+#include "PianoNoteSetup.h"
 #include "PianoRegisterVoicing.h"
+#include "PianoSourceLevels.h"
 #include "PianoTuning.h"
+#include "PianoVoiceResonance.h"
 #include "TemperamentEngine.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
@@ -15,6 +22,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <numbers>
+class PianoSynthVoiceTest;
+class PianoTuningAndDuplexTest;
+class PedalAcousticsTest;
 // 内置物理建模钢琴合成器（Phase 12~24）：
 // - 空气黏性阻尼与二次方摩擦 (Phase 18-C)：Desvages & Bilbao (2016) 模态耗散模型，呈现中频下凹歌唱性；
 // - 16 峰正交云杉木音板模态 (Phase 19-A)：Bank 2010 / Chabassier 2019 实测物理模态分布；
@@ -49,189 +59,6 @@
 using Temperament = devpiano::audio::Temperament;
 using TemperamentEngine = devpiano::audio::TemperamentEngine;
 
-namespace devpiano::audio::dsp {
-
-inline constexpr double kPi = std::numbers::pi;
-inline constexpr double kTwoPi = 6.283185307179586476925286766559;
-inline constexpr double kHalfPi = 1.5707963267948966192313216916398;
-inline constexpr double kInvTwoPi = 1.0 / kTwoPi;
-inline constexpr double kInvHalfPi = 1.0 / kHalfPi;
-
-struct SinCosResult {
-    double sinVal = 0.0;
-    double cosVal = 1.0;
-};
-
-[[nodiscard]] inline SinCosResult boundedSinCos(double x) noexcept {
-    if (!std::isfinite(x)) {
-        return { 0.0, 1.0 };
-    }
-    double k = std::floor(x * kInvTwoPi);
-    x -= k * kTwoPi;
-    if (x < 0.0 || x >= kTwoPi) {
-        x = 0.0;
-    }
-
-    const int q = std::clamp(static_cast<int>(x * kInvHalfPi), 0, 3);
-
-    double t = x - static_cast<double>(q) * kHalfPi;
-    if (t < 0.0) {
-        t = 0.0;
-    } else if (t > kHalfPi) {
-        t = kHalfPi;
-    }
-
-    const double z = t * t;
-    const double sinPoly = t
-        * (1.0
-           - z
-               * (1.0 / 6.0
-                  - z
-                      * (1.0 / 120.0
-                         - z
-                             * (1.0 / 5040.0
-                                - z
-                                    * (1.0 / 362880.0
-                                       - z
-                                           * (1.0 / 39916800.0
-                                              - z * (1.0 / 6227020800.0 - z * (1.0 / 1307674368000.0))))))));
-    const double cosPoly = 1.0
-        - z
-            * (1.0 / 2.0
-               - z
-                   * (1.0 / 24.0
-                      - z
-                          * (1.0 / 720.0
-                             - z
-                                 * (1.0 / 40320.0
-                                    - z * (1.0 / 3628800.0 - z * (1.0 / 479001600.0 - z * (1.0 / 87178291200.0)))))));
-
-    switch (q) {
-    case 0:
-        return { sinPoly, cosPoly };
-    case 1:
-        return { cosPoly, -sinPoly };
-    case 2:
-        return { -sinPoly, -cosPoly };
-    default:
-        return { -cosPoly, sinPoly };
-    }
-}
-
-[[nodiscard]] inline double boundedSin(double x) noexcept {
-    return boundedSinCos(x).sinVal;
-}
-
-[[nodiscard]] inline double boundedCos(double x) noexcept {
-    return boundedSinCos(x).cosVal;
-}
-
-struct SineLookupTable {
-    static constexpr int kSize = 4096;
-    float table[kSize + 2] {};
-
-    SineLookupTable() noexcept {
-        for (int i = 0; i < kSize; ++i) {
-            const auto angle = (kTwoPi * static_cast<double>(i)) / static_cast<double>(kSize);
-            table[i] = static_cast<float>(std::sin(angle));
-        }
-        table[kSize] = table[0];
-        table[kSize + 1] = table[1];
-    }
-
-    [[nodiscard]] float lookupNorm(float normPhase) const noexcept {
-        float p = normPhase;
-        if (p < 0.0f || p >= 1.0f) {
-            p -= std::floor(p);
-        }
-        const auto scaled = p * static_cast<float>(kSize);
-        auto idx = static_cast<int>(scaled);
-        if (idx < 0) {
-            idx = 0;
-        } else if (idx > kSize) {
-            idx = kSize;
-        }
-        const auto frac = scaled - static_cast<float>(idx);
-        return table[idx] + frac * (table[idx + 1] - table[idx]);
-    }
-
-    [[nodiscard]] float lookupNorm(double normPhase) const noexcept {
-        double p = normPhase;
-        if (p < 0.0 || p >= 1.0) {
-            p -= std::floor(p);
-        }
-        const auto scaled = p * static_cast<double>(kSize);
-        auto idx = static_cast<int>(scaled);
-        if (idx < 0) {
-            idx = 0;
-        } else if (idx > kSize) {
-            idx = kSize;
-        }
-        const auto frac = static_cast<float>(scaled - static_cast<double>(idx));
-        return table[idx] + frac * (table[idx + 1] - table[idx]);
-    }
-};
-
-inline const SineLookupTable gSineLookupTable;
-
-struct UnisonExcitation {
-    std::array<float, 3> phase {};
-};
-
-inline const auto gUnisonExcitation = [] {
-    std::array<std::array<UnisonExcitation, 64>, 88> result {};
-    // Follow the existing MIDI 80..100 detune taper when approaching single-string equivalence.
-    const auto fullSpreadDetune = devpiano::audio::getNoteParams(80).beatingDetuneRatio;
-    for (std::size_t key = 0; key < result.size(); ++key) {
-        const auto& params = devpiano::audio::getNoteParams(21 + static_cast<int>(key));
-        const auto spread = std::clamp(params.beatingDetuneRatio / fullSpreadDetune, 0.0f, 1.0f);
-        for (std::size_t partial = 0; partial < result[key].size(); ++partial) {
-            auto& entry = result[key][partial];
-            const auto base = devpiano::audio::kOptPhaseTable[0][partial];
-            for (std::size_t string = 0; string < entry.phase.size(); ++string) {
-                const auto original = devpiano::audio::kOptPhaseTable[string][partial];
-                const auto difference = std::remainder(static_cast<double>(original - base), kTwoPi);
-                entry.phase[string] = spread >= 1.0f ? original : base + spread * static_cast<float>(difference);
-            }
-        }
-    }
-    return result;
-}();
-
-struct UnisonWindowPower {
-    double reference = 1.0;
-    double actual = 1.0;
-};
-
-[[nodiscard]] inline UnisonWindowPower unisonWindowPower(const std::array<float, 3>& phase, int strings,
-                                                         double frequency, float detune) noexcept {
-    if (strings <= 1) {
-        return {};
-    }
-    // The registered early-body RMS window defines the amplitude reference.
-    // This is one note-wide calibration scalar, not physical energy conservation.
-    constexpr auto duration = 0.2;
-    constexpr auto midpoint = 0.2;
-    auto reference = static_cast<double>(strings);
-    auto actual = reference;
-    for (auto first = 0; first < strings; ++first) {
-        for (auto second = first + 1; second < strings; ++second) {
-            const auto difference = frequency * static_cast<double>(detune) * static_cast<double>(second - first);
-            const auto halfWindow = kPi * difference * duration;
-            const auto sinc = halfWindow == 0.0 ? 1.0 : boundedSin(halfWindow) / halfWindow;
-            const auto meanPhase = kTwoPi * difference * midpoint;
-            const auto phaseDifference
-                = static_cast<double>(phase[static_cast<std::size_t>(second)] - phase[static_cast<std::size_t>(first)]);
-            reference += 2.0 * sinc * boundedCos(meanPhase);
-            actual += 2.0 * sinc * boundedCos(meanPhase + phaseDifference);
-        }
-    }
-    const auto divisor = static_cast<double>(strings * strings);
-    return { std::max(0.0, reference / divisor), std::max(0.0, actual / divisor) };
-}
-
-} // namespace devpiano::audio::dsp
-
 class PianoSynthSound final : public juce::SynthesiserSound {
 public:
     bool appliesToNote(int) override {
@@ -244,35 +71,13 @@ public:
 
 class PianoSynthVoice final : public juce::SynthesiserVoice {
 public:
-    static constexpr auto maxPartials = 20;
-    // Magic Circle coherent band (39-A): epsilon = 2*sin(pi*f/sr) must stay
-    // within [-1.995, 1.995]. The exact ceiling is sr/pi*asin(1.995/2), about
-    // 0.4774874003*sr. kCoherentBandRatio = 0.477485 is a conservative
-    // compile-time margin below that ceiling (about 0.1 Hz at 48 kHz, around
-    // 1e-6 epsilon headroom) so admission and init never need library
-    // asin/trig in hot paths; boundedSinCos remains the only oscillator
-    // math. Retained partials keep target frequencies; only out-of-band
-    // partials are pruned, never retuned. First partial keeps an explicit
-    // low-rate sounding fallback clamped to this same ceiling.
-    static constexpr double kMagicCircleEpsilonMax = 1.995;
-    static constexpr double kCoherentBandRatio = 0.477485;
     using SoundPerspective = devpiano::audio::SoundPerspective;
     using PerspectiveProcessor = devpiano::audio::PerspectiveProcessor;
     using Temperament = devpiano::audio::Temperament;
     using HammerVoicing = devpiano::audio::HammerVoicing;
+    using LidPosition = devpiano::audio::LidPosition;
     static constexpr auto numResonators = 16;
     static constexpr auto bodyWetRatio = 0.26f;
-    static constexpr auto nominalPeakLevelAtFullVelocity = 0.95f;
-    // One source-level gain shared by strings and mechanical transients.
-    static constexpr auto globalSourceGain = 0.49f;
-    static constexpr auto peakLevelAtFullVelocity = nominalPeakLevelAtFullVelocity * globalSourceGain;
-    static constexpr auto silentLevelThreshold = 1e-4f;
-
-    enum class LidPosition : std::uint8_t {
-        fullOpen = 0,
-        halfStick = 1,
-        closed = 2,
-    };
 
     PianoSynthVoice() {
         static_cast<void>(devpiano::audio::getPianoStretchRatios());
@@ -281,7 +86,6 @@ public:
             resonator.updateCoefficients(48000.0);
         }
         damperTransient.updateSampleRate(48000.0);
-        pedalTransient.updateSampleRate(48000.0);
     }
 
     bool canPlaySound(juce::SynthesiserSound* sound) override {
@@ -386,13 +190,6 @@ public:
         return voiceIndex;
     }
 
-    void setPedalNoiseLevel(float level) noexcept {
-        pianoPedalNoiseLevel = juce::jlimit(0.0f, 1.0f, level);
-    }
-
-    [[nodiscard]] float getPedalNoiseLevel() const noexcept {
-        return pianoPedalNoiseLevel;
-    }
     void setFeltAgeingAmount(float amount) noexcept {
         pianoFeltAgeingAmount = juce::jlimit(0.0f, 1.0f, amount);
     }
@@ -401,35 +198,16 @@ public:
         return pianoFeltAgeingAmount;
     }
 
-    [[nodiscard]] static float deterministicNoteJitter(int midiNoteNumber, std::uint32_t salt) noexcept {
-        std::uint32_t x = static_cast<std::uint32_t>(midiNoteNumber) ^ salt;
-        x ^= x >> 16;
-        x *= 0x7feb352du;
-        x ^= x >> 15;
-        x *= 0x846ca68bu;
-        x ^= x >> 16;
-        return static_cast<float>(static_cast<std::int32_t>(x)) * (1.0f / 2147483648.0f);
-    }
-
-    [[nodiscard]] bool isPedalTransientActive() const noexcept {
-        return pedalTransient.isActive();
-    }
-    [[nodiscard]] bool isSympatheticShockActive() const noexcept {
-        return sympatheticPool.isShockActive();
-    }
     [[nodiscard]] bool isVoiceActive() const override {
-        return (getCurrentlyPlayingNote() >= 0)
-            || ((voiceIndex == 0) && (pedalTransient.isActive() || sympatheticPool.isShockActive()));
+        return getCurrentlyPlayingNote() >= 0;
     }
     [[nodiscard]] bool isPlayingChannel(int midiChannel) const override {
-        if (voiceIndex == 0 && getCurrentlyPlayingNote() < 0) {
-            return true;
-        }
         return juce::SynthesiserVoice::isPlayingChannel(midiChannel);
     }
     void setCurrentPlaybackSampleRate(double newRate) override {
         juce::SynthesiserVoice::setCurrentPlaybackSampleRate(newRate);
         if (newRate > 0.0) {
+            mainString.prepare(newRate);
             sympatheticPool.updateCoefficients(newRate, pianoTemperament, pianoReferencePitchA4,
                                                pianoStretchTuningEnabled);
             duplexPool.reset();
@@ -440,7 +218,6 @@ public:
             }
             spruceSoundboardFilter.updateCoefficients(newRate);
             damperTransient.updateSampleRate(newRate);
-            pedalTransient.updateSampleRate(newRate);
         }
     }
 
@@ -454,233 +231,59 @@ public:
         currentPlayingMidiNote = midiNoteNumber;
         noteOutputGain = devpiano::audio::pianoRegisterLoudnessGain(midiNoteNumber);
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
-        // 琴槌毛毡微老化扰动与调音离散度 (Phase 32-C, Inharmonicity Jitter & Felt Ageing)
-        const auto pitchJitterCents = (pianoFeltAgeingAmount > 0.0f)
-            ? deterministicNoteJitter(midiNoteNumber, 0x13579bdfu) * 1.2f * pianoFeltAgeingAmount
-            : 0.0f;
-        const auto pitchJitterRatio = std::pow(2.0, static_cast<double>(pitchJitterCents) / 1200.0);
+        const auto triggerSequence = ++triggerCounter;
+        const auto setup = devpiano::audio::computePianoNoteSetup(
+            midiNoteNumber, velocity, params, pianoBrightness, pianoHammerHardness, pianoResonance,
+            pianoFeltAgeingAmount, hammerVoicing, softPedalDown, softPedalAmount, pianoTemperament,
+            pianoReferencePitchA4, pianoStretchTuningEnabled, triggerSequence);
 
-        const auto bJitterRatio = (pianoFeltAgeingAmount > 0.0f)
-            ? (1.0
-               + static_cast<double>(deterministicNoteJitter(midiNoteNumber, 0x2468ace0u) * 0.045f
-                                     * pianoFeltAgeingAmount))
-            : 1.0;
-        const auto effectiveInharmonicityB = params.inharmonicityB * bJitterRatio;
-        const auto firstPartialFrequency
-            = devpiano::audio::pianoFirstPartialFrequency(midiNoteNumber, pianoTemperament, pianoReferencePitchA4,
-                                                          pianoStretchTuningEnabled)
-            * pitchJitterRatio;
-        const auto baseFrequency = firstPartialFrequency / std::sqrt(1.0 + effectiveInharmonicityB);
-        duplexPool.prepare(sampleRate, firstPartialFrequency, effectiveInharmonicityB);
+        duplexPool.prepare(sampleRate, setup.firstPartialFrequency, setup.effectiveInharmonicityB);
 
-        numActivePartials = params.partialCount;
-
-        const auto clampedVelocity = juce::jlimit(0.0f, 1.0f, velocity);
-        // 三力度整音零偏移层：默认锚点返回 {0.0f, 1.0f}，不改变现有力度响应。
-        const auto voicingSample = devpiano::audio::sampleHammerVoicing(hammerVoicing, clampedVelocity * 127.0f);
-        const auto velocityLevel
-            = juce::jlimit(0.0f, 1.0f, std::pow(clampedVelocity, 1.20f) * voicingSample.loudnessGain);
-        const auto decayScale = 1.0f + (pianoResonance - 0.5f) * 0.6f;
-        const auto baseDecaySeconds = static_cast<double>(params.decaySeconds * decayScale);
-
-        const auto keyPos = std::clamp((static_cast<float>(midiNoteNumber) - 21.0f) / 87.0f, 0.0f, 1.0f);
+        const auto keyPos = setup.keyPos;
         const auto directPan = 0.15f + 0.70f * keyPos;
         directLeftGain = (1.0f - directPan) * std::numbers::sqrt2_v<float>;
         directRightGain = directPan * std::numbers::sqrt2_v<float>;
 
-        // 弱音/移位踏板物理机理 (Phase 29-B, Una Corda Shift Mechanism):
-        // 琴槌击弦机向右位移，击打在毛毡侧向未压实较软区域，接触时间延长
-        const auto unaCordaMu = softPedalDown ? juce::jmax(0.60f, softPedalAmount) : 0.0f;
+        const auto unaCordaMu = setup.unaCordaMu;
+        const auto hammerHardness = setup.hammerHardness;
+        const auto effectiveTc = setup.effectiveTc;
+        const auto clampedVelocity = setup.clampedVelocity;
 
-        // 动态琴槌毛毡动力学 (Phase 23-A / Phase 32-C, Felt Ageing & Wear Dynamics)
-        const auto hardnessOffset = (pianoFeltAgeingAmount > 0.0f)
-            ? deterministicNoteJitter(midiNoteNumber, 0x9e3779b9u) * 0.06f * pianoFeltAgeingAmount
-            : 0.0f;
-        const auto brightnessOffset = (pianoFeltAgeingAmount > 0.0f)
-            ? deterministicNoteJitter(midiNoteNumber, 0x4b7e1516u) * 0.04f * pianoFeltAgeingAmount
-            : 0.0f;
-
-        // 39-3 单一硬度状态：宏硬度、三锚点与老化先形成琴槌名义硬度；
-        // CC67 再派生弦接触硬度。瞬态使用 hammerHardness，弦/频谱使用
-        // contactHardness，避免同一硬度或柔音效果被重复计入。
-        const auto hammerHardness
-            = std::clamp(0.15f + 0.85f * std::pow(clampedVelocity, 1.5f) * (0.5f + 0.5f * pianoHammerHardness)
-                             + voicingSample.hardnessDelta + hardnessOffset,
-                         0.05f, 1.0f);
-        const auto contactHardness = std::clamp(hammerHardness * (1.0f - 0.25f * unaCordaMu), 0.05f, 1.0f);
-        const auto effectiveBrightness = std::clamp(pianoBrightness + brightnessOffset, 0.0f, 1.0f);
-        const auto tc = params.tcBase * (2.5f - 1.9f * contactHardness) * (1.0f + 0.20f * unaCordaMu);
-
-        // 击弦微观混沌微扰引擎 (Phase 20-B, Bank & Chabassier 2019 Sec. 4)
-        auto rngState = static_cast<std::uint32_t>(midiNoteNumber) * 1009u + (++triggerCounter) * 1013u
-            + static_cast<std::uint32_t>(clampedVelocity * 1000.0f);
-        auto hashJitter = [](std::uint32_t& s) noexcept -> float {
-            s = s * 1664525u + 1013904223u;
-            return static_cast<float>(s >> 16) / 65535.0f * 2.0f - 1.0f;
-        };
-        const auto jitterStrike = 1.0f + 0.006f * hashJitter(rngState);
-        const auto jitterTc = 1.0f + 0.008f * hashJitter(rngState);
-        const auto jitterPhase = 0.012f * hashJitter(rngState);
-
-        const auto effectiveStrikePos = params.strikePosRatio * jitterStrike;
-        const auto effectiveTc = tc * jitterTc;
-
-        const auto piOverL = juce::MathConstants<double>::pi / static_cast<double>(params.stringLength);
-        const auto k1 = piOverL * piOverL;
-        const auto alpha1 = static_cast<double>(params.b1) + static_cast<double>(params.b2) * k1;
-
-        // 39-A admission and budget: the highest detuned string of each
-        // partial decides admission against the coherent ceiling, so every
-        // active oscillator stays within the epsilon band. The L1 budget
-        // denominator sums nominal weights over the full requested set, so
-        // pruned weights are not redistributed into survivors (rendered
-        // total simply drops when band-limited). Both passes use the
-        // requested count for the brightness tilt; the fallback first
-        // partial uses the ceiling frequency in numerator and denominator
-        // consistently.
-        const auto coherentCeiling = sampleRate * kCoherentBandRatio;
-        std::array<double, maxPartials> noteFrequencies {};
-        const auto requestedPartials = numActivePartials;
-        auto admittedCount = 0;
-        for (auto n = 0; n < requestedPartials; ++n) {
-            const auto partialNumber = static_cast<double>(n + 1);
-            const auto inharmonicFactor = std::sqrt(1.0 + effectiveInharmonicityB * partialNumber * partialNumber);
-            const auto partialFrequency = baseFrequency * partialNumber * inharmonicFactor;
-            noteFrequencies[static_cast<std::size_t>(n)] = partialFrequency;
-            if (n == admittedCount && highestDetunedFrequency(n, params, partialFrequency) < coherentCeiling) {
-                admittedCount = n + 1;
-            }
-        }
-        auto fallbackActive = false;
-        if (admittedCount <= 0) {
-            // Low-rate sounding fallback: keep the first partial only, at the
-            // coherent ceiling.
-            noteFrequencies[0] = coherentCeiling;
-            admittedCount = 1;
-            fallbackActive = true;
-        }
-        numActivePartials = admittedCount;
-        const auto& unisonExcitation = devpiano::audio::dsp::gUnisonExcitation[static_cast<std::size_t>(
-            std::clamp(midiNoteNumber, 21, 108) - 21)];
-        auto normSum = 0.0f;
-        auto nominalPower = 0.0f;
-        auto coherentPower = 0.0f;
-        for (auto n = 0; n < requestedPartials; ++n) {
-            const auto frequency
-                = (fallbackActive && n == 0) ? coherentCeiling : noteFrequencies[static_cast<std::size_t>(n)];
-            const auto weight
-                = retainedPartialWeight(n, keyPos, contactHardness, effectiveStrikePos, frequency, effectiveTc,
-                                        requestedPartials, effectiveBrightness, voicingSample.rolloffDelta);
-            const auto stringCount
-                = n < params.beatingPartials && params.beatingDetuneRatio > 0.0f ? params.stringCount : 1;
-            // One whole-voice scalar keeps the relative modal weights intact.
-            // No per-partial boost or per-key correction table is applied.
-            const auto power
-                = devpiano::audio::dsp::unisonWindowPower(unisonExcitation[static_cast<std::size_t>(n % 64)].phase,
-                                                          stringCount, frequency, params.beatingDetuneRatio);
-            normSum += weight;
-            nominalPower += weight * weight * static_cast<float>(power.reference);
-            coherentPower += weight * weight * static_cast<float>(power.actual);
-        }
-        const auto unisonScale = std::sqrt(nominalPower / juce::jmax(1e-12f, coherentPower));
-        const auto scale = peakLevelAtFullVelocity * unisonScale / juce::jmax(1e-6f, normSum);
-
-        for (auto k = admittedCount; k < maxPartials; ++k) {
-            auto& p = partials[static_cast<std::size_t>(k)];
-            p.level = 0.0f;
-            p.levelFast = 0.0f;
-            p.levelSlow = 0.0f;
-            p.epsilon = 0.0;
-            p.epsilon2 = 0.0;
-            p.epsilon3 = 0.0;
-            p.stringCount = 1;
-            p.decayFastPerSample = 0.0f;
-            p.decaySlowPerSample = 0.0f;
-            p.bloomGain = 1.0f;
-            p.bloomRisePerSample = 0.0f;
-        }
-        for (auto n = 0; n < numActivePartials; ++n) {
-            auto& partial = partials[static_cast<std::size_t>(n)];
-            const auto m = static_cast<double>(n + 1);
-            const auto partialFrequency = noteFrequencies[static_cast<std::size_t>(n)];
-            partial.stringCount = params.stringCount;
-            // Original phase signature below the existing treble detune taper;
-            // phase differences converge with detune instead of jumping at zero.
-            const auto& excitation = unisonExcitation[static_cast<std::size_t>(n % 64)];
-            const auto phase1 = excitation.phase[0] + jitterPhase;
-            const auto phase2 = excitation.phase[1] + jitterPhase;
-            const auto phase3 = excitation.phase[2] + jitterPhase;
-
-            // 39-A unit-y Magic Circle init: every active string starts at
-            // its output phase with y = sin(phi) and
-            // x = sqrt(1 - e^2/4) * cos(phi) + e * sin(phi) / 2. The stored
-            // level includes the note-wide unison reference scale and una-corda
-            // attenuation; pruned weights are not redistributed.
-            if (partial.stringCount == 1 || n >= params.beatingPartials || params.beatingDetuneRatio <= 0.0f) {
-                partial.stringCount = 1;
-                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, partialFrequency, sampleRate,
-                                     phase1);
-                partial.epsilon2 = 0.0;
-                partial.epsilon3 = 0.0;
-            } else if (partial.stringCount == 2) {
-                const auto detuneHalf = static_cast<double>(params.beatingDetuneRatio * 0.5f);
-                const auto f1 = partialFrequency * (1.0 - detuneHalf);
-                const auto f2 = partialFrequency * (1.0 + detuneHalf);
-                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sampleRate, phase1);
-                initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sampleRate, phase2);
-                partial.epsilon3 = 0.0;
-            } else {
-                const auto detune = static_cast<double>(params.beatingDetuneRatio);
-                const auto f1 = partialFrequency * (1.0 - detune);
-                const auto f2 = partialFrequency;
-                const auto f3 = partialFrequency * (1.0 + detune);
-                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sampleRate, phase1);
-                initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sampleRate, phase2);
-                initMagicCircleState(partial.cosState3, partial.sinState3, partial.epsilon3, f3, sampleRate, phase3);
-            }
-            // Una-corda trichord energy (Phase 29-B, unchanged mechanism).
-            const auto trichordAtten
-                = (params.stringCount == 3) ? (1.0f - 0.30f * unaCordaMu) : (1.0f - 0.15f * unaCordaMu);
-            partial.level
-                = retainedPartialWeight(n, keyPos, contactHardness, effectiveStrikePos, partialFrequency, effectiveTc,
-                                        requestedPartials, effectiveBrightness, voicingSample.rolloffDelta)
-                * scale * velocityLevel * trichordAtten;
-            if (n >= 2 && clampedVelocity > 0.40f) {
-                const auto bloomDepth = 0.35f * (clampedVelocity - 0.40f) / 0.60f;
-                partial.bloomGain = 1.0f - bloomDepth;
-                const auto tauBloom = static_cast<double>(
-                    0.008f + 0.016f * (1.0f - static_cast<float>(n) / static_cast<float>(requestedPartials)));
-                partial.bloomRisePerSample = static_cast<float>(1.0 / (tauBloom * sampleRate));
-            } else {
-                partial.bloomGain = 1.0f;
-                partial.bloomRisePerSample = 0.0f;
-            }
-
-            const auto kn = m * m * k1;
-            const auto airTerm = std::sqrt(baseFrequency / std::max(partialFrequency, 20.0));
-            const auto alpha_n
-                = static_cast<double>(params.b1) * (0.80 + 0.20 * airTerm) + static_cast<double>(params.b2) * kn;
-
-            const auto dampingEffect
-                = (alpha_n / juce::jmax(1e-9, alpha1)) * static_cast<double>(1.5f - pianoBrightness);
-            const auto unaCordaDamping = 1.0
-                + 0.15 * static_cast<double>(unaCordaMu)
-                    * (static_cast<double>(n) / static_cast<double>(requestedPartials));
-            const auto tau_m = (baseDecaySeconds / dampingEffect) / unaCordaDamping;
-            const auto tauFast_m = tau_m * static_cast<double>(params.fastDecayRatio);
-            partial.decayFastPerSample = static_cast<float>(std::exp(-1.0 / (tauFast_m * sampleRate)));
-            partial.decaySlowPerSample = static_cast<float>(std::exp(-1.0 / (tau_m * sampleRate)));
-            partial.levelFast = partial.level * (1.0f - params.slowWeight);
-            partial.levelSlow = partial.level * params.slowWeight;
-        }
+        devpiano::audio::MainStringStart stringStart;
+        stringStart.requestedPartials = params.partialCount;
+        stringStart.stringCount = params.stringCount;
+        stringStart.beatingPartials = params.beatingPartials;
+        stringStart.beatingDetuneRatio = params.beatingDetuneRatio;
+        stringStart.unisonKeyIndex = std::clamp(midiNoteNumber, 21, 108) - 21;
+        stringStart.baseFrequency = setup.baseFrequency;
+        stringStart.effectiveInharmonicityB = setup.effectiveInharmonicityB;
+        stringStart.keyPos = setup.keyPos;
+        stringStart.contactHardness = setup.contactHardness;
+        stringStart.effectiveStrikePos = setup.effectiveStrikePos;
+        stringStart.effectiveTc = setup.effectiveTc;
+        stringStart.effectiveBrightness = setup.effectiveBrightness;
+        stringStart.pianoBrightness = pianoBrightness;
+        stringStart.hammerVoicingRolloffDelta = setup.hammerVoicingRolloffDelta;
+        stringStart.velocityLevel = setup.velocityLevel;
+        stringStart.clampedVelocity = setup.clampedVelocity;
+        stringStart.unaCordaMu = setup.unaCordaMu;
+        stringStart.jitterPhase = setup.jitterPhase;
+        stringStart.baseDecaySeconds = setup.baseDecaySeconds;
+        stringStart.k1 = setup.k1;
+        stringStart.alpha1 = setup.alpha1;
+        stringStart.b1 = params.b1;
+        stringStart.b2 = params.b2;
+        stringStart.fastDecayRatio = params.fastDecayRatio;
+        stringStart.slowWeight = params.slowWeight;
+        const auto unisonScale = mainString.start(stringStart);
 
         const auto hammerTransientVel = clampedVelocity * (1.0f - 0.35f * unaCordaMu);
         hammerTransient.trigger(sampleRate, midiNoteNumber, hammerTransientVel, hammerHardness, params.stringLength,
                                 unisonScale);
         hammerContactEngine.trigger(sampleRate, effectiveTc);
-        spatialDiffusionEngine.trigger(sampleRate);
+        mainString.triggerSpatialDiffusion();
         damperTransient.reset();
-        pitchGlideEngine.trigger(sampleRate, clampedVelocity);
+        mainString.triggerPitchGlide(clampedVelocity);
 
         for (auto& resonator : bodyResonators) {
             resonator.reset();
@@ -724,10 +327,8 @@ public:
         adsrGate.reset();
         hammerTransient.reset();
         hammerContactEngine.reset();
-        spatialDiffusionEngine.reset();
         damperTransient.reset();
-        pedalTransient.reset();
-        pitchGlideEngine.reset();
+        mainString.reset();
         for (auto& resonator : bodyResonators) {
             resonator.reset();
         }
@@ -740,27 +341,20 @@ public:
     }
     void pitchWheelMoved(int) override {
     }
-    void controllerMoved(int controllerNumber, int controllerValue) override {
-        // MIDI CC 64 延音踏板 (Sustain Pedal, Phase 21-A)
-        if (controllerNumber == 64) {
-            const auto isDown = (controllerValue >= 64);
-            if (isDown != pedalTransient.pedalDown) {
-                const auto diff = std::abs(controllerValue - pedalTransient.lastControllerValue);
-                const auto vel = juce::jlimit(0.2f, 1.0f, static_cast<float>(diff) / 127.0f);
+    // Synchronizes the note-driven sympathetic gate from BuiltinSynthesiser's
+    // channel truth at note start. This is deliberately not a MIDI/controller
+    // event: it does not trigger the whole-piano pedal owner.
+    void setSympatheticPedalDown(bool isDown) noexcept {
+        sympatheticPool.setPedalDown(isDown);
+    }
 
-                if (voiceIndex == 0) {
-                    const auto sampleRate = getSampleRate();
-                    sympatheticPool.updateCoefficients(sampleRate, pianoTemperament, pianoReferencePitchA4,
-                                                       pianoStretchTuningEnabled);
-                    pedalTransient.trigger(sampleRate, isDown, vel, pianoPedalNoiseLevel);
-                    if (isDown) {
-                        sympatheticPool.triggerShock(vel * pianoPedalNoiseLevel, sampleRate);
-                    }
-                }
-                pedalTransient.pedalDown = isDown;
-            }
-            pedalTransient.lastControllerValue = controllerValue;
-            sympatheticPool.setPedalDown(isDown);
+    void controllerMoved(int controllerNumber, int controllerValue) override {
+        // MIDI CC 64 sustain state is applied by BuiltinSynthesiser's single
+        // pedal-control entry point. The Voice only updates its note-driven
+        // sympathetic gate here; the whole-piano pedal owner owns the
+        // mechanical transient and shock.
+        if (controllerNumber == 64) {
+            setSympatheticPedalDown(controllerValue >= 64);
         } else if (controllerNumber == 67) {
             // MIDI CC 67 弱音/移位踏板 (Una Corda / Soft Pedal, Phase 29-B)
             softPedalDown = (controllerValue >= 64);
@@ -770,9 +364,8 @@ public:
     }
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
         juce::ScopedNoDenormals noDenormals;
-        const auto isPedalActive = (voiceIndex == 0) && (pedalTransient.isActive() || sympatheticPool.isShockActive());
         auto isKeySounding = getCurrentlyPlayingNote() >= 0 && (adsrGate.isActive() || damperTransient.isActive());
-        if (!isKeySounding && !isPedalActive && !duplexPool.isActive()) {
+        if (!isKeySounding && !duplexPool.isActive()) {
             if (getCurrentlyPlayingNote() >= 0) {
                 lidAcoustics.reset();
                 perspectiveProcessor.reset();
@@ -784,8 +377,7 @@ public:
         for (auto sample = 0; sample < numSamples; ++sample) {
             const auto sampleIndex = startSample + sample;
             const auto envelope = isKeySounding ? adsrGate.getNextSample() : 0.0f;
-            if (isKeySounding && envelope <= 0.0f && !adsrGate.isActive() && !damperTransient.isActive()
-                && !pedalTransient.isActive()) {
+            if (isKeySounding && envelope <= 0.0f && !adsrGate.isActive() && !damperTransient.isActive()) {
                 adsrGate.reset();
                 for (auto& resonator : bodyResonators) {
                     resonator.reset();
@@ -795,14 +387,12 @@ public:
                 isKeySounding = false;
             }
             const auto duplexMix = duplexPool.nextMix();
-            const auto pedalSound = (voiceIndex == 0) ? pedalTransient.getNextSample() : 0.0f;
 
             if (!isKeySounding) {
-                const auto sympatheticOut = (voiceIndex == 0) ? sympatheticPool.process(0.0f) : 0.0f;
                 const auto duplexOut = duplexMix * duplexPool.process(0.0f) * noteOutputGain;
-                if (pedalSound != 0.0f || sympatheticOut != 0.0f || duplexOut != 0.0f) {
-                    auto outL = pedalSound * 0.7071f + sympatheticOut * 0.40f + duplexOut * directLeftGain;
-                    auto outR = pedalSound * 0.7071f + sympatheticOut * 0.60f + duplexOut * directRightGain;
+                if (duplexOut != 0.0f) {
+                    auto outL = duplexOut * directLeftGain;
+                    auto outR = duplexOut * directRightGain;
                     lidAcoustics.processStereo(outL, outR);
                     perspectiveProcessor.processStereo(outL, outR);
 
@@ -820,80 +410,14 @@ public:
 
             const auto click = hammerTransient.getNextSample();
             const auto damperThump = damperTransient.getNextSample();
-            const auto glideMult = static_cast<double>(pitchGlideEngine.getGlideMultiplier());
-            const auto diffusionFactor = spatialDiffusionEngine.getDiffusionFactor();
-
-            // 同音多弦立体声非对称空间展开 (Phase 23-B / Phase 24-C, Dynamic Spatial Diffusion)
-            auto valueLeft = 0.0f;
-            auto valueRight = 0.0f;
-            for (auto n = 0; n < numActivePartials; ++n) {
-                auto& partial = partials[static_cast<std::size_t>(n)];
-                auto oscL = static_cast<float>(partial.sinState);
-                auto oscR = oscL;
-                const auto effEps
-                    = std::clamp(partial.epsilon * glideMult, -kMagicCircleEpsilonMax, kMagicCircleEpsilonMax);
-
-                if (partial.stringCount == 2) {
-                    const auto s1 = static_cast<float>(partial.sinState);
-                    const auto s2 = static_cast<float>(partial.sinState2);
-                    const auto sSum = 0.5f * (s1 + s2);
-                    const auto sDiff = 0.5f * (s2 - s1);
-                    const auto effSpread = 0.20f * (0.60f + 0.40f * diffusionFactor);
-                    oscL = sSum - effSpread * sDiff;
-                    oscR = sSum + effSpread * sDiff;
-                    const auto effEps2
-                        = std::clamp(partial.epsilon2 * glideMult, -kMagicCircleEpsilonMax, kMagicCircleEpsilonMax);
-                    const auto nextCos2 = partial.cosState2 - effEps2 * partial.sinState2;
-                    partial.sinState2 += effEps2 * nextCos2;
-                    partial.cosState2 = nextCos2;
-                } else if (partial.stringCount == 3) {
-                    const auto s1 = static_cast<float>(partial.sinState);
-                    const auto s2 = static_cast<float>(partial.sinState2);
-                    const auto s3 = static_cast<float>(partial.sinState3);
-                    // 物理对称同音三弦 Mid-Side 动态空间扩散 (Phase 23-B / Phase 24-C)
-                    const auto sSum = (1.0f / 3.0f) * (s1 + s2 + s3);
-                    const auto sDiff = (1.0f / 3.0f) * (s3 - s1);
-                    const auto effSpread = 0.25f * (0.60f + 0.40f * diffusionFactor);
-                    oscL = sSum - effSpread * sDiff;
-                    oscR = sSum + effSpread * sDiff;
-
-                    const auto effEps2
-                        = std::clamp(partial.epsilon2 * glideMult, -kMagicCircleEpsilonMax, kMagicCircleEpsilonMax);
-                    const auto nextCos2 = partial.cosState2 - effEps2 * partial.sinState2;
-                    partial.sinState2 += effEps2 * nextCos2;
-                    partial.cosState2 = nextCos2;
-                    const auto effEps3
-                        = std::clamp(partial.epsilon3 * glideMult, -kMagicCircleEpsilonMax, kMagicCircleEpsilonMax);
-                    const auto nextCos3 = partial.cosState3 - effEps3 * partial.sinState3;
-                    partial.sinState3 += effEps3 * nextCos3;
-                    partial.cosState3 = nextCos3;
-                }
-
-                // 泛音时间滞后膨胀与绽放 (Phase 24-A)
-                if (partial.bloomGain < 1.0f) {
-                    partial.bloomGain
-                        = std::min(1.0f, partial.bloomGain + partial.bloomRisePerSample * (1.0f - partial.bloomGain));
-                }
-
-                const auto partialAmp = (partial.levelFast + partial.levelSlow) * partial.bloomGain;
-                if (partialAmp > 0.0f) {
-                    valueLeft += partialAmp * oscL;
-                    valueRight += partialAmp * oscR;
-                }
-
-                const auto nextCos = partial.cosState - effEps * partial.sinState;
-                partial.sinState += effEps * nextCos;
-                partial.cosState = nextCos;
-                partial.levelFast
-                    = (partial.levelFast > 1e-7f) ? (partial.levelFast * partial.decayFastPerSample) : 0.0f;
-                partial.levelSlow
-                    = (partial.levelSlow > 1e-7f) ? (partial.levelSlow * partial.decaySlowPerSample) : 0.0f;
-            }
+            const auto stringSample = mainString.nextSample();
+            const auto valueLeft = stringSample.left;
+            const auto valueRight = stringSample.right;
             // Hammer contact micro-damping and release (Phase 24-B, 39-A):
             // consume the existing HammerContactEngine exactly once per
             // sounding sample and apply its multiplier only to the string sum,
-            // ahead of ADSR and pre-saturation. Hammer click, damper thump
-            // and pedal sound bypass contact; duration/state are unchanged.
+            // ahead of ADSR and pre-saturation. Hammer click and damper thump
+            // bypass contact; duration/state are unchanged.
             const auto contactMult = hammerContactEngine.getReleaseMultiplier();
             const auto preSatLeft = valueLeft * contactMult * envelope + click + damperThump;
             const auto preSatRight = valueRight * contactMult * envelope + click + damperThump;
@@ -932,10 +456,6 @@ public:
             outLeft += 0.40f * sympatheticMix;
             outRight += 0.60f * sympatheticMix;
 
-            if (pedalSound != 0.0f) {
-                outLeft += pedalSound * 0.7071f;
-                outRight += pedalSound * 0.7071f;
-            }
             // 5. 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B / Phase 22-B, Chabassier 2013/2019)
             lidAcoustics.processStereo(outLeft, outRight);
             // 6. 双视角立体声场与声像转换 (Phase 31-A, PerspectiveProcessor: Player vs Audience)
@@ -954,9 +474,8 @@ public:
             adsrGate.reset();
             hammerTransient.reset();
             hammerContactEngine.reset();
-            spatialDiffusionEngine.reset();
             damperTransient.reset();
-            pitchGlideEngine.reset();
+            mainString.reset();
             for (auto& resonator : bodyResonators) {
                 resonator.reset();
             }
@@ -968,14 +487,13 @@ public:
         if (getCurrentlyPlayingNote() >= 0 && !adsrGate.isActive() && !damperTransient.isActive()
             && !duplexPool.isActive()) {
             duplexPool.reset();
-            if (!pedalTransient.isActive() && !sympatheticPool.isShockActive()) {
-                lidAcoustics.reset();
-                perspectiveProcessor.reset();
-            }
+            lidAcoustics.reset();
+            perspectiveProcessor.reset();
             clearCurrentNote();
         }
     }
 
+private:
     [[nodiscard]] static float softSaturate(float x) noexcept {
         const auto x2 = std::clamp(x * x, 0.0f, 1.0f);
         return x * (1.0f - 0.12f * x2);
@@ -1088,138 +606,13 @@ public:
         return devpiano::audio::getNoteParams(midiNoteNumber).strikePosRatio;
     }
 
-    [[nodiscard]] static float strikeCombGain(int partialIndex, float strikingRatio) noexcept {
-        const auto m = static_cast<double>(partialIndex + 1);
-        // 击弦点几何梳状陷波 (Chaigne & Askenfelt 1994, 消除 7~9 阶非协和刺耳分音)
-        const auto angle = juce::MathConstants<double>::pi * m * static_cast<double>(strikingRatio);
-        const auto raw = static_cast<float>(std::abs(devpiano::audio::dsp::boundedSin(angle)));
-        return std::max(raw, 0.03f);
-    }
-
-    [[nodiscard]] static float hammerSpectrumGain(int partialIndex, float keyPos, float contactHardness,
-                                                  double partialFrequency, float tc,
-                                                  float rolloffDelta = 0.0f) noexcept {
-        const auto m = static_cast<float>(partialIndex + 1);
-        // 88 键音区基底幂次滚降: 低音 1.25 -> 高音 2.10 (保证低音丰富，高音突出基频)
-        const auto rolloff = 1.20f + 0.30f * keyPos + 1.20f * (keyPos * keyPos);
-        const auto basePowerRollOff = 1.0f / std::pow(m, rolloff);
-
-        // 琴槌毛毡非线性低通滤波: 截止频率 fc = 2.5 / Tc (Chaigne & Askenfelt 1994)
-        const auto hammerCutoff = 2.5f / std::max(tc, 0.0001f);
-        // 滚降陡度随力度动态变化: pp 弱音更陡 (滤除高频), ff 强音更缓 (保留金属光泽)。
-        // rolloffDelta 是三力度整音的可校准残差，仍作用于同一毛毡低通，不另加高频增益。
-        const auto hammerRolloffExp = std::clamp(2.0f - 0.80f * contactHardness + rolloffDelta, 0.80f, 6.0f);
-
-        const auto freqRatio = static_cast<float>(partialFrequency) / hammerCutoff;
-        const auto feltFilter = 1.0f / (1.0f + std::pow(freqRatio, hammerRolloffExp));
-
-        return basePowerRollOff * feltFilter;
-    }
-
-    [[nodiscard]] static float bridgeHillGain(double frequency) noexcept {
-        const auto f = static_cast<float>(frequency);
-        const auto diff = (f - 1800.0f) / 800.0f;
-        return 1.0f + 0.40f * std::exp(-0.5f * diff * diff);
-    }
-
-    [[nodiscard]] static float hammerElasticModulation(double partialFrequency, float tc) noexcept {
-        const auto fTc = static_cast<float>(partialFrequency) * tc;
-        const auto denom = 1.0f - 4.0f * fTc * fTc;
-        if (std::abs(denom) < 1e-4f) {
-            return 1.0f;
-        }
-        const auto angle = juce::MathConstants<double>::pi * static_cast<double>(fTc);
-        const auto cosineMod
-            = std::min(static_cast<float>(std::abs(devpiano::audio::dsp::boundedCos(angle))) / std::abs(denom), 1.0f);
-        return 0.7f + 0.3f * cosineMod;
-    }
-
-    [[nodiscard]] static float amplitudeFor(int partialIndex, float keyPos = 0.5f, float contactHardness = 0.5f,
-                                            float strikingRatio = 0.1333f, double partialFrequency = 440.0,
-                                            float tc = 0.0018f, float rolloffDelta = 0.0f) noexcept {
-        return strikeCombGain(partialIndex, strikingRatio)
-            * hammerSpectrumGain(partialIndex, keyPos, contactHardness, partialFrequency, tc, rolloffDelta)
-            * hammerElasticModulation(partialFrequency, tc) * bridgeHillGain(partialFrequency);
-    }
-
-    [[nodiscard]] static float brightnessBoost(int partialIndex, float brightness, int partialCount) noexcept {
-        return 1.0f
-            + (brightness - 0.5f) * 0.5f * (static_cast<float>(partialIndex) / static_cast<float>(partialCount));
-    }
-
     [[nodiscard]] bool allPartialsSilent() const noexcept {
-        if (hammerTransient.isActive() || damperTransient.isActive() || pedalTransient.isActive()) {
+        if (hammerTransient.isActive() || damperTransient.isActive()) {
             return false;
         }
-        for (auto n = 0; n < numActivePartials; ++n) {
-            const auto& partial = partials[static_cast<std::size_t>(n)];
-            if (partial.levelFast + partial.levelSlow > silentLevelThreshold) {
-                return false;
-            }
-        }
-        return true;
+        return mainString.isSilent();
     }
 
-    // 39-A coherent-band helpers: admission uses the highest detuned string
-    // of a partial; init keeps every retained target frequency and stores
-    // unit-y Magic Circle coordinates at the output phase.
-    [[nodiscard]] static double highestDetunedFrequency(int partialIndex, const VoiceRegion& region,
-                                                        double partialFrequency) noexcept {
-        if (region.stringCount == 1 || partialIndex >= region.beatingPartials || region.beatingDetuneRatio <= 0.0f) {
-            return partialFrequency;
-        }
-        if (region.stringCount == 2) {
-            return partialFrequency * (1.0 + static_cast<double>(region.beatingDetuneRatio * 0.5f));
-        }
-        return partialFrequency * (1.0 + static_cast<double>(region.beatingDetuneRatio));
-    }
-
-    [[nodiscard]] float retainedPartialWeight(int partialIndex, float keyPos, float contactHardness,
-                                              float effectiveStrikePos, double partialFrequency, float effectiveTc,
-                                              int partialCount, float effectiveBrightness,
-                                              float rolloffDelta = 0.0f) const noexcept {
-        return amplitudeFor(partialIndex, keyPos, contactHardness, effectiveStrikePos, partialFrequency, effectiveTc,
-                            rolloffDelta)
-            * brightnessBoost(partialIndex, effectiveBrightness, partialCount);
-    }
-
-    static void initMagicCircleState(double& cosState, double& sinState, double& epsilon, double frequency,
-                                     double sampleRate, float phase) noexcept {
-        // Fixed-epsilon Magic Circle: with y(0) = sin(phi) the ellipse
-        // invariant gives x(0) = sqrt(1 - e^2/4) * cos(phi) + e * sin(phi)/2.
-        epsilon = 2.0 * devpiano::audio::dsp::boundedSin(juce::MathConstants<double>::pi * frequency / sampleRate);
-        const auto clampedEps = std::clamp(epsilon, -kMagicCircleEpsilonMax, kMagicCircleEpsilonMax);
-        epsilon = clampedEps;
-        const auto sc = devpiano::audio::dsp::boundedSinCos(static_cast<double>(phase));
-        sinState = sc.sinVal;
-        const auto halfEps = clampedEps * 0.5;
-        const auto root = std::sqrt(std::max(0.0, 1.0 - halfEps * halfEps));
-        cosState = root * sc.cosVal + halfEps * sc.sinVal;
-    }
-
-    struct Partial {
-        double cosState = 1.0;
-        double sinState = 0.0;
-        double epsilon = 0.0;
-        double cosState2 = 1.0;
-        double sinState2 = 0.0;
-        double epsilon2 = 0.0;
-        double cosState3 = 1.0;
-        double sinState3 = 0.0;
-        double epsilon3 = 0.0;
-        int stringCount = 1;
-        float level = 0.0f;
-        float levelFast = 0.0f;
-        float levelSlow = 0.0f;
-        float decayFastPerSample = 0.0f;
-        float decaySlowPerSample = 0.0f;
-
-        // 泛音时间滞后膨胀与绽放 (Phase 24-A, Harmonic Blooming)
-        float bloomGain = 1.0f;
-        float bloomRisePerSample = 0.0f;
-    };
-    std::array<Partial, maxPartials> partials;
-    int numActivePartials = 0;
     int currentPlayingMidiNote = 60;
     std::uint32_t triggerCounter = 0;
     juce::ADSR::Parameters configuredAdsr { 0.0002f, 0.001f, 1.0f, 0.18f };
@@ -1235,47 +628,6 @@ public:
     float directLeftGain = 0.7071f;
     float directRightGain = 0.7071f;
     float noteOutputGain = 1.0f;
-
-    // 强击非线性张力音高微漂移引擎 (Phase 22-D, Bank & Sujbert 2005 JASA)
-    struct PitchGlideEngine {
-        int samplesRemaining = 0;
-        float glideFactor = 0.0f;
-        float decayPerSample = 0.0f;
-
-        void trigger(double sr, float velocity) noexcept {
-            if (sr <= 0.0) {
-                reset();
-                return;
-            }
-            const auto clampedV = juce::jlimit(0.0f, 1.0f, velocity);
-            if (clampedV < 0.40f) {
-                reset();
-                return;
-            }
-            const auto sampleRate = static_cast<float>(sr);
-            const auto totalSamples = static_cast<int>(0.012f * sampleRate);
-            samplesRemaining = totalSamples;
-            const auto maxGlide = 0.0025f * (clampedV - 0.40f) / 0.60f;
-            glideFactor = maxGlide;
-            decayPerSample = std::exp(-4.5f / static_cast<float>(totalSamples));
-        }
-
-        [[nodiscard]] float getGlideMultiplier() noexcept {
-            if (samplesRemaining <= 0) {
-                return 1.0f;
-            }
-            --samplesRemaining;
-            const auto mult = 1.0f + glideFactor;
-            glideFactor *= decayPerSample;
-            return mult;
-        }
-
-        void reset() noexcept {
-            samplesRemaining = 0;
-            glideFactor = 0.0f;
-        }
-    };
-    PitchGlideEngine pitchGlideEngine;
 
     // 琴槌接触微阻尼与脱离物理释放引擎 (Phase 24-B, Hammer Contact-Release Dynamics)
     struct HammerContactEngine {
@@ -1312,726 +664,12 @@ public:
     };
     HammerContactEngine hammerContactEngine;
 
-    // 动态声场空间漫射引擎 (Phase 24-C, Dynamic Spatial Diffusion)
-    struct SpatialDiffusionEngine {
-        float diffusionProgress = 1.0f;
-        float decayFactor = 0.0f;
+    devpiano::audio::HammerTransient hammerTransient;
 
-        void trigger(double sr) noexcept {
-            if (sr <= 0.0) {
-                reset();
-                return;
-            }
-            diffusionProgress = 0.0f;
-            decayFactor = std::exp(-1.0f / (0.025f * static_cast<float>(sr)));
-        }
-
-        [[nodiscard]] float getDiffusionFactor() noexcept {
-            if (diffusionProgress >= 0.999f) {
-                return 1.0f;
-            }
-            diffusionProgress = 1.0f - (1.0f - diffusionProgress) * decayFactor;
-            return diffusionProgress;
-        }
-
-        void reset() noexcept {
-            diffusionProgress = 1.0f;
-        }
-    };
-    SpatialDiffusionEngine spatialDiffusionEngine;
-
-    struct HammerTransient {
-        static constexpr int longitudinalFadeStartMidi = 48;
-        static constexpr int longitudinalEndMidi = 56;
-
-        int samplesRemaining = 0;
-        int totalSamples = 0;
-        float amplitude = 0.0f;
-        float decayPerSample = 0.0f;
-        float oscPhase1 = 0.0f;
-        float phaseInc1 = 0.0f;
-        float oscPhase2 = 0.0f;
-        float phaseInc2 = 0.0f;
-
-        // 起音高频摩擦裂音 (Phase 23-D, Attack HF Crack, 0~3ms)
-        int crackSamplesRemaining = 0;
-        float crackAmplitude = 0.0f;
-        float crackDecayPerSample = 0.0f;
-        std::uint32_t crackRng = 0x5a5a5a5au;
-
-        // 低音纵波先驱声 (Phase 20-A / Phase 23-D, Longitudinal Precursor Ping)
-        int longSamplesRemaining = 0;
-        float longAmplitude = 0.0f;
-        float longDecayPerSample = 0.0f;
-        float longPhase1 = 0.0f;
-        float longPhaseInc1 = 0.0f;
-        float longPhase2 = 0.0f;
-        float longPhaseInc2 = 0.0f;
-        float longPhase3 = 0.0f;
-        float longPhaseInc3 = 0.0f;
-
-        // The precursor remains a low-bass cue and fades smoothly instead of
-        // switching off between adjacent semitones. The fade is an engineering
-        // voicing boundary, not a measured longitudinal-mode cutoff.
-        [[nodiscard]] static float longitudinalPrecursorGain(int midiNoteNumber) noexcept {
-            if (midiNoteNumber >= longitudinalEndMidi) {
-                return 0.0f;
-            }
-            if (midiNoteNumber <= longitudinalFadeStartMidi) {
-                return 1.0f;
-            }
-            const auto span = static_cast<float>(longitudinalEndMidi - longitudinalFadeStartMidi);
-            const auto t = static_cast<float>(longitudinalEndMidi - midiNoteNumber) / span;
-            return t * t * (3.0f - 2.0f * t);
-        }
-
-        void trigger(double sr, int midiNoteNumber, float velocity, float hardness, float stringLength,
-                     float hammerExcitationGain) noexcept {
-            if (sr <= 0.0) {
-                return;
-            }
-            const auto sampleRate = static_cast<float>(sr);
-            const auto dur = juce::jlimit(0.0012f, 0.0030f, 0.0030f - static_cast<float>(midiNoteNumber) * 0.000015f);
-            totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
-            samplesRemaining = totalSamples;
-
-            const auto nyquist = sampleRate * 0.480f;
-            const auto rawF1 = 1100.0f + static_cast<float>(midiNoteNumber) * 12.0f;
-            const auto rawF2 = 2600.0f + static_cast<float>(midiNoteNumber) * 18.0f;
-            const auto f1 = std::min(juce::jlimit(900.0f, 2200.0f, rawF1), nyquist);
-            const auto f2 = std::min(juce::jlimit(2200.0f, 4800.0f, rawF2), nyquist);
-            phaseInc1 = f1 / sampleRate;
-            phaseInc2 = f2 / sampleRate;
-            oscPhase1 = 0.0f;
-            oscPhase2 = 0.0f;
-
-            const auto v = juce::jlimit(0.0f, 1.0f, velocity);
-            const auto vLevel = (v * v) * (0.6f + 0.8f * hardness);
-            amplitude = peakLevelAtFullVelocity * hammerExcitationGain * 0.12f * vLevel;
-            decayPerSample = std::exp(-4.5f / static_cast<float>(totalSamples));
-
-            // 起音 3ms 高频裂音 (Phase 23-D, Attack HF Crack, 消除起振延迟)
-            const auto keyPos = std::clamp((static_cast<float>(midiNoteNumber) - 21.0f) / 87.0f, 0.0f, 1.0f);
-            constexpr auto crackDur = 0.003f;
-            const auto crackTotal = juce::jmax(1, static_cast<int>(crackDur * sampleRate));
-            crackSamplesRemaining = crackTotal;
-            crackAmplitude
-                = peakLevelAtFullVelocity * hammerExcitationGain * 0.02f * (v * v) * (0.20f + 0.80f * keyPos);
-            crackDecayPerSample = std::exp(-6.0f / static_cast<float>(crackTotal));
-            crackRng = static_cast<std::uint32_t>(midiNoteNumber) * 1664525u + 1013904223u;
-
-            // Hammer excitation is phase-compensated with the strings; this
-            // independently generated precursor is not part of that coherent
-            // sum and must not inherit its boost.
-            const auto longGain = longitudinalPrecursorGain(midiNoteNumber);
-            if (longGain > 0.0f) {
-                constexpr auto vLongitudinal = 5100.0f;
-                const auto fL1 = std::min(vLongitudinal / (2.0f * juce::jmax(0.10f, stringLength)), nyquist);
-                const auto fL2 = std::min(2.0f * fL1, nyquist);
-                const auto fL3 = std::min(3.0f * fL1, nyquist);
-                longPhaseInc1 = fL1 / sampleRate;
-                longPhaseInc2 = fL2 / sampleRate;
-                longPhaseInc3 = fL3 / sampleRate;
-                longPhase1 = 0.0f;
-                longPhase2 = 0.0f;
-                longPhase3 = 0.0f;
-
-                const auto longTotalSamples = juce::jmax(1, static_cast<int>(0.015f * sampleRate));
-                longSamplesRemaining = longTotalSamples;
-                longAmplitude = peakLevelAtFullVelocity * 0.04f * vLevel * longGain;
-                longDecayPerSample = std::exp(-5.5f / static_cast<float>(longTotalSamples));
-            } else {
-                longSamplesRemaining = 0;
-                longAmplitude = 0.0f;
-            }
-        }
-
-        [[nodiscard]] float getNextSample() noexcept {
-            auto out = 0.0f;
-            if (samplesRemaining > 0) {
-                --samplesRemaining;
-                const auto s1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(oscPhase1);
-                const auto s2 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(oscPhase2);
-                oscPhase1 += phaseInc1;
-                if (oscPhase1 >= 1.0f) {
-                    oscPhase1 -= 1.0f;
-                }
-                oscPhase2 += phaseInc2;
-                if (oscPhase2 >= 1.0f) {
-                    oscPhase2 -= 1.0f;
-                }
-                out += amplitude * (0.6f * s1 + 0.4f * s2);
-                amplitude *= decayPerSample;
-            }
-            if (crackSamplesRemaining > 0) {
-                --crackSamplesRemaining;
-                crackRng = crackRng * 1664525u + 1013904223u;
-                const auto noiseVal = static_cast<float>(crackRng >> 16) / 65535.0f * 2.0f - 1.0f;
-                out += crackAmplitude * noiseVal;
-                crackAmplitude *= crackDecayPerSample;
-            }
-            if (longSamplesRemaining > 0) {
-                --longSamplesRemaining;
-                const auto l1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(longPhase1);
-                const auto l2 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(longPhase2);
-                const auto l3 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(longPhase3);
-                longPhase1 += longPhaseInc1;
-                if (longPhase1 >= 1.0f) {
-                    longPhase1 -= 1.0f;
-                }
-                longPhase2 += longPhaseInc2;
-                if (longPhase2 >= 1.0f) {
-                    longPhase2 -= 1.0f;
-                }
-                longPhase3 += longPhaseInc3;
-                if (longPhase3 >= 1.0f) {
-                    longPhase3 -= 1.0f;
-                }
-                out += longAmplitude * (0.55f * l1 + 0.30f * l2 + 0.15f * l3);
-                longAmplitude *= longDecayPerSample;
-            }
-            return out;
-        }
-
-        void reset() noexcept {
-            samplesRemaining = 0;
-            amplitude = 0.0f;
-            crackSamplesRemaining = 0;
-            crackAmplitude = 0.0f;
-            longSamplesRemaining = 0;
-            longAmplitude = 0.0f;
-            oscPhase1 = 0.0f;
-            oscPhase2 = 0.0f;
-            longPhase1 = 0.0f;
-            longPhase2 = 0.0f;
-            longPhase3 = 0.0f;
-        }
-
-        [[nodiscard]] bool isActive() const noexcept {
-            return samplesRemaining > 0 || crackSamplesRemaining > 0 || longSamplesRemaining > 0;
-        }
-    };
-    HammerTransient hammerTransient;
-
-    // 制音器落弦与琴键释放机械瞬态深化 (Phase 22-A / Phase 32-B, Damper Felt Fall & Key Release Thump)
-    struct DamperTransient {
-        struct BpCoefficients {
-            float b0 = 0.0f;
-            float b1 = 0.0f;
-            float b2 = 0.0f;
-            float a1 = 0.0f;
-            float a2 = 0.0f;
-        };
-        BpCoefficients bpCoeffs;
-        double lastSampleRate = 0.0;
-
-        void updateSampleRate(double sr) noexcept {
-            if (sr <= 0.0 || std::abs(sr - lastSampleRate) < 1e-6) {
-                return;
-            }
-            lastSampleRate = sr;
-            const auto f0 = 2800.0f;
-            const auto q = 1.8f;
-            const auto w0 = juce::MathConstants<double>::twoPi * static_cast<double>(f0) / sr;
-            const auto sc = devpiano::audio::dsp::boundedSinCos(w0);
-            const auto cosW0 = static_cast<float>(sc.cosVal);
-            const auto sinW0 = static_cast<float>(sc.sinVal);
-            const auto alpha = sinW0 / (2.0f * q);
-            const auto a0 = 1.0f + alpha;
-            bpCoeffs.b0 = alpha / a0;
-            bpCoeffs.b1 = 0.0f;
-            bpCoeffs.b2 = -alpha / a0;
-            bpCoeffs.a1 = (-2.0f * cosW0) / a0;
-            bpCoeffs.a2 = (1.0f - alpha) / a0;
-        }
-        // 1. 毛毡触弦低频接触瞬态 (Felt Contact Transient)
-        int samplesRemaining = 0;
-        int totalSamples = 0;
-        float amplitude = 0.0f;
-        float decayPerSample = 0.0f;
-        float oscPhase1 = 0.0f;
-        float phaseInc1 = 0.0f;
-        float oscPhase2 = 0.0f;
-        float phaseInc2 = 0.0f;
-
-        // 2. 木质键体落回键床底部轻撞声 (Key Release Thump / Key Bed Return)
-        int woodSamplesRemaining = 0;
-        float woodAmplitude = 0.0f;
-        float woodDecay = 0.0f;
-        float woodPhase1 = 0.0f;
-        float woodPhaseInc1 = 0.0f;
-        float woodPhase2 = 0.0f;
-        float woodPhaseInc2 = 0.0f;
-
-        // 3. 毛毡纤维贴弦高频摩擦微脉冲 (Felt Friction Noise)
-        int frictionSamplesRemaining = 0;
-        float frictionAmplitude = 0.0f;
-        float frictionDecay = 0.0f;
-        float bpW1 = 0.0f, bpW2 = 0.0f;
-        float b0 = 0.0f, b1 = 0.0f, b2 = 0.0f, a1 = 0.0f, a2 = 0.0f;
-        std::uint32_t rngState = 0x87654321;
-
-        void trigger(double sr, int midiNoteNumber, float releaseVelocity) noexcept {
-            if (sr <= 0.0) {
-                return;
-            }
-            const auto sampleRate = static_cast<float>(sr);
-            const auto rv = juce::jlimit(0.05f, 1.0f, releaseVelocity);
-            const auto clampedNote = std::clamp(midiNoteNumber, 21, 108);
-            const auto noteRatio = static_cast<float>(clampedNote - 21) / 87.0f;
-
-            // 只有有阻尼器的音区 (一般 <= 88 键，即 F6 左右以下) 才有毛毡接触弦声
-            const auto hasDamper = (midiNoteNumber <= 88);
-
-            if (hasDamper) {
-                // A. 速度自适应毛毡落弦摩擦与持续时间:
-                // 慢离键摩擦接触时间长，快离键干脆截断
-                const auto baseDur = juce::jlimit(0.008f, 0.026f, 0.026f - noteRatio * 0.016f);
-                const auto velocityDurationScale = 1.6f - 0.9f * rv;
-                const auto dur = baseDur * velocityDurationScale;
-                totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
-                samplesRemaining = totalSamples;
-
-                const auto f1 = juce::jlimit(75.0f, 160.0f, 85.0f + noteRatio * 60.0f);
-                const auto f2 = juce::jlimit(180.0f, 420.0f, 220.0f + noteRatio * 180.0f);
-                phaseInc1 = f1 / sampleRate;
-                phaseInc2 = f2 / sampleRate;
-                oscPhase1 = 0.0f;
-                oscPhase2 = 0.0f;
-
-                const auto zoneGain = juce::jlimit(0.05f, 1.0f, 1.0f - noteRatio * 0.85f);
-                amplitude = peakLevelAtFullVelocity * 0.075f * std::sqrt(rv) * zoneGain;
-
-                const auto decayExponent = -(3.2f + 3.2f * rv);
-                decayPerSample = std::exp(decayExponent / static_cast<float>(totalSamples));
-
-                // B. 毛毡微摩擦高频噪声 (Felt Friction):
-                // 慢离键摩擦显著，持续 15~30ms，中心 ~2800 Hz, Q ~ 1.8
-                const auto frictionDur = juce::jlimit(0.012f, 0.032f, 0.032f * (1.3f - 0.6f * rv));
-                frictionSamplesRemaining = juce::jmax(1, static_cast<int>(frictionDur * sampleRate));
-                frictionAmplitude = peakLevelAtFullVelocity * 0.015f * (0.4f + 0.6f * (1.0f - rv)) * zoneGain;
-                frictionDecay = std::exp(-5.0f / static_cast<float>(frictionSamplesRemaining));
-
-                if (std::abs(sampleRate - lastSampleRate) >= 1e-6) {
-                    updateSampleRate(sampleRate);
-                }
-                b0 = bpCoeffs.b0;
-                b1 = bpCoeffs.b1;
-                b2 = bpCoeffs.b2;
-                a1 = bpCoeffs.a1;
-                a2 = bpCoeffs.a2;
-                bpW1 = 0.0f;
-                bpW2 = 0.0f;
-            } else {
-                samplesRemaining = 0;
-                amplitude = 0.0f;
-                frictionSamplesRemaining = 0;
-                frictionAmplitude = 0.0f;
-            }
-
-            // C. 木质键体落回键床撞击声 (Key Release Thump): 全 88 键通用
-            const auto woodDur = 0.018f;
-            woodSamplesRemaining = juce::jmax(1, static_cast<int>(woodDur * sampleRate));
-            const auto woodF1 = 140.0f - noteRatio * 25.0f;
-            const auto woodF2 = 270.0f - noteRatio * 40.0f;
-            woodPhaseInc1 = woodF1 / sampleRate;
-            woodPhaseInc2 = woodF2 / sampleRate;
-            woodPhase1 = 0.0f;
-            woodPhase2 = 0.0f;
-            woodAmplitude = peakLevelAtFullVelocity * 0.032f * (rv * rv);
-            woodDecay = std::exp(-6.0f / static_cast<float>(woodSamplesRemaining));
-        }
-
-        [[nodiscard]] float getNextSample() noexcept {
-            if (!isActive()) {
-                return 0.0f;
-            }
-            auto out = 0.0f;
-
-            // 1. 毛毡触弦声
-            if (samplesRemaining > 0) {
-                --samplesRemaining;
-                const auto s1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(oscPhase1);
-                const auto s2 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(oscPhase2);
-                oscPhase1 += phaseInc1;
-                if (oscPhase1 >= 1.0f) {
-                    oscPhase1 -= 1.0f;
-                }
-                oscPhase2 += phaseInc2;
-                if (oscPhase2 >= 1.0f) {
-                    oscPhase2 -= 1.0f;
-                }
-                out += amplitude * (0.75f * s1 + 0.25f * s2);
-                amplitude *= decayPerSample;
-            }
-
-            // 2. 毛毡高频摩擦声
-            if (frictionSamplesRemaining > 0) {
-                --frictionSamplesRemaining;
-                rngState ^= (rngState << 13);
-                rngState ^= (rngState >> 17);
-                rngState ^= (rngState << 5);
-                const auto rawNoise = static_cast<float>(static_cast<std::int32_t>(rngState)) * (1.0f / 2147483648.0f);
-                const auto w = rawNoise - a1 * bpW1 - a2 * bpW2;
-                const auto filtered = b0 * w + b1 * bpW1 + b2 * bpW2;
-                bpW2 = bpW1;
-                bpW1 = w;
-                out += filtered * frictionAmplitude;
-                frictionAmplitude *= frictionDecay;
-            }
-
-            // 3. 木质键床撞击声
-            if (woodSamplesRemaining > 0) {
-                --woodSamplesRemaining;
-                const auto w1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(woodPhase1);
-                const auto w2 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(woodPhase2);
-                woodPhase1 += woodPhaseInc1;
-                if (woodPhase1 >= 1.0f) {
-                    woodPhase1 -= 1.0f;
-                }
-                woodPhase2 += woodPhaseInc2;
-                if (woodPhase2 >= 1.0f) {
-                    woodPhase2 -= 1.0f;
-                }
-                out += woodAmplitude * (0.70f * w1 + 0.30f * w2);
-                woodAmplitude *= woodDecay;
-            }
-
-            return out;
-        }
-
-        void reset() noexcept {
-            samplesRemaining = 0;
-            amplitude = 0.0f;
-            woodSamplesRemaining = 0;
-            woodAmplitude = 0.0f;
-            frictionSamplesRemaining = 0;
-            frictionAmplitude = 0.0f;
-            bpW1 = 0.0f;
-            bpW2 = 0.0f;
-            oscPhase1 = 0.0f;
-            oscPhase2 = 0.0f;
-            woodPhase1 = 0.0f;
-            woodPhase2 = 0.0f;
-        }
-
-        [[nodiscard]] bool isActive() const noexcept {
-            return samplesRemaining > 0 || woodSamplesRemaining > 0 || frictionSamplesRemaining > 0;
-        }
-    };
-    DamperTransient damperTransient;
-
-    // 延音踏板机械气流与箱体共鸣冲击 (Phase 32-A, Pedal Whoosh & Resonance Shock)
-    struct PedalTransient {
-        struct BpCoefficients {
-            float b0 = 0.0f;
-            float b1 = 0.0f;
-            float b2 = 0.0f;
-            float a1 = 0.0f;
-            float a2 = 0.0f;
-        };
-        BpCoefficients bpDown;
-        BpCoefficients bpUp;
-        double lastSampleRate = 0.0;
-
-        void updateSampleRate(double sr) noexcept {
-            if (sr <= 0.0 || std::abs(sr - lastSampleRate) < 1e-6) {
-                return;
-            }
-            lastSampleRate = sr;
-
-            auto computeBp = [sr](float f0, float q) noexcept -> BpCoefficients {
-                BpCoefficients c;
-                const auto w0 = juce::MathConstants<double>::twoPi * static_cast<double>(f0) / sr;
-                const auto sc = devpiano::audio::dsp::boundedSinCos(w0);
-                const auto cosW0 = static_cast<float>(sc.cosVal);
-                const auto sinW0 = static_cast<float>(sc.sinVal);
-                const auto alpha = sinW0 / (2.0f * q);
-                const auto a0 = 1.0f + alpha;
-                c.b0 = alpha / a0;
-                c.b1 = 0.0f;
-                c.b2 = -alpha / a0;
-                c.a1 = (-2.0f * cosW0) / a0;
-                c.a2 = (1.0f - alpha) / a0;
-                return c;
-            };
-
-            bpDown = computeBp(1350.0f, 1.25f);
-            bpUp = computeBp(950.0f, 1.1f);
-        }
-        int whooshSamplesRemaining = 0;
-        int whooshTotalSamples = 0;
-        float whooshAmplitude = 0.0f;
-        float whooshDecay = 0.0f;
-        float whooshRise = 0.0f;
-        float whooshEnv = 0.0f;
-
-        float b0 = 0.0f, b1 = 0.0f, b2 = 0.0f, a1 = 0.0f, a2 = 0.0f;
-        float bpW1 = 0.0f, bpW2 = 0.0f;
-
-        std::uint32_t rngState = 0x12345678;
-
-        int shockSamplesRemaining = 0;
-        float shockAmplitude = 0.0f;
-        float shockDecay = 0.0f;
-        float shockPhase1 = 0.0f;
-        float shockPhaseInc1 = 0.0f;
-        float shockPhase2 = 0.0f;
-        float shockPhaseInc2 = 0.0f;
-
-        bool pedalDown = false;
-        int lastControllerValue = 0;
-
-        void trigger(double sr, bool isDown, float pedalVelocity, float noiseLevel) noexcept {
-            if (sr <= 0.0 || noiseLevel <= 1e-4f) {
-                return;
-            }
-            const auto sampleRate = static_cast<float>(sr);
-            const auto vel = juce::jlimit(0.1f, 1.0f, pedalVelocity);
-            const auto level = juce::jlimit(0.0f, 1.0f, noiseLevel);
-
-            if (isDown) {
-                // A. Whoosh 气流声: 持续 ~60ms
-                const auto durSec = juce::jlimit(0.045f, 0.075f, 0.075f - vel * 0.020f);
-                whooshTotalSamples = juce::jmax(1, static_cast<int>(durSec * sampleRate));
-                whooshSamplesRemaining = whooshTotalSamples;
-                whooshEnv = 0.0f;
-                whooshRise = 1.0f / static_cast<float>(juce::jmax(1, static_cast<int>(0.012f * sampleRate)));
-                whooshDecay = std::exp(-4.5f / static_cast<float>(whooshTotalSamples));
-                whooshAmplitude = 0.038f * vel * level;
-
-                if (std::abs(sampleRate - lastSampleRate) >= 1e-6) {
-                    updateSampleRate(sampleRate);
-                }
-                b0 = bpDown.b0;
-                b1 = bpDown.b1;
-                b2 = bpDown.b2;
-                a1 = bpDown.a1;
-                a2 = bpDown.a2;
-                bpW1 = 0.0f;
-                bpW2 = 0.0f;
-                // B. Resonance Shock 低频瞬态冲击 (58 Hz & 116 Hz)
-                const auto shockDurSec = 0.065f;
-                shockSamplesRemaining = juce::jmax(1, static_cast<int>(shockDurSec * sampleRate));
-                shockPhaseInc1 = 58.0f / sampleRate;
-                shockPhaseInc2 = 116.0f / sampleRate;
-                shockPhase1 = 0.0f;
-                shockPhase2 = 0.0f;
-                shockAmplitude = 0.025f * vel * level;
-                shockDecay = std::exp(-5.0f / static_cast<float>(shockSamplesRemaining));
-            } else {
-                // 踏板抬起: 制音器下落回位与微弱阻尼触弦声
-                const auto durSec = 0.035f;
-                whooshTotalSamples = juce::jmax(1, static_cast<int>(durSec * sampleRate));
-                whooshSamplesRemaining = whooshTotalSamples;
-                whooshEnv = 0.0f;
-                whooshRise = 1.0f / static_cast<float>(juce::jmax(1, static_cast<int>(0.008f * sampleRate)));
-                whooshDecay = std::exp(-5.5f / static_cast<float>(whooshTotalSamples));
-                whooshAmplitude = 0.018f * vel * level;
-
-                if (std::abs(sampleRate - lastSampleRate) >= 1e-6) {
-                    updateSampleRate(sampleRate);
-                }
-                b0 = bpUp.b0;
-                b1 = bpUp.b1;
-                b2 = bpUp.b2;
-                a1 = bpUp.a1;
-                a2 = bpUp.a2;
-                bpW1 = 0.0f;
-                bpW2 = 0.0f;
-                const auto shockDurSec = 0.040f;
-                shockSamplesRemaining = juce::jmax(1, static_cast<int>(shockDurSec * sampleRate));
-                shockPhaseInc1 = 65.0f / sampleRate;
-                shockPhaseInc2 = 130.0f / sampleRate;
-                shockPhase1 = 0.0f;
-                shockPhase2 = 0.0f;
-                shockAmplitude = 0.012f * vel * level;
-                shockDecay = std::exp(-6.0f / static_cast<float>(shockSamplesRemaining));
-            }
-        }
-
-        [[nodiscard]] float getNextSample() noexcept {
-            if (!isActive()) {
-                return 0.0f;
-            }
-            auto out = 0.0f;
-
-            if (whooshSamplesRemaining > 0) {
-                --whooshSamplesRemaining;
-                rngState ^= (rngState << 13);
-                rngState ^= (rngState >> 17);
-                rngState ^= (rngState << 5);
-                const auto rawNoise = static_cast<float>(static_cast<std::int32_t>(rngState)) * (1.0f / 2147483648.0f);
-
-                const auto w = rawNoise - a1 * bpW1 - a2 * bpW2;
-                const auto filtered = b0 * w + b1 * bpW1 + b2 * bpW2;
-                bpW2 = bpW1;
-                bpW1 = w;
-
-                if (whooshEnv < 1.0f) {
-                    whooshEnv = std::min(1.0f, whooshEnv + whooshRise);
-                } else {
-                    whooshAmplitude *= whooshDecay;
-                }
-                out += filtered * whooshAmplitude * whooshEnv;
-            }
-
-            if (shockSamplesRemaining > 0) {
-                --shockSamplesRemaining;
-                const auto s1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(shockPhase1);
-                const auto s2 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(shockPhase2);
-                shockPhase1 += shockPhaseInc1;
-                if (shockPhase1 >= 1.0f) {
-                    shockPhase1 -= 1.0f;
-                }
-                shockPhase2 += shockPhaseInc2;
-                if (shockPhase2 >= 1.0f) {
-                    shockPhase2 -= 1.0f;
-                }
-                out += shockAmplitude * (0.65f * s1 + 0.35f * s2);
-                shockAmplitude *= shockDecay;
-            }
-
-            return out;
-        }
-
-        void reset() noexcept {
-            whooshSamplesRemaining = 0;
-            whooshAmplitude = 0.0f;
-            whooshEnv = 0.0f;
-            bpW1 = 0.0f;
-            bpW2 = 0.0f;
-            shockSamplesRemaining = 0;
-            shockAmplitude = 0.0f;
-            shockPhase1 = 0.0f;
-            shockPhase2 = 0.0f;
-        }
-        [[nodiscard]] bool isActive() const noexcept {
-            return whooshSamplesRemaining > 0 || shockSamplesRemaining > 0;
-        }
-    };
-    PedalTransient pedalTransient;
+    devpiano::audio::DamperTransient damperTransient;
 
     // 延音踏板全局交感共鸣弦池与单键开放弦交感 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
-    struct SympatheticResonancePool {
-        static constexpr auto numPoolResonators = 12;
-        bool pedalDown = false;
-        int shockSamplesRemaining = 0;
-        std::array<int, numPoolResonators> openNoteCount {};
-        float c1[numPoolResonators] {};
-        float c2[numPoolResonators] {};
-        float g[numPoolResonators] {};
-        float s1[numPoolResonators] {};
-        float s2[numPoolResonators] {};
-
-        void setPedalDown(bool isDown) noexcept {
-            pedalDown = isDown;
-        }
-
-        void noteOnKey(int midiNoteNumber) noexcept {
-            const auto pc = (midiNoteNumber % 12 + 12) % 12;
-            ++openNoteCount[static_cast<std::size_t>(pc)];
-        }
-
-        void noteOffKey(int midiNoteNumber) noexcept {
-            const auto pc = (midiNoteNumber % 12 + 12) % 12;
-            auto& count = openNoteCount[static_cast<std::size_t>(pc)];
-            if (count > 0) {
-                --count;
-            }
-        }
-
-        double lastSampleRate = 0.0;
-        Temperament lastTemperament = Temperament::equal;
-        double lastReferencePitchA4 = 0.0;
-        bool lastStretchTuningEnabled = true;
-
-        void updateCoefficients(double sampleRate, Temperament temperament = Temperament::equal,
-                                double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch,
-                                bool stretchTuningEnabled = true) noexcept {
-            if (sampleRate <= 0.0
-                || (std::abs(sampleRate - lastSampleRate) < 1e-6 && temperament == lastTemperament
-                    && juce::exactlyEqual(referencePitchA4, lastReferencePitchA4)
-                    && stretchTuningEnabled == lastStretchTuningEnabled)) {
-                return;
-            }
-            lastSampleRate = sampleRate;
-            lastTemperament = temperament;
-            lastReferencePitchA4 = referencePitchA4;
-            lastStretchTuningEnabled = stretchTuningEnabled;
-            for (int i = 0; i < numPoolResonators; ++i) {
-                const auto frequency = std::min(devpiano::audio::pianoFirstPartialFrequency(
-                                                    36 + i, temperament, referencePitchA4, stretchTuningEnabled),
-                                                sampleRate * 0.480);
-                const auto theta = juce::MathConstants<double>::twoPi * frequency / sampleRate;
-                const auto bandwidth = frequency / 12.0;
-                const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / sampleRate);
-                c1[i] = static_cast<float>(2.0 * r * devpiano::audio::dsp::boundedCos(theta));
-                c2[i] = static_cast<float>(-r * r);
-                g[i] = static_cast<float>((1.0 - r * r) * 0.5);
-            }
-        }
-
-        void reset() noexcept {
-            shockSamplesRemaining = 0;
-            openNoteCount.fill(0);
-            for (int i = 0; i < numPoolResonators; ++i) {
-                s1[i] = 0.0f;
-                s2[i] = 0.0f;
-            }
-        }
-        void triggerShock(float amount, double sampleRate) noexcept {
-            if (sampleRate > 0.0 && amount > 1e-4f) {
-                shockSamplesRemaining = juce::jmax(1, static_cast<int>(0.35 * sampleRate));
-            }
-            for (int i = 0; i < numPoolResonators; ++i) {
-                s1[i] += amount * ((i % 2 == 0) ? 0.003f : -0.003f);
-            }
-        }
-
-        [[nodiscard]] bool isShockActive() const noexcept {
-            return shockSamplesRemaining > 0;
-        }
-
-        [[nodiscard]] float process(float in) noexcept {
-            if (shockSamplesRemaining > 0) {
-                --shockSamplesRemaining;
-            }
-            if (!pedalDown) {
-                auto hasOpenNotes = false;
-                for (int i = 0; i < numPoolResonators; ++i) {
-                    if (openNoteCount[static_cast<std::size_t>(i)] > 0) {
-                        hasOpenNotes = true;
-                        break;
-                    }
-                }
-                if (!hasOpenNotes && shockSamplesRemaining <= 0) {
-                    for (int i = 0; i < numPoolResonators; ++i) {
-                        s1[i] = (std::abs(s1[i]) > 1e-6f) ? s1[i] * 0.90f : 0.0f;
-                        s2[i] = (std::abs(s2[i]) > 1e-6f) ? s2[i] * 0.90f : 0.0f;
-                    }
-                    return 0.0f;
-                }
-            }
-            auto sum = 0.0f;
-            for (int i = 0; i < numPoolResonators; ++i) {
-                const auto isOpen = pedalDown || (openNoteCount[static_cast<std::size_t>(i)] > 0);
-                if (!isOpen) {
-                    s1[i] = (std::abs(s1[i]) > 1e-6f) ? s1[i] * 0.90f : 0.0f;
-                    s2[i] = (std::abs(s2[i]) > 1e-6f) ? s2[i] * 0.90f : 0.0f;
-                    continue;
-                }
-                const auto drive = in * (pedalDown ? 0.08f : 0.04f);
-                const auto w = drive + c1[i] * s1[i] + c2[i] * s2[i];
-                const auto y = g[i] * (w - s2[i]);
-                s2[i] = s1[i];
-                s1[i] = w;
-                sum += y;
-            }
-            return sum;
-        }
-    };
-    SympatheticResonancePool sympatheticPool;
+    devpiano::audio::SympatheticResonancePool sympatheticPool;
 
     struct DuplexResonance {
         struct Mode {
@@ -2143,91 +781,7 @@ public:
     };
     DuplexResonance duplexPool;
 
-    // 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B / Phase 22-B, Chabassier 2013/2019)
-    struct LidAcoustics {
-        static constexpr std::size_t delaySize = 1024;
-        std::array<float, delaySize> leftBuffer {};
-        std::array<float, delaySize> rightBuffer {};
-        std::size_t writePos = 0;
-        LidPosition position = LidPosition::fullOpen;
-        float lpLeft = 0.0f;
-        float lpRight = 0.0f;
-        float lpCoeff = 0.0f;
-
-        void updateCoefficients(double sampleRate) noexcept {
-            if (sampleRate <= 0.0) {
-                return;
-            }
-            const auto sr = static_cast<float>(sampleRate);
-            const auto safeNyquist = sr * 0.480f;
-            if (position == LidPosition::fullOpen) {
-                lpCoeff = 0.0f;
-            } else if (position == LidPosition::halfStick) {
-                constexpr float fc = 6500.0f;
-                const auto safeFc = std::min(fc, safeNyquist);
-                lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * safeFc / sr);
-            } else {
-                constexpr float fc = 2600.0f;
-                const auto safeFc = std::min(fc, safeNyquist);
-                lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * safeFc / sr);
-            }
-        }
-
-        void setPosition(LidPosition newPosition, double sampleRate) noexcept {
-            position = newPosition;
-            updateCoefficients(sampleRate);
-        }
-
-        void reset() noexcept {
-            leftBuffer.fill(0.0f);
-            rightBuffer.fill(0.0f);
-            writePos = 0;
-            lpLeft = 0.0f;
-            lpRight = 0.0f;
-        }
-
-        void processStereo(float& left, float& right) noexcept {
-            if (lpCoeff > 0.0f) {
-                lpLeft = (1.0f - lpCoeff) * left + lpCoeff * lpLeft;
-                lpRight = (1.0f - lpCoeff) * right + lpCoeff * lpRight;
-                left = lpLeft;
-                right = lpRight;
-            }
-
-            leftBuffer[writePos] = left;
-            rightBuffer[writePos] = right;
-
-            const auto tap1Pos = (writePos + delaySize - 141) % delaySize;
-            const auto tap2Pos = (writePos + delaySize - 344) % delaySize;
-            const auto tap3Pos = (writePos + delaySize - 507) % delaySize;
-
-            float gDirect = 0.82f;
-            float g1 = 0.10f;
-            float g2 = 0.06f;
-            float g3 = 0.04f;
-
-            if (position == LidPosition::halfStick) {
-                gDirect = 0.75f;
-                g1 = 0.14f;
-                g2 = 0.09f;
-                g3 = 0.06f;
-            } else if (position == LidPosition::closed) {
-                gDirect = 0.68f;
-                g1 = 0.18f;
-                g2 = 0.12f;
-                g3 = 0.08f;
-            }
-
-            const auto earlyL = g1 * leftBuffer[tap1Pos] + g2 * rightBuffer[tap2Pos] + g3 * leftBuffer[tap3Pos];
-            const auto earlyR = g1 * rightBuffer[tap1Pos] + g2 * leftBuffer[tap2Pos] + g3 * rightBuffer[tap3Pos];
-
-            left = left * gDirect + earlyL;
-            right = right * gDirect + earlyR;
-
-            writePos = (writePos + 1) % delaySize;
-        }
-    };
-    LidAcoustics lidAcoustics;
+    devpiano::audio::LidAcoustics lidAcoustics;
     PerspectiveProcessor perspectiveProcessor;
     SoundPerspective pianoSoundPerspective = SoundPerspective::player;
 
@@ -2317,6 +871,13 @@ public:
     bool softPedalDown = false;
     float softPedalAmount = 0.0f;
     int voiceIndex = 0;
-    float pianoPedalNoiseLevel = 0.6f;
     float pianoFeltAgeingAmount = 0.0f;
+
+private:
+    // Explicit test-only observation of private DSP/helper state. Production
+    // callers use semantic setters/render and never write these fields.
+    friend class ::PianoSynthVoiceTest;
+    friend class ::PianoTuningAndDuplexTest;
+    friend class ::PedalAcousticsTest;
+    devpiano::audio::PianoMainString mainString;
 };

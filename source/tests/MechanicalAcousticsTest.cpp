@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
@@ -129,19 +130,20 @@ private:
     void testExtremeParameterSafetyAndClickFreeAttack() {
         beginTest("Mechanical transients: extreme parameters stay bounded, finite and click-free");
 
-        PianoSynthVoice voice;
-        voice.setCurrentPlaybackSampleRate(48000.0);
-        voice.setVoiceIndex(0);
-        voice.setPedalNoiseLevel(1.0f);
-        voice.setFeltAgeingAmount(1.0f);
+        devpiano::audio::BuiltinSynthesiser synth;
+        synth.setCurrentPlaybackSampleRate(48000.0);
+        synth.addSound(new PianoSynthSound());
+        synth.addVoice(new PianoSynthVoice());
+        synth.setPedalAcousticsEnabled(true);
+        synth.setPedalNoiseLevel(1.0f);
 
         juce::AudioBuffer<float> buffer(2, 512);
 
         // Click-free attack: first non-zero sample after pedal press must be tiny
         // (12 ms raised-cosine envelope ramp means no instantaneous step).
         buffer.clear();
-        voice.controllerMoved(64, 127);
-        voice.renderNextBlock(buffer, 0, 512);
+        synth.handleController(1, 64, 127);
+        synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
 
         float firstNonZero = 0.0f;
         float maxPeak = 0.0f;
@@ -165,10 +167,10 @@ private:
 
         // Rapid press/release cycling under maximum noise level: bounded output.
         for (int cycle = 0; cycle < 8; ++cycle) {
-            voice.controllerMoved(64, cycle % 2 == 0 ? 0 : 127);
+            synth.handleController(1, 64, cycle % 2 == 0 ? 0 : 127);
             for (int block = 0; block < 4; ++block) {
                 buffer.clear();
-                voice.renderNextBlock(buffer, 0, 512);
+                synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
                 for (int ch = 0; ch < 2; ++ch) {
                     maxPeak = std::max(maxPeak, buffer.getMagnitude(ch, 0, 512));
                     for (int i = 0; i < 512; ++i) {
