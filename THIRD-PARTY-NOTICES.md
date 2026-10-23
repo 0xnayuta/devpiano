@@ -17,6 +17,7 @@ This file contains notices and licensing terms for third-party software componen
 MIT License
 
 Copyright (c) 2021 James Johnson
+Copyright (c) 2026 James Johnson
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
