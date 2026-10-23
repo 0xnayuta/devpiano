@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39 与 R0–R11 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）、39.5-4a/4b/4c/4d（构建守卫与脏标记、Item 缓存失效、TextLayout 缓存、Flex gap 修复）与 39.5-5（目录归位与最终集成）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；阶段实现与结构已收口，真实 windows-mcp 表面验收仍是阶段完成前必须补齐的独立证据。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
+> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**已完成（2026-10-23）**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）、39.5-4a/4b/4c/4d（构建守卫与脏标记、Item 缓存失效、TextLayout 缓存、Flex gap 修复）与 39.5-5（目录归位与最终集成）全部完成；用户人工表面验收确认无明显问题，Windows Debug app/tests、默认 CTest 与修复后的增量 clang-tidy 通过。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
 
 ## 0. 归档入口
 
@@ -195,6 +195,17 @@
 - **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(25.4 s);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`ViewHost` 37、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34、`JiveCoreValues` 93 全部通过。
 - **文档**:同步 `docs/reference/features/declarative-ui-and-theming.md` 的四目录职责、ADR-014 维护边界、`THIRD-PARTY-NOTICES.md` 的 v2 部分移植来源与 MIT 声明,以及 `CHANGELOG.md`。
 - **未完成**:真实 windows-mcp 主窗口/设置/弹窗/绑定色板表面验收;按 1.4 完成条件,Phase 39.5 暂不记整体完成。
+
+### 1.13 Phase 39.5 tidy 门禁、修复与阶段收口
+
+- **全量扫描首轮**:`./scripts/dev.sh tidy --all` 发现四类问题:`Property::calculateCurrent` 缺少依赖模板 `template` 限定(43 个 TU 报同一处)、`Text::updateTextComponent` 条件分支重复、BoxModel 两处冗余 `float` 转换,以及 transition 替换路径的旧容器解引用分析告警。
+- **修复**:
+  - 依赖调用改为 `transition->template calculateCurrent<ValueType>()`。
+  - `transitionsChanged()` 在替换前快照旧过渡的当前值/target,并提取 `readTransitions()`;替换后不再解引用旧容器内对象,同时保留“同一过渡不重启动画”的判定。
+  - 合并 Text 的 setup/测量未变化分支;删除 BoxModel 的冗余转换。
+- **验证**:按用户要求,修复后未重复全量扫描,只对受影响 TU(`jive_Text.cpp`、`jive_BoxModel.cpp`,覆盖 `jive_Property.h`)执行增量 `tidy`,通过;Windows Debug app/tests 构建通过;默认 CTest 通过(26.9 s);工作区无残留改动。
+- **人工验收**:用户对主窗口收缩、设置语言切换、绑定色板、长消息、折叠与正常关闭等表面完成人工测试,确认无明显问题;本文不虚构逐项截图或硬件/商业插件矩阵结论。
+- **阶段结论**:Phase 39.5 的 39.5-1 至 39.5-5、静态检查修复与用户人工表面验收均已完成,阶段收口;未覆盖项仅为真实硬件设备与商业插件矩阵,不属于本阶段退出条件。
 
 ## 2. 后续候选阶段(暂缓)
 

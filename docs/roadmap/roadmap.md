@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-**近期状态：内置钢琴音源结构整理（R0–R11）已完成并归档** [2026-10-23]；Phase 39 已冻结并归档（Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过）；**Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）是下一候选 UI 基础设施阶段，未启动**；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定。R0–R11 历史见 [结构整理归档](../archive/r0-r11-physical-piano-source-refactor.md)，Phase 39 历史见 [声学基线归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)；Phase 39.5 的任务拆分、事实核查与验证门禁见 [当前迭代](current-iteration.md)。
+**近期状态：内置钢琴音源结构整理（R0–R11）已完成并归档** [2026-10-23]；Phase 39 已冻结并归档（Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过）；**Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）已完成**（用户人工表面验收无明显问题，Windows Debug 构建、默认 CTest 与增量 clang-tidy 通过）；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定。R0–R11 历史见 [结构整理归档](../archive/r0-r11-physical-piano-source-refactor.md)，Phase 39 历史见 [声学基线归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)；Phase 39.5 的任务拆分、事实核查与验证门禁见 [当前迭代](current-iteration.md)。
 
 **最近软件交付：Phase 38 电脑键盘分区、三踏板与固定双层** [软件交付完成，2026-10-10]；Phase 37 [已完成，2026-10-08]。原任务、直接消费者、失败记录和后续修复归属见 [Phase 37/38 完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md)。CPU SLA 与商业厂商/物理硬件补验不由 Debug 门禁或本次归档认证；Phase 36 归档与 AUDIT-004 实机边界保持独立。
 
@@ -384,7 +384,7 @@ Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失
 
 > **规划冻结（2026-10-22）**：Phase 40、41、42 及“近期不排期”内容保留为未来候选，当前不实施、不排期、不作为内置钢琴结构整理的前置条件。恢复须由用户明确决定；不得因 R0/R1 的结构工作自动启动或视为进入条件已满足。Phase 39.5 为 UI 基础设施候选，不属于上述声学阶段冻结范围。
 
-### Phase 39.5:JIVE 内核精简与 JIVE v2 精准移植 [进行中:39.5-1 至 39.5-5 已完成;待真实表面验收]
+### Phase 39.5:JIVE 内核精简与 JIVE v2 精准移植 [已完成 2026-10-23]
 
 目标：按当前产品消费者先精简内化运行时，再选择性移植 JIVE v2 的值/属性、布局与文本实现，最后整理目录。保持 `ViewHost` 业务门面、本地样式系统和主窗口显式收缩契约；不恢复外部子模块，不扩建动态 DOM。本阶段不改变 Phase 39 结论，也不作为 Phase 40–42 的进入条件。
 
@@ -396,7 +396,7 @@ Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失
 
 **明确不移植**：整套上游 StyleSheet/LookAndFeel、SourceFile/FileObserver、外部 XML/JSON 热重载、逐节点文件本地化、选择器/字体/渐变语法改义与内部布局属性前缀改名。保留本地圆角更新修复及无正则 TimeParser；Length 仅保留 px/%，删除未用 em/rem。默认控件行为保持，默认值写回按真实读取依赖处理，不以内部注册或测试自造输入替未用能力保留实现。
 
-**状态与验收**：进行中，39.5-1 至 39.5-5 已完成。4a 已加入构建守卫与容器脏标记/约束测量，解释结束只做根级收敛，`fitToContent` 与 `relayoutContainer` 消费新测量接口；4b 已用约束版本、Flex 方向与文本测量变化失效 item 缓存，移除逐 item BoxModel 监听并限制缓存条目；4c 已按宽度缓存 TextLayout 并复用于绘制与测量；4d 已让 Flex 容器支持 `gap` 并修正绑定色板 220px 填充；39.5-5 已将 core 源码归入 `values/`、`geometry/`、`style/`、`layout/`，聚合头保留在 core 根，include 与 CMake 路径显式同步。Windows Debug app/tests、默认 CTest 与定向 UI 回归通过。真实 windows-mcp 表面验收仍待执行，阶段出口仍按 [当前迭代](current-iteration.md) 执行，不把结构归位或单测通过写成整阶段完成或零开销承诺。
+**状态与验收**：已完成。39.5-1 至 39.5-5 全部交付：构建守卫与容器脏标记/约束测量、Item 缓存完整失效、TextLayout 测量/绘制共享缓存、Flex gap 与绑定色板修复、core 目录归入 `values/`、`geometry/`、`style/`、`layout/` 且聚合头保留在根。全量 clang-tidy 首轮发现的问题已修复，修复后对受影响 TU 增量检查通过；Windows Debug app/tests 与默认 CTest 通过。用户已完成主窗口、设置、绑定色板、长消息、折叠与关闭等人工表面验收，确认无明显问题。未声明硬件/商业插件矩阵结论，也未把缓存收益写成未经量测的零开销承诺。
 
 ### Phase 40：同音弦耦合、双阶段衰减与 Una Corda 深化[暂缓：2026-10-22 起，恢复须用户明确决定]
 
