@@ -180,7 +180,7 @@ void ContainerItem::Child::componentMovedOrResized(juce::Component&, bool, bool 
         if ((static_cast<float>(getComponent()->getWidth()) < idealWidth.get()
              || static_cast<float>(getComponent()->getHeight()) < idealHeight.get())
             && !static_cast<bool>(state[ids::setupInProgress()])) {
-            container->updateIdealSize(true, false);
+            container->updateIdealSizeWithinContentBounds(true);
         }
     }
 }

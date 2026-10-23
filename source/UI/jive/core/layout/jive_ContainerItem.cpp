@@ -77,7 +77,9 @@ juce::Rectangle<float> ContainerItem::getContentConstraints() const {
 
     if (const auto* thisParent = dynamic_cast<const GuiItemDecorator*>(getParent())) {
         if (const auto* parentContainer = thisParent->getTopLevelDecorator().toType<ContainerItem>()) {
-            constraints = constraints.getIntersection(parentContainer->getContentConstraints());
+            // 父内容约束带有 padding/border 平移，子项约束以零原点表达；
+            // 先归零再比较尺寸，避免把 padding 二次计入子项宽度。
+            constraints = constraints.getIntersection(parentContainer->getContentConstraints().withZeroOrigin());
         }
     }
 
@@ -138,7 +140,7 @@ void ContainerItem::updateIdealSize(bool informParentOfChanges, bool measureChil
     applyIdealSize(calculateIdealSize(constraints), constraints, informParentOfChanges);
 }
 
-void ContainerItem::updateIdealSizeWithinContentBounds() {
+void ContainerItem::updateIdealSizeWithinContentBounds(bool informParentOfChanges) {
     updateChildrensIdealSizesIfOutOfDate();
 
     const auto constraints = box.getContentBounds();
@@ -146,7 +148,7 @@ void ContainerItem::updateIdealSizeWithinContentBounds() {
     constraintsWhenIdealSizeWasMeasured = constraints;
     idealSizeIsOutOfDate = false;
 
-    applyIdealSize(calculateIdealSize(constraints), constraints, false);
+    applyIdealSize(calculateIdealSize(constraints), constraints, informParentOfChanges);
 }
 
 void ContainerItem::invalidateIdealSize() {

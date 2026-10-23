@@ -62,8 +62,8 @@ public:
     void invalidateIdealSize();
     void refreshLayout();
 
-    /** 按当前组件内容区测高（fitToContent 使用，宽度由调用方先写入组件）。 */
-    void updateIdealSizeWithinContentBounds();
+    /** 按当前组件内容区测高（fitToContent 与收缩后的实际宽度使用）。 */
+    void updateIdealSizeWithinContentBounds(bool informParentOfChanges = false);
 
 protected:
     virtual juce::Rectangle<float> calculateIdealSize(juce::Rectangle<float> constraints) const = 0;
