@@ -22,6 +22,12 @@ Transition* Transitions::operator[](const juce::String& propertyName) {
     return nullptr;
 }
 
+Transitions::ReferenceCountedPointer Transitions::createCopy() const {
+    auto copy = juce::ReferenceCountedObjectPtr<Transitions> { new Transitions {} };
+    copy->transitions = transitions;
+    return copy;
+}
+
 Transitions::ReferenceCountedPointer Transitions::fromString(const juce::String& s) {
     const auto tokens = juce::StringArray::fromTokens(s, ",", "");
     auto object = std::make_unique<Transitions>();

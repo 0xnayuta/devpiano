@@ -23,6 +23,9 @@ public:
 
     [[nodiscard]] Transition* operator[](const juce::String& propertyName);
 
+    /** 复制过渡定义，使每个使用方拥有独立的动画状态。 */
+    [[nodiscard]] ReferenceCountedPointer createCopy() const;
+
     [[nodiscard]] static ReferenceCountedPointer fromString(const juce::String& s);
 
 private:

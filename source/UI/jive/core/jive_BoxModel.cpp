@@ -16,10 +16,10 @@ BoxModel::BoxModel(juce::ValueTree stateSource)
     , minHeight { state, "min-height" }
     , maxWidth { state, "max-width" }
     , maxHeight { state, "max-height" }
-    , idealWidth { state, "ideal-width" }
-    , idealHeight { state, "ideal-height" }
-    , componentWidth { state, "component-width" }
-    , componentHeight { state, "component-height" }
+    , idealWidth { state, ids::idealWidth() }
+    , idealHeight { state, ids::idealHeight() }
+    , componentWidth { state, ids::componentWidth() }
+    , componentHeight { state, ids::componentHeight() }
     , padding { state, "padding" }
     , border { state, "border-width" }
     , margin { state, "margin" }
@@ -34,13 +34,13 @@ BoxModel::BoxModel(juce::ValueTree stateSource)
     if (width.isAuto()) {
         componentWidth.clear();
     } else {
-        componentWidth = width.toPixels(getParentBounds());
+        componentWidth = width.get().toPixels(getParentBounds().getWidth());
     }
 
     if (height.isAuto()) {
         componentHeight.clear();
     } else {
-        componentHeight = height.toPixels(getParentBounds());
+        componentHeight = height.get().toPixels(getParentBounds().getHeight());
     }
 
     const auto informBoxModelChanged = [this]() { listeners.call(&Listener::boxModelChanged, *this); };
@@ -59,11 +59,11 @@ BoxModel::BoxModel(juce::ValueTree stateSource)
                   }
 
                   if (updateWidth && !width.isAuto()) {
-                      componentWidth = width.toPixels(getParentBounds());
+                      componentWidth = width.get().toPixels(getParentBounds().getWidth());
                   }
 
                   if (updateHeight && !height.isAuto()) {
-                      componentHeight = height.toPixels(getParentBounds());
+                      componentHeight = height.get().toPixels(getParentBounds().getHeight());
                   }
 
                   if (!property.isTransitioning()) {
@@ -123,7 +123,7 @@ void BoxModel::setWidth(float newWidth) {
     componentWidth = newWidth;
 
     if (!state.getParent().isValid()) {
-        width = juce::String { juce::roundToInt(newWidth) };
+        width = Length { static_cast<float>(std::round(newWidth)), Length::Unit::absolute };
     }
 }
 
@@ -143,7 +143,7 @@ void BoxModel::setHeight(float newHeight) {
     componentHeight = newHeight;
 
     if (!state.getParent().isValid()) {
-        height = juce::String { juce::roundToInt(newHeight) };
+        height = Length { static_cast<float>(std::round(newHeight)), Length::Unit::absolute };
     }
 }
 
@@ -206,15 +206,15 @@ juce::Rectangle<float> BoxModel::getContentBounds() const {
 
 juce::Rectangle<float> BoxModel::getMinimumBounds() const {
     return juce::Rectangle<float> {
-        minWidth.toPixels(getParentBounds()),
-        minHeight.toPixels(getParentBounds()),
+        minWidth.get().toPixels(getParentBounds().getWidth()),
+        minHeight.get().toPixels(getParentBounds().getHeight()),
     };
 }
 
 juce::Rectangle<float> BoxModel::getMaximumBounds() const {
     return {
-        maxWidth.exists() ? maxWidth.toPixels(getParentBounds()) : -1.0f,
-        maxHeight.exists() ? maxHeight.toPixels(getParentBounds()) : -1.0f,
+        maxWidth.exists() ? maxWidth.get().toPixels(getParentBounds().getWidth()) : -1.0f,
+        maxHeight.exists() ? maxHeight.get().toPixels(getParentBounds().getHeight()) : -1.0f,
     };
 }
 

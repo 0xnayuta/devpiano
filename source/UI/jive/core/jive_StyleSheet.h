@@ -73,6 +73,10 @@ private:
     Styles<float> letterSpacingStyles;
     Styles<juce::String> textDecorationStyles;
 
+    // 每个 StyleSheet 私有，承载 calculated-* 与从声明式样式复制的 transition 定义，
+    // 避免把动画中间值写回共享样式对象。
+    Object::ReferenceCountedPointer calculatedState;
+
     std::unique_ptr<Property<Fill>> calculatedBackground;
     std::unique_ptr<Property<Fill>> calculatedForeground;
     std::unique_ptr<Property<Fill>> calculatedBorderFill;

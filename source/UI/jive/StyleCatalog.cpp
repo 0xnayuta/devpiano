@@ -91,10 +91,10 @@ void StyleCatalog::mergePseudoProps(juce::DynamicObject& target, const juce::Dyn
 }
 
 ::jive::Object::ReferenceCountedPointer StyleCatalog::makeJiveObject(const juce::DynamicObject& src) const {
-    // ValueTree properties do not own DynamicObjects, and JIVE's
-    // parseJSON-String conversion path is broken (the Object is released
-    // before the var takes ownership) — so we build jive::Object instances
-    // ourselves and keep them alive in ownedStyles.
+    // JIVE's parseJSON-String conversion path is broken (the Object is
+    // released before the var takes ownership), so we build jive::Object
+    // instances ourselves; nested objects are retained by their parent and
+    // receive a parent link through setProperty.
     auto result = ::jive::Object::ReferenceCountedPointer(new ::jive::Object());
     for (const auto& it : src.getProperties()) {
         if (auto* child = it.value.getDynamicObject()) {

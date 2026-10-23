@@ -41,8 +41,8 @@ private:
     Property<juce::String> mid;
     Property<juce::String> interval;
     Property<Orientation> orientation;
-    Length width;
-    Length height;
+    Property<Length> width;
+    Property<Length> height;
     Property<double> sensitivity;
     Property<bool> isInVelocityMode;
     Property<double> velocitySensitivity;

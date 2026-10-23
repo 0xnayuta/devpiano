@@ -24,25 +24,33 @@ BlockItem::BlockItem(std::unique_ptr<GuiItem> itemToDecorate)
     const auto updateBounds = [this] { getComponent()->setBounds(calculateBounds()); };
 
     x.onValueChange = [this, updateBounds] {
-        centreX.clear();
+        if (x.exists()) {
+            centreX.clear();
+        }
         updateBounds();
     };
     x.onTransitionProgressed = updateBounds;
 
     y.onValueChange = [this, updateBounds]() {
-        centreY.clear();
+        if (y.exists()) {
+            centreY.clear();
+        }
         updateBounds();
     };
     y.onTransitionProgressed = updateBounds;
 
     centreX.onValueChange = [this, updateBounds]() {
-        x.clear();
+        if (centreX.exists()) {
+            x.clear();
+        }
         updateBounds();
     };
     centreX.onTransitionProgressed = updateBounds;
 
     centreY.onValueChange = [this, updateBounds]() {
-        y.clear();
+        if (centreY.exists()) {
+            y.clear();
+        }
         updateBounds();
     };
     centreY.onTransitionProgressed = updateBounds;
@@ -57,20 +65,22 @@ int BlockItem::calculateX() const {
     const auto parentContentBounds = boxModel(*getParent()).getContentBounds();
 
     if (centreX.exists()) {
-        return juce::roundToInt(centreX.toPixels(parentContentBounds) - boxModel(*this).getWidth() / 2.f);
+        return juce::roundToInt(centreX.calculateCurrent().toPixels(parentContentBounds.getWidth())
+                                - boxModel(*this).getWidth() / 2.f);
     }
 
-    return juce::roundToInt(x.toPixels(parentContentBounds));
+    return juce::roundToInt(x.calculateCurrent().toPixels(parentContentBounds.getWidth()));
 }
 
 int BlockItem::calculateY() const {
     const auto parentContentBounds = boxModel(*getParent()).getContentBounds();
 
     if (centreY.exists()) {
-        return juce::roundToInt(centreY.toPixels(parentContentBounds) - boxModel(*this).getHeight() / 2.f);
+        return juce::roundToInt(centreY.calculateCurrent().toPixels(parentContentBounds.getHeight())
+                                - boxModel(*this).getHeight() / 2.f);
     }
 
-    return juce::roundToInt(y.toPixels(parentContentBounds));
+    return juce::roundToInt(y.calculateCurrent().toPixels(parentContentBounds.getHeight()));
 }
 
 juce::Rectangle<int> BlockItem::calculateBounds() const {
@@ -79,10 +89,10 @@ juce::Rectangle<int> BlockItem::calculateBounds() const {
     const auto parentBounds = parentBoxModel.getContentBounds();
 
     if (!width.isAuto()) {
-        bounds.setWidth(juce::roundToInt(width.toPixels(parentBounds)));
+        bounds.setWidth(juce::roundToInt(width.calculateCurrent().toPixels(parentBounds.getWidth())));
     }
     if (!height.isAuto()) {
-        bounds.setHeight(juce::roundToInt(height.toPixels(parentBounds)));
+        bounds.setHeight(juce::roundToInt(height.calculateCurrent().toPixels(parentBounds.getHeight())));
     }
 
     return bounds.withPosition(parentBoxModel.getContentBounds().getPosition().roundToInt()

@@ -34,10 +34,10 @@ ComboBox::ComboBox(std::unique_ptr<GuiItem> itemToDecorate)
     getComboBox().addListener(this);
 
     if (width.isAuto()) {
-        width = "50";
+        width = 50.0f;
     }
     if (height.isAuto()) {
-        height = "20";
+        height = 20.0f;
     }
 }
 

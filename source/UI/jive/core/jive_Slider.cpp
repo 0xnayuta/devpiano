@@ -88,10 +88,10 @@ Slider::Slider(std::unique_ptr<GuiItem> itemToDecorate, float defaultWidth, floa
     getSlider().addListener(this);
 
     if (width.isAuto()) {
-        width = juce::String { defaultWidth };
+        width = defaultWidth;
     }
     if (height.isAuto()) {
-        height = juce::String { defaultHeight };
+        height = defaultHeight;
     }
 }
 

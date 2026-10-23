@@ -2,6 +2,8 @@
 
 ### Changed
 
+- **Declarative UI Value and Object Migration** — turn `jive::Length` into a px/% value type (auto stays a Property-level state), add unit-safe interpolation, and migrate BoxModel, container children, BlockItem, CommonGuiItem, Slider, ComboBox and ProgressBar to `Property<Length>`. Properties now observe replaced held objects, re-read transition definitions, notify on property removal, and keep a strong transition owner; BlockItem only clears the opposite coordinate when the current one still exists. Parsed `jive::Object` graphs initialise parent links and pair nested subscriptions, and each StyleSheet keeps its own calculated values instead of writing `calculated-*` into shared style objects.
+
 - **Declarative UI Unused-Capability Pruning** — remove the internal JIVE paths with no production consumers: View/PassiveView and `makeView`, the Label decorator, declarative `on-click`/`on-change` event dispatch, the ComboBox Option/Header/Separator tree protocol, interpreter aliases/custom decorators/structure listeners, diagnostic string-stream operators, and the per-decorator Remover. Component factories, native JUCE callbacks, style application, ComboBox item management and `selected` bridging are unchanged; main-window, settings and dialog geometry stay identical.
 
 ### Fixed

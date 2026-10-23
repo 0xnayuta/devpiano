@@ -29,8 +29,8 @@ private:
     Property<bool> editable;
     Property<juce::String> tooltip;
     Property<int> selected;
-    Length width;
-    Length height;
+    Property<Length> width;
+    Property<Length> height;
     Property<bool> focusable;
 
 #if JIVE_IS_PLUGIN_PROJECT

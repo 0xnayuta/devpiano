@@ -9,6 +9,8 @@
 
 #include "jive_Length.h"
 
+#include "jive_Property.h"
+
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace jive {
@@ -80,12 +82,12 @@ private:
 
     juce::Rectangle<float> getParentBounds() const;
 
-    Length width;
-    Length height;
-    Length minWidth;
-    Length minHeight;
-    Length maxWidth;
-    Length maxHeight;
+    Property<Length> width;
+    Property<Length> height;
+    Property<Length> minWidth;
+    Property<Length> minHeight;
+    Property<Length> maxWidth;
+    Property<Length> maxHeight;
     Property<float> idealWidth;
     Property<float> idealHeight;
     Property<float> componentWidth;

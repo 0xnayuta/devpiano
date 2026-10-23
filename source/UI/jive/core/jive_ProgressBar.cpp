@@ -26,10 +26,10 @@ ProgressBar::ProgressBar(std::unique_ptr<GuiItem> itemToDecorate)
     getProgressBar().setPercentageDisplay(false);
 
     if (width.isAuto()) {
-        width = "135";
+        width = 135.0f;
     }
     if (height.isAuto()) {
-        height = "20";
+        height = 20.0f;
     }
 }
 

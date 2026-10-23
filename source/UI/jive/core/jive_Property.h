@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "jive_Identifiers.h"
 #include "jive_Object.h"
 #include "jive_PropertyBehaviours.h"
 #include "jive_VariantConvertion.h"
@@ -68,6 +69,7 @@ public:
 
     ~Property() override {
         observeTransition(nullptr);
+        observeObject(nullptr);
         removeThisAsListener(source);
         removeThisAsListener(listenerTarget);
     }
@@ -91,8 +93,9 @@ public:
     }
 
     [[nodiscard]] auto calculateCurrent() const {
-        if (auto* transition = getTransition()) {
-            return transition->template calculateCurrent<ValueType>();
+        if (auto* transition = getTransition();
+            transition != nullptr && !transition->source.isVoid() && !transition->target.isVoid()) {
+            return transition->calculateCurrent<ValueType>();
         }
 
         return get();
@@ -167,6 +170,8 @@ public:
 
     void setTransitionSourceProperty(const juce::Identifier& sourceID) {
         observeTransition(nullptr);
+        currentTransition = nullptr;
+        currentTransitions = nullptr;
         transitionSourceID = sourceID;
 
         if (auto* transition = getTransition()) {
@@ -176,11 +181,16 @@ public:
 
     [[nodiscard]] Transition* getTransition() {
         if (currentTransition == nullptr) {
-            using TransitionsProperty = Property<Transitions::ReferenceCountedPointer, Inheritance::doNotInherit,
-                                                 Accumulation::doNotAccumulate, true, Responsiveness::ignoreChanges>;
+            const auto transitionDefinition = getVar(source, ids::transition());
 
-            if (const TransitionsProperty transitions { source, "transition" }; transitions.exists()) {
-                currentTransition = (*transitions.get())[transitionSourceID.toString()];
+            if (auto* transitions = dynamic_cast<Transitions*>(transitionDefinition.getObject())) {
+                currentTransitions = transitions;
+            } else if (transitionDefinition.isString()) {
+                currentTransitions = Transitions::fromString(transitionDefinition.toString());
+            }
+
+            if (currentTransitions != nullptr) {
+                currentTransition = (*currentTransitions)[transitionSourceID.toString()];
             }
         }
 
@@ -199,6 +209,14 @@ public:
 
     [[nodiscard]] auto isTransitioning() const {
         return getTransition() != nullptr;
+    }
+
+    /** 供忽略自身监听的 Property 的拥有者转发变更：保持过渡状态与 onValueChange 生效。
+        返回 true 表示变更属于本属性，此时回调可能已销毁拥有者。 */
+    bool handlePropertyChange(juce::ValueTree& tree, const juce::Identifier& property) {
+        const auto isThisProperty = property == id;
+        valueTreePropertyChanged(tree, property);
+        return isThisProperty;
     }
 
     [[nodiscard]] operator ValueType() const {
@@ -228,13 +246,10 @@ protected:
     void valueTreePropertyChanged(juce::ValueTree& treeWhosePropertyChanged,
                                   const juce::Identifier& property) override {
         if (property != id) {
-            if (property.toString() == "transition") {
-                currentTransition = getTransition();
+            if (property == ids::transition() && isSource(treeWhosePropertyChanged)) {
+                transitionsChanged();
             }
 
-            return;
-        }
-        if (!treeWhosePropertyChanged.hasProperty(property)) {
             return;
         }
         if (!respondToPropertyChanges(treeWhosePropertyChanged)) {
@@ -248,12 +263,21 @@ protected:
         }
     }
 
-    void propertyChanged(Object& objectWhosePropertyChanged, const juce::Identifier& property) override {
-        if (property != id) {
-            return;
-        }
-        if (!objectWhosePropertyChanged.hasProperty(property)) {
-            return;
+    void propertyChanged(Object&, const juce::Identifier& property) override {
+        if constexpr (std::is_same_v<ValueType, Object::ReferenceCountedPointer>) {
+            if (std::holds_alternative<juce::ValueTree>(source)) {
+                valueChanged();
+
+                if (onValueChange != nullptr) {
+                    onValueChange();
+                }
+
+                return;
+            }
+        } else {
+            if (property != id) {
+                return;
+            }
         }
 
         valueChanged();
@@ -535,9 +559,13 @@ private:
             addThisAsListener(listenerTarget);
         }
 
+        observeHeldObject();
+
         if constexpr (autoParseStrings) {
             if (auto value = getVar(source, id); value.isString()) {
-                set(get());
+                if (const auto parsed = get(); parsed != nullptr) {
+                    set(parsed);
+                }
             }
         }
 
@@ -557,9 +585,61 @@ private:
     }
 
     void valueChanged() {
+        observeHeldObject();
+
         if constexpr (!std::is_same<ValueType, Transitions::ReferenceCountedPointer>()) {
             updateTransition();
         }
+    }
+
+    // tree 里的对象可能被替换，监听必须跟随当前持有的对象。
+    void observeHeldObject() {
+        if constexpr (std::is_same_v<ValueType, Object::ReferenceCountedPointer>) {
+            if (std::holds_alternative<juce::ValueTree>(source)) {
+                observeObject(get());
+            }
+        }
+    }
+
+    void observeObject(Object::ReferenceCountedPointer object) {
+        if (observedObject == object) {
+            return;
+        }
+
+        if (observedObject != nullptr) {
+            observedObject->removeListener(*this);
+        }
+
+        observedObject = std::move(object);
+
+        if (observedObject != nullptr) {
+            observedObject->addListener(*this);
+        }
+    }
+
+    [[nodiscard]] bool isSource(const juce::ValueTree& tree) const {
+        return std::holds_alternative<juce::ValueTree>(source) && std::get<juce::ValueTree>(source) == tree;
+    }
+
+    // 新过渡从旧过渡的当前值继续，避免中途修改 timing 时数值跳变。
+    void transitionsChanged() {
+        [[maybe_unused]] const auto previousTransitions = currentTransitions;
+        const auto* previous = currentTransition;
+
+        observeTransition(nullptr);
+        currentTransition = nullptr;
+        currentTransitions = nullptr;
+
+        auto* transition = getTransition();
+
+        if (transition != nullptr && previous != nullptr && transition != previous
+            && previous->calculateProgress() < 1.0 && !previous->source.isVoid() && !previous->target.isVoid()) {
+            transition->source = toVar(previous->template calculateCurrent<ValueType>());
+            transition->target = previous->target;
+            transition->commencement = now();
+        }
+
+        observeTransition(transition);
     }
 
     void updateTransition() {
@@ -567,9 +647,11 @@ private:
 
         if (auto* transition = getTransition()) {
             const auto isUninitialised = transition->source.isVoid();
+            const auto cannotAnimate = transition->target.isVoid() || var.isVoid();
             const auto isAlreadyUpToDate = transition->target == var;
 
-            if (isUninitialised) {
+            if (isUninitialised || cannotAnimate) {
+                // 属性被移除或重新出现时没有可插值的端点，直接跳到当前值。
                 transition->source = var;
                 transition->target = var;
                 transition->commencement = now();
@@ -603,7 +685,20 @@ private:
 
     Source listenerTarget;
     juce::Identifier transitionSourceID;
+    Transitions::ReferenceCountedPointer currentTransitions;
     Transition* currentTransition = nullptr;
     Transition* observedTransition = nullptr;
+    Object::ReferenceCountedPointer observedObject;
 };
+
+template <typename ValueType, Accumulation accumulation = Accumulation::doNotAccumulate>
+using PassiveProperty = Property<ValueType, Inheritance::doNotInherit, accumulation,
+                                 isReferenceCountedObjectPointer<ValueType>::value, Responsiveness::ignoreChanges>;
+
+/** 把一次 ValueTree 属性变更转发给被动属性，遇到属于该属性的位置即停止，
+    因为它的回调可能销毁这些属性的拥有者。返回是否有属性匹配本次变更。 */
+template <typename... Properties>
+bool forwardPropertyChange(juce::ValueTree& tree, const juce::Identifier& property, Properties&... properties) {
+    return (properties.handlePropertyChange(tree, property) || ...);
+}
 } // namespace jive

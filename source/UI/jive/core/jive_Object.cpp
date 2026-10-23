@@ -12,25 +12,55 @@ class Object::InternalListener : public Object::Listener {
 public:
     explicit InternalListener(Object& obj)
         : object { obj } {
-        for (const auto& nested : findNestedObjects()) {
-            nested->addListener(*this);
-        }
-
+        syncNestedObjects();
         object.addListener(*this);
+    }
+
+    ~InternalListener() override {
+        object.removeListener(*this);
+
+        for (auto* nested : observedNested) {
+            nested->removeListener(*this);
+        }
     }
 
     void propertyChanged(Object& objectThatChanged, const juce::Identifier& propertyName) final {
         if (&objectThatChanged == &object) {
-            for (const auto& nested : findNestedObjects()) {
-                nested->addListener(*this);
-            }
+            // 自身属性变更由 Object::didModifyProperty 直接通知外部监听者，
+            // 这里只同步当前直接嵌套对象的订阅集合。
+            syncNestedObjects();
         } else {
             object.listeners.callExcluding(this, &Listener::propertyChanged, objectThatChanged, propertyName);
         }
     }
 
 private:
-    juce::Array<Object*> findNestedObjects() {
+    void syncNestedObjects() {
+        const auto nested = findNestedObjects();
+
+        for (auto i = observedNested.size(); --i >= 0;) {
+            auto* previouslyObserved = observedNested.getUnchecked(i);
+
+            if (!nested.contains(previouslyObserved)) {
+                observedNested.remove(i);
+                previouslyObserved->removeListener(*this);
+
+                // 被移出父对象的嵌套对象不再拥有该父链，避免父对象先析构后留下悬空指针。
+                if (previouslyObserved->parent == &object) {
+                    previouslyObserved->parent = nullptr;
+                }
+            }
+        }
+
+        for (auto* child : nested) {
+            if (!observedNested.contains(child)) {
+                observedNested.add(child);
+                child->addListener(*this);
+            }
+        }
+    }
+
+    juce::Array<Object*> findNestedObjects() const {
         juce::Array<Object*> nestedObjects;
 
         for (const auto& [name, value] : object.getProperties()) {
@@ -43,6 +73,7 @@ private:
     }
 
     Object& object;
+    juce::Array<Object*> observedNested;
 };
 
 Object::Object()
@@ -50,7 +81,7 @@ Object::Object()
 }
 
 Object::Object(std::initializer_list<juce::NamedValueSet::NamedValue> initialProperties)
-    : internalListener { std::make_unique<InternalListener>(*this) } {
+    : Object {} {
     for (const auto& pair : initialProperties) {
         setProperty(pair.name, pair.value);
     }
@@ -66,8 +97,23 @@ Object::Object(Object&& other) noexcept
     , internalListener { std::make_unique<InternalListener>(*this) } {
 }
 
-Object::Object(const juce::DynamicObject& other)
-    : juce::DynamicObject { other } {
+static void replaceDynamicObjectsWithJiveObjects(juce::var& value, Object* parent = nullptr);
+
+// 嵌套对象必须在 InternalListener 创建前完成转换，才能在构造期就建立父子链。
+[[nodiscard]] static juce::DynamicObject withNestedJiveObjects(const juce::DynamicObject& source, Object* parent) {
+    juce::DynamicObject result { source };
+
+    for (auto i = 0; i < result.getProperties().size(); i++) {
+        replaceDynamicObjectsWithJiveObjects(*result.getProperties().getVarPointerAt(i), parent);
+    }
+
+    return result;
+}
+
+Object::Object(const juce::DynamicObject& other, Object* parentObject)
+    : juce::DynamicObject { withNestedJiveObjects(other, this) }
+    , internalListener { std::make_unique<InternalListener>(*this) }
+    , parent { parentObject } {
 }
 
 void Object::didModifyProperty(const juce::Identifier& propertyName, const std::optional<juce::var>& newValue) {
@@ -118,19 +164,16 @@ const juce::var& Object::operator[](const juce::Identifier& name) const noexcept
     return getProperties()[name];
 }
 
-static void replaceDynamicObjectsWithJiveObjects(juce::var& value) {
-    if (auto* dynamicObject = value.getDynamicObject()) {
-        for (auto i = 0; i < dynamicObject->getProperties().size(); i++) {
-            replaceDynamicObjectsWithJiveObjects(*dynamicObject->getProperties().getVarPointerAt(i));
-        }
-
-        Object::ReferenceCountedPointer object = new Object { *dynamicObject };
-        value = object.get();
+static void replaceDynamicObjectsWithJiveObjects(juce::var& value, Object* parent) {
+    if (auto* dynamicObject = value.getDynamicObject();
+        dynamicObject != nullptr && dynamic_cast<Object*>(dynamicObject) == nullptr) {
+        // 对象自身的嵌套属性由其构造函数递归转换，以获得正确的父链。
+        value = new Object { *dynamicObject, parent };
     }
 
     if (auto* array = value.getArray()) {
         for (auto& element : *array) {
-            replaceDynamicObjectsWithJiveObjects(element);
+            replaceDynamicObjectsWithJiveObjects(element, parent);
         }
     }
 }

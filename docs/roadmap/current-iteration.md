@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39 与 R0–R11 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-2 至 39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
+> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）与 39.5-2（属性、对象与 Length 安全切换）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-3 至 39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
 
 ## 0. 归档入口
 
@@ -141,6 +141,17 @@
 - **验证**:Windows Debug app 与 `devpiano_tests` 构建通过;默认 `ctest` 通过(约 40 s);定向 `LayoutGoldenTest` 391、`JiveModalDialog` 417、`StyleCatalog` 176、`JiveRender` 13、`PluginPanelToggle` 34、`ViewHost` 35、`SettingsLayoutModel` 66、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9 项断言全部通过;主窗口/设置/弹窗几何与精简前逐像素一致。`ViewHost` 新增“重载、移动、宿主销毁后继续变更外部布局树”的生命周期回归与“滑块原生值回写布局属性”回归。
 - **测试调整**:删除只构造已淘汰 Option 协议的 `testComboOptionsEnabled`;删除变为恒真的“无 Option 子节点/无 selected”断言;4 处 `expectEquals<juce::Colour>` 改为 `expect(...)`,不再依赖已删除的诊断流。原生下拉重建与二次选中回归保留。
 - **未覆盖**:windows-mcp 真实表面验收、语言切换、绑定色板、真实插件与音频设备;这些仍按 1.4 在后续任务/阶段出口执行。39.5-1 不宣称 listener 总量或性能收益,探针已移除。
+
+### 1.7 Phase 39.5-2 实施结果与验证
+
+- **标识符**:新增 `jive_Identifiers.h`,当前只收录 `transition`、`ideal-width/height`、`component-width/height`;四个内部布局属性保持无前缀原名,不做全仓机械替换。
+- **Property**:`getTransition()` 直接从源读取或解析定义并持有 `Transitions` 强引用,不再创建临时 `Property`;transition 属性变更走 `transitionsChanged()`,从旧过渡当前值继续且带空值守卫;`calculateCurrent()` 在端点缺失时回退 `get()`。替换/移除 transition、属性被移除后再出现均不再断言或悬空。
+- **删除通知**:`valueTreePropertyChanged`/`propertyChanged` 不再因属性不存在而提前返回;`BlockItem` 的 x/centre-x、y/centre-y 只在当前坐标仍存在时清除另一项。
+- **Object**:解析构造改为先转换嵌套对象再创建监听器,嵌套对象获得正确父链;InternalListener 记录直接嵌套集合,替换/移除时成对解绑并清除父指针;数组维持递归转换,未扩展任意对象图。
+- **StyleSheet**:每个实例持有私有 `calculatedState` 与克隆的过渡定义;`getBackground()` 等不再把 `calculated-*` 写回共享样式对象。`observeHeldObject()` 随样式对象替换/清空重新绑定。`StyleCatalog` 所有权注释同步更正。
+- **Length**:收敛为 `{ float value; Unit px/% }` 值类型,删除 em/rem 与 `isPixels/isPercent/isEm/isRem`;`Interpolate<Length>` 在单位不同时保持起点至过渡完成;BoxModel、ContainerItemChild、BlockItem、CommonGuiItem、Slider、ComboBox、ProgressBar 全部改为 `Property<Length>`。动画消费仍走 `calculateCurrent()`。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(41.6 s);`JiveCoreValues` 42 项断言覆盖 px/%/auto、单位切换、transition 删除/替换、属性删除通知、Block 坐标互斥、解析父链与成对解绑、共享样式下的 calculated 隔离与替换/清空;既有 `StyleCatalog` 176、`ViewHost` 35、`LayoutGoldenTest` 391、`JiveRender` 13、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
+- **保留给 39.5-3**:属性仍为主动监听;本阶段只提供 `PassiveProperty`/`handlePropertyChange`/`forwardPropertyChange` 原语,尚未合并监听。真实 windows-mcp 表面验收仍按阶段出口执行。
 
 ## 2. 后续候选阶段（暂缓）
 

@@ -24,7 +24,7 @@ public:
     Object(std::initializer_list<juce::NamedValueSet::NamedValue> initialProperties);
     Object(const Object& other);
     Object(Object&& other) noexcept;
-    Object(const juce::DynamicObject& other);
+    Object(const juce::DynamicObject& other, Object* parent = nullptr);
 
     void didModifyProperty(const juce::Identifier& name, const std::optional<juce::var>& value) override;
     const juce::NamedValueSet& getProperties() const;

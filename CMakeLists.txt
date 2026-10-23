@@ -611,6 +611,7 @@ if (BUILD_TESTS)
         source/tests/SettingsLayoutModelTest.cpp
         source/tests/ViewHostTest.cpp
         source/tests/LayoutGoldenTest.cpp
+        source/tests/JiveCoreValuesTest.cpp
         source/tests/LidAcousticsInteractionTest.cpp
         source/tests/UnaCordaAcousticsTest.cpp
         source/tests/TouchVelocityCurveTest.cpp

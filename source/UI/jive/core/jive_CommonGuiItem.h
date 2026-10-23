@@ -50,8 +50,8 @@ private:
     Property<float> opacity;
     Property<juce::MouseCursor::StandardCursorType> cursor;
     Property<Display> display;
-    Length width;
-    Length height;
+    Property<Length> width;
+    Property<Length> height;
 
     JUCE_LEAK_DETECTOR(CommonGuiItem)
 };
