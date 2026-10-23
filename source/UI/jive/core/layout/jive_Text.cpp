@@ -151,9 +151,9 @@ void Text::updateTextComponent() {
 
         if (auto* containerParent
             = dynamic_cast<GuiItemDecorator&>(*parentItem).getTopLevelDecorator().toType<ContainerItem>()) {
-            if (static_cast<bool>(state[ids::setupInProgress()])) {
-                containerParent->invalidateIdealSize();
-            } else if (measurementsChanged) {
+            const auto reflowParent = measurementsChanged && !static_cast<bool>(state[ids::setupInProgress()]);
+
+            if (reflowParent) {
                 containerParent->updateIdealSize();
             } else {
                 containerParent->invalidateIdealSize();

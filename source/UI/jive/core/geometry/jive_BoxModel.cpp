@@ -128,7 +128,7 @@ void BoxModel::setWidth(float newWidth) {
     componentWidth = newWidth;
 
     if (!state.getParent().isValid()) {
-        width = Length { static_cast<float>(std::round(newWidth)), Length::Unit::absolute };
+        width = Length { std::round(newWidth), Length::Unit::absolute };
     }
 }
 
@@ -148,7 +148,7 @@ void BoxModel::setHeight(float newHeight) {
     componentHeight = newHeight;
 
     if (!state.getParent().isValid()) {
-        height = Length { static_cast<float>(std::round(newHeight)), Length::Unit::absolute };
+        height = Length { std::round(newHeight), Length::Unit::absolute };
     }
 }
 

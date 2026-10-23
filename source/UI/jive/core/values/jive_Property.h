@@ -95,7 +95,7 @@ public:
     [[nodiscard]] auto calculateCurrent() const {
         if (auto* transition = getTransition();
             transition != nullptr && !transition->source.isVoid() && !transition->target.isVoid()) {
-            return transition->calculateCurrent<ValueType>();
+            return transition->template calculateCurrent<ValueType>();
         }
 
         return get();
@@ -179,15 +179,23 @@ public:
         }
     }
 
+    [[nodiscard]] Transitions::ReferenceCountedPointer readTransitions() const {
+        const auto transitionDefinition = getVar(source, ids::transition());
+
+        if (auto* transitions = dynamic_cast<Transitions*>(transitionDefinition.getObject())) {
+            return transitions;
+        }
+
+        if (transitionDefinition.isString()) {
+            return Transitions::fromString(transitionDefinition.toString());
+        }
+
+        return nullptr;
+    }
+
     [[nodiscard]] Transition* getTransition() {
         if (currentTransition == nullptr) {
-            const auto transitionDefinition = getVar(source, ids::transition());
-
-            if (auto* transitions = dynamic_cast<Transitions*>(transitionDefinition.getObject())) {
-                currentTransitions = transitions;
-            } else if (transitionDefinition.isString()) {
-                currentTransitions = Transitions::fromString(transitionDefinition.toString());
-            }
+            currentTransitions = readTransitions();
 
             if (currentTransitions != nullptr) {
                 currentTransition = (*currentTransitions)[transitionSourceID.toString()];
@@ -623,23 +631,36 @@ private:
 
     // 新过渡从旧过渡的当前值继续，避免中途修改 timing 时数值跳变。
     void transitionsChanged() {
-        [[maybe_unused]] const auto previousTransitions = currentTransitions;
+        // 在替换引用前快照旧过渡状态，替换后不再解引用旧容器内的对象。
         const auto* previous = currentTransition;
+        const auto preservePrevious = previous != nullptr && previous->calculateProgress() < 1.0
+            && !previous->source.isVoid() && !previous->target.isVoid();
+        const auto previousValue
+            = preservePrevious ? toVar(previous->template calculateCurrent<ValueType>()) : juce::var {};
+        const auto previousTarget = preservePrevious ? previous->target : juce::var {};
+
+        const auto nextTransitions = readTransitions();
+        auto* nextTransition = nextTransitions != nullptr ? (*nextTransitions)[transitionSourceID.toString()] : nullptr;
+        const auto sameTransition = nextTransition == previous;
 
         observeTransition(nullptr);
         currentTransition = nullptr;
-        currentTransitions = nullptr;
+        currentTransitions = nextTransitions;
 
-        auto* transition = getTransition();
-
-        if (transition != nullptr && previous != nullptr && transition != previous
-            && previous->calculateProgress() < 1.0 && !previous->source.isVoid() && !previous->target.isVoid()) {
-            transition->source = toVar(previous->template calculateCurrent<ValueType>());
-            transition->target = previous->target;
-            transition->commencement = now();
+        if (nextTransition != nullptr && nextTransition->source.isVoid()) {
+            nextTransition->source = getVar(source, id);
+            nextTransition->target = nextTransition->source;
+            nextTransition->commencement = now();
         }
 
-        observeTransition(transition);
+        if (nextTransition != nullptr && !sameTransition && preservePrevious) {
+            nextTransition->source = previousValue;
+            nextTransition->target = previousTarget;
+            nextTransition->commencement = now();
+        }
+
+        currentTransition = nextTransition;
+        observeTransition(nextTransition);
     }
 
     void updateTransition() {
