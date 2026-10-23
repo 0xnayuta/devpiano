@@ -20,6 +20,7 @@ public:
 
     void runTest() override {
         testIdlePedalDoesNotOccupyVoice();
+        testDoubleBufferRendersOwner();
         testEightNotesUnderPedal();
         testStealDoesNotTruncateOwner();
         testNoteOnDoesNotRetrigger();
@@ -110,6 +111,28 @@ private:
         expectEquals(peak(f.buffer, 0), 0.0f);
     }
 
+    void testDoubleBufferRendersOwner() {
+        beginTest("Double-buffer render advances the pedal owner");
+        devpiano::audio::BuiltinSynthesiser synth;
+        synth.setCurrentPlaybackSampleRate(48000.0);
+        synth.setPedalAcousticsEnabled(true);
+        synth.setPedalNoiseLevel(0.8f);
+        down(synth, 1);
+
+        juce::AudioBuffer<double> buffer(2, 512);
+        buffer.clear();
+        synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
+        expectGreaterThan(buffer.getMagnitude(0, 0, 512), 0.001);
+
+        auto blocks = 1;
+        while (synth.isPedalAcousticsActive() && blocks < 4096) {
+            buffer.clear();
+            synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, 512);
+            ++blocks;
+        }
+        expect(!synth.isPedalAcousticsActive(), "double-buffer render must drain the owner tail");
+    }
+
     void testEightNotesUnderPedal() {
         beginTest("Eight different notes consume all eight note voices under pedal");
         Fixture f;
@@ -124,7 +147,7 @@ private:
     }
 
     void testStealDoesNotTruncateOwner() {
-        beginTest("Voice stealing during a pedal tail does not truncate the owner");
+        beginTest("Voice-zero reuse during a pedal tail does not truncate the owner");
         Fixture f;
         down(f.synth, 1);
         f.render();
@@ -134,10 +157,15 @@ private:
             f.synth.noteOn(1, note, 0.8f);
             f.render();
         }
-        f.synth.noteOn(1, 72, 0.8f);
+
+        // Request the existing low pitch so the same-note path must reuse voice
+        // zero even while the sustain pedal keeps all voices active.
+        const auto previousTrigger = f.voices[0]->triggerCounter;
+        f.synth.noteOn(1, 60, 0.8f);
         f.render();
+        expectGreaterThan(f.voices[0]->triggerCounter, previousTrigger, "voice zero must be reused");
         expectEquals(activeVoiceCount(f), Fixture::kVoiceCount);
-        expect(f.synth.isPedalAcousticsActive(), "owner tail must outlive voice reuse");
+        expect(f.synth.isPedalAcousticsActive(), "owner tail must outlive voice-zero reuse");
     }
 
     void testNoteOnDoesNotRetrigger() {
@@ -176,14 +204,30 @@ private:
 
     void testSameSampleOrdering() {
         beginTest("Same-sample down/up/down is consumed in order, not deduplicated");
-        Fixture f;
+        Fixture ordered;
         juce::MidiBuffer midi;
         midi.addEvent(juce::MidiMessage::controllerEvent(1, 64, 127), 0);
         midi.addEvent(juce::MidiMessage::controllerEvent(1, 64, 0), 0);
         midi.addEvent(juce::MidiMessage::controllerEvent(1, 64, 127), 0);
-        f.render(512, midi);
-        expect(f.synth.isSustainPedalDown(1));
-        expect(f.synth.isPedalAcousticsActive());
+        ordered.render(512, midi);
+        expect(ordered.synth.isSustainPedalDown(1));
+        expect(ordered.synth.isPedalAcousticsActive());
+
+        Fixture sequential;
+        down(sequential.synth, 1);
+        up(sequential.synth, 1);
+        down(sequential.synth, 1);
+        sequential.render(512);
+
+        auto maxDifference = 0.0f;
+        for (int channel = 0; channel < 2; ++channel) {
+            for (int sample = 0; sample < 512; ++sample) {
+                maxDifference = std::max(
+                    maxDifference,
+                    std::abs(ordered.buffer.getSample(channel, sample) - sequential.buffer.getSample(channel, sample)));
+            }
+        }
+        expectLessThan(maxDifference, 1e-7f, "same-sample events must match sequential dispatch");
     }
 
     void testCc120Scope() {
@@ -265,7 +309,7 @@ private:
     }
 
     void testSampleRateReprepare() {
-        beginTest("Short pedal tail closes at 48/44.1/96 kHz and survives reprepare");
+        beginTest("Short pedal tail closes at 48/44.1/96 kHz and reprepare clears it");
         for (const auto rate : { 48000.0, 44100.0, 96000.0 }) {
             beginTest("Rate " + juce::String(rate));
             Fixture f(rate);
@@ -277,9 +321,10 @@ private:
                 ++blocks;
             }
             expect(!f.synth.isPedalAcousticsActive(), "bounded tail must close at " + juce::String(rate));
-            up(f.synth, 1);
+
             f.synth.setCurrentPlaybackSampleRate(rate == 44100.0 ? 48000.0 : 44100.0);
             expect(!f.synth.isPedalAcousticsActive(), "reprepare must clear old tail");
+            expect(!f.synth.isSustainPedalDown(1), "reprepare must clear channel pedal truth");
             down(f.synth, 1);
             expect(f.synth.isPedalAcousticsActive(), "same value must retrigger after reprepare");
         }
