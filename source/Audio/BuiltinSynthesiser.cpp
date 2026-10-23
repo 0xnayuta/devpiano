@@ -117,6 +117,9 @@ void BuiltinSynthesiser::renderVoices(juce::AudioBuffer<double>& buffer, int sta
             voice->renderNextBlock(buffer, startSample, numSamples);
         }
     }
+    if (pedalAcousticsEnabled) {
+        pedalAcoustics.renderNextBlock(buffer, startSample, numSamples);
+    }
 }
 
 template <typename FloatType>

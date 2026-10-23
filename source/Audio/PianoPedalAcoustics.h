@@ -113,7 +113,8 @@ struct PianoPedalAcoustics {
         shockWasActive = false;
     }
 
-    void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) noexcept {
+    template <typename FloatType>
+    void renderNextBlock(juce::AudioBuffer<FloatType>& outputBuffer, int startSample, int numSamples) noexcept {
         if (outputBuffer.getNumChannels() <= 0 || numSamples <= 0 || !isActive()) {
             return;
         }
