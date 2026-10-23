@@ -198,6 +198,7 @@ devpiano::recording::RecordingTake makeTake(const Scenario& scenario) {
 
 devpiano::exporting::WavExportOptions makeOptions(const Scenario& scenario) {
     devpiano::exporting::WavExportOptions options;
+    options.tailSeconds = 2.0;
     options.sampleRate = kTargetRate;
     options.numChannels = 2;
     options.blockSize = kBlockSize;

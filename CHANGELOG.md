@@ -2,7 +2,7 @@
 
 ### Fixed
 
-- **WAV Take-End Release** — replace the automatic end-of-take All Sound Off panic in both WAV exporters with identity-tracked NoteOffs and CC64/66/67 pedal release. The fixed 2.0-second tail window, explicit in-take panic, and layer/endpoint hard stops are unchanged; over-window tails can still truncate at file end.
+- **WAV Take-End Release and Finite Tail** — replace the automatic end-of-take All Sound Off panic in both WAV exporters with identity-tracked NoteOffs and CC64/66/67 pedal release. The export window now defaults to 6.0 seconds and is configurable through `WavExportOptions::tailSeconds` in the closed 0–30 second range for built-in, plugin and dual-layer paths; 0 disables the extra tail and file length remains deterministic. The current UI uses the default and has no duration control. Explicit in-take panic, layer/endpoint hard stops, and over-window truncation remain unchanged.
 
 ## [1.4.0] - 2026-10-21
 

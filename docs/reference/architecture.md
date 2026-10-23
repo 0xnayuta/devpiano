@@ -210,7 +210,7 @@ source/
   - 会话控制器：统一调度录制、回放、`.devpiano` 文件保存/打开、MIDI 导入与 WAV 导出流程。
   - 编排 Take-relative Seek、A/B、暂停恢复及时间轴快照；结构清除/启动/录制停止和暂停快照复用停机守卫，异步导出退出先请求取消，实际工作完成后才销毁所有者。
 - **`source/Recording/RenderPipeline.h/.cpp`**：
-  - `prepareRenderTimeline()` 统一检查时间戳缩放、最终事件 `+1`、快照有效性与尾部加法；成功才返回稳定排序事件、内嵌快照表和完整长度。内置/插件 WAV 在打开输出前使用该结果，分段按采样点应用声学快照，保留同采样语义顺序；正常 take 结束按身份追踪器补 NoteOff 与踏板 Off，take 内显式 Panic 和层/端点切换仍执行硬停。
+  - `prepareRenderTimeline()` 统一检查时间戳缩放、最终事件 `+1`、快照有效性、`WavExportOptions::tailSeconds`（默认 6.0 秒，闭区间 0–30 秒）与尾部加法；成功才返回稳定排序事件、内嵌快照表和完整长度。内置/插件 WAV 在打开输出前使用该结果，分段按采样点应用声学快照，保留同采样语义顺序；正常 take 结束按身份追踪器补 NoteOff 与踏板 Off，take 内显式 Panic 和层/端点切换仍执行硬停。
 - **`source/Recording/TimelineValidation.h`**：
   - 分离文件支持采样率与通用时间域数值安全，复用有界整数转换、缩放、加法及最坏倍率长度检查；不依赖 UI 或插件适配器。
 - **`source/Recording/PerformanceFile.h/.cpp`**：

@@ -26,7 +26,9 @@ bool isAcousticSnapshotValid(const devpiano::audio::AcousticSnapshot& acoustic) 
 bool hasUsableRenderOptions(const devpiano::exporting::WavExportOptions& options) noexcept {
     return isSupportedTimelineSampleRate(options.sampleRate) && options.numChannels > 0 && options.blockSize > 0
         && options.bitsPerSample > 0 && std::isfinite(options.layers.pianoGain)
-        && std::isfinite(options.layers.pluginGain) && devpiano::audio::isValidHammerVoicing(options.hammerVoicing);
+        && std::isfinite(options.layers.pluginGain) && devpiano::audio::isValidHammerVoicing(options.hammerVoicing)
+        && std::isfinite(options.tailSeconds) && options.tailSeconds >= devpiano::exporting::kMinWavTailSeconds
+        && options.tailSeconds <= devpiano::exporting::kMaxWavTailSeconds;
 }
 
 std::optional<RenderTimeline> prepareRenderTimeline(const RecordingTake& take, double targetSampleRate,

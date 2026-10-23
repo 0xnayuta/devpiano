@@ -10,6 +10,12 @@
 
 namespace devpiano::exporting {
 
+// Export-only finite tail. These are product/engineering bounds, not a claim
+// about the natural decay time of any source or plugin.
+inline constexpr double kDefaultWavTailSeconds = 6.0;
+inline constexpr double kMinWavTailSeconds = 0.0;
+inline constexpr double kMaxWavTailSeconds = 30.0;
+
 struct WavExportOptions {
     double sampleRate = 44100.0;
     int numChannels = 2;
@@ -37,6 +43,8 @@ struct WavExportOptions {
     bool stretchTuningEnabled = true;
     float duplexResonance = 0.15f;
     devpiano::audio::InstrumentLayers layers;
+    // Finite post-take render window. 0.0 disables the extra tail.
+    double tailSeconds = kDefaultWavTailSeconds;
 };
 
 } // namespace devpiano::exporting

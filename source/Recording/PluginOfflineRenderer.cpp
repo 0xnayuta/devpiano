@@ -81,7 +81,7 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
         return false;
     }
 
-    auto timeline = prepareRenderTimeline(take, options.sampleRate, 2.0);
+    auto timeline = prepareRenderTimeline(take, options.sampleRate, options.tailSeconds);
     if (!timeline.has_value()) {
         DP_LOG_ERROR("[PluginOfflineRenderer] Invalid or unrepresentable timeline");
         return false;

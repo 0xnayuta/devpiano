@@ -18,8 +18,6 @@
 
 namespace devpiano::exporting {
 namespace {
-constexpr auto wavTailSeconds = 2.0;
-
 using devpiano::recording::appendNormalTakeEndMidi;
 using devpiano::recording::applyAcousticSnapshotToBuiltin;
 using devpiano::recording::hasUsableRenderOptions;
@@ -46,7 +44,7 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
         return false;
     }
 
-    auto timeline = prepareRenderTimeline(take, options.sampleRate, wavTailSeconds);
+    auto timeline = prepareRenderTimeline(take, options.sampleRate, options.tailSeconds);
     if (!timeline.has_value()) {
         DP_LOG_ERROR("[Export] WAV export rejected: invalid or unrepresentable timeline");
         return false;
