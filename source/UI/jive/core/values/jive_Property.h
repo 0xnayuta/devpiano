@@ -633,6 +633,7 @@ private:
     void transitionsChanged() {
         // 在替换引用前快照旧过渡状态，替换后不再解引用旧容器内的对象。
         const auto* previous = currentTransition;
+        const auto hadPreviousTransition = previous != nullptr;
         const auto preservePrevious = previous != nullptr && previous->calculateProgress() < 1.0
             && !previous->source.isVoid() && !previous->target.isVoid();
         const auto previousValue
@@ -661,6 +662,13 @@ private:
 
         currentTransition = nextTransition;
         observeTransition(nextTransition);
+
+        // 移除活动过渡后，消费者仍停留在最后一个中间值；必须显式通知一次，
+        // 让它读取 calculateCurrent() 的最终目标。回调可能销毁本对象，
+        // 因此这是函数的最后一条语句。
+        if (hadPreviousTransition && nextTransition == nullptr && onValueChange != nullptr) {
+            onValueChange();
+        }
     }
 
     void updateTransition() {
