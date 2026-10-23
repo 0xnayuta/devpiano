@@ -1,7 +1,11 @@
 #include <JuceHeader.h>
 
+#include <cmath>
+#include <memory>
+
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/ViewHost.h"
+#include "UI/jive/core/geometry/jive_BoxModel.h"
 #include "UI/jive/core/geometry/jive_Length.h"
 #include "UI/jive/core/layout/jive_NormalisedProgressBar.h"
 #include "UI/jive/core/layout/jive_TextComponent.h"
@@ -36,6 +40,14 @@ public:
         testGridItemMarginInvalidatesCache();
         testParsedObjectParentChain();
         testStyleSheetCalculatedStateIsolation();
+        testTransitionRemovalNotifiesConsumer();
+        testTransitionCallbackDestruction();
+        testNestedObjectRemovalWithoutExternalOwner();
+        testAnimatedMarginAdvancesConstraintsVersion();
+        testPaddedContainerMeasuresAtContentWidth();
+        testShrunkenContainerMeasuresAtAllocatedWidth();
+        testWordWrapChangeReflowsText();
+        testStyleSheetLiveMutationKeepsTransition();
     }
 
 private:
@@ -482,6 +494,235 @@ private:
         secondComponent.getProperties().remove("style-sheet");
         secondSheet = nullptr;
         firstSheet = nullptr;
+    }
+
+    void testTransitionRemovalNotifiesConsumer() {
+        beginTest("Property: removing a running transition notifies the consumer");
+
+        juce::ValueTree state("Component");
+        state.setProperty("value", 0.0, nullptr);
+        state.setProperty("transition", "value 1s linear 0s", nullptr);
+
+        jive::Property<double> value { state, "value" };
+        int changes = 0;
+        value.onValueChange = [&changes] { ++changes; };
+
+        state.setProperty("value", 1.0, nullptr);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(200);
+        expect(changes > 0, "setting the target must notify the consumer");
+
+        const auto changesBeforeRemoval = changes;
+        state.removeProperty("transition", nullptr);
+        expectEquals(changes, changesBeforeRemoval + 1, "removing the transition must notify the final value");
+        expect(value.calculateCurrent() == 1.0, "calculateCurrent must resolve to the target after removal");
+    }
+
+    void testTransitionCallbackDestruction() {
+        beginTest("Property: destroying the owner in its progress callback is safe");
+
+        juce::ValueTree state("Component");
+        state.setProperty("value", 0.0, nullptr);
+        state.setProperty("transition", "value 200ms linear 0s", nullptr);
+
+        auto value = std::make_unique<jive::Property<double>>(state, "value");
+        auto destroyed = false;
+        value->onTransitionProgressed = [&value, &destroyed] {
+            if (!destroyed) {
+                destroyed = true;
+                value.reset();
+            }
+        };
+
+        state.setProperty("value", 1.0, nullptr);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(300);
+
+        expect(destroyed, "the progress callback must run");
+        expect(value == nullptr, "the property must be destroyed by its callback");
+    }
+
+    void testNestedObjectRemovalWithoutExternalOwner() {
+        beginTest("Object: removing a nested object without an external owner is safe");
+
+        auto parsed = jive::parseJSON(R"({"child":{"value":1}})");
+        auto* root = dynamic_cast<jive::Object*>(parsed.getDynamicObject());
+        expect(root != nullptr);
+        if (root == nullptr) {
+            return;
+        }
+
+        root->removeProperty("child");
+        expect(root->getProperty("child").isVoid());
+
+        // 触发下一次 syncNestedObjects：旧实现会在这里解引用已释放的子对象。
+        auto* replacement = new jive::Object {};
+        root->setProperty("child", juce::var(replacement));
+        expect(root->getProperty("child").getDynamicObject() == replacement);
+        replacement->setProperty("value", 2);
+        expectEquals(static_cast<int>(replacement->getProperty("value")), 2);
+    }
+
+    void testAnimatedMarginAdvancesConstraintsVersion() {
+        beginTest("BoxModel: animated margin advances the constraints version");
+
+        juce::ValueTree state("Component");
+        state.setProperty("width", 100, nullptr);
+        state.setProperty("height", 100, nullptr);
+        state.setProperty("margin", "0", nullptr);
+        state.setProperty("transition", "margin 100ms linear 0s", nullptr);
+
+        jive::BoxModel box { state };
+        state.setProperty("margin", "0 0 0 40", nullptr);
+        const auto versionAfterSet = box.getConstraintsVersion();
+
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(80);
+        expect(box.getConstraintsVersion() > versionAfterSet, "margin transition ticks must invalidate item caches");
+    }
+
+    void testPaddedContainerMeasuresAtContentWidth() {
+        beginTest("Container: padding is not subtracted twice from child measurement");
+
+        juce::ValueTree root("Component");
+        root.setProperty("id", "padding-root", nullptr);
+        root.setProperty("width", 100, nullptr);
+        root.setProperty("padding", "10", nullptr);
+        root.setProperty("display", "flex", nullptr);
+        root.setProperty("flex-direction", "column", nullptr);
+
+        juce::ValueTree column("Component");
+        column.setProperty("id", "padding-column", nullptr);
+        column.setProperty("width", 50, nullptr);
+        column.setProperty("display", "flex", nullptr);
+        column.setProperty("flex-direction", "column", nullptr);
+
+        juce::ValueTree text("Text");
+        text.setProperty("id", "padding-text", nullptr);
+        text.setProperty("text", "One two three four five six seven eight nine ten.", nullptr);
+        column.appendChild(text, nullptr);
+        root.appendChild(column, nullptr);
+
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(root, true));
+        host.fitToContent(100);
+
+        auto* columnComponent = host.find("padding-column");
+        auto* textComponent = host.find<jive::TextComponent>("padding-text");
+        expect(columnComponent != nullptr && textComponent != nullptr);
+        if (columnComponent == nullptr || textComponent == nullptr) {
+            return;
+        }
+
+        const auto expected = static_cast<int>(
+            std::ceil(textComponent->getTextLayout(static_cast<float>(textComponent->getWidth())).getHeight()));
+        expectEquals(columnComponent->getHeight(), expected,
+                     "the nested column must be measured at its allocated content width");
+    }
+
+    void testShrunkenContainerMeasuresAtAllocatedWidth() {
+        beginTest("Container: shrunken columns remeasure at their allocated width");
+
+        juce::ValueTree root("Component");
+        root.setProperty("id", "shrink-root", nullptr);
+        root.setProperty("width", 100, nullptr);
+        root.setProperty("display", "flex", nullptr);
+        root.setProperty("flex-direction", "row", nullptr);
+
+        const auto addColumn = [&root](int index) {
+            juce::ValueTree column("Component");
+            column.setProperty("id", "shrink-column-" + juce::String(index), nullptr);
+            column.setProperty("display", "flex", nullptr);
+            column.setProperty("flex-direction", "column", nullptr);
+            column.setProperty("flex-shrink", 1.0, nullptr);
+
+            juce::ValueTree text("Text");
+            text.setProperty("id", "shrink-text-" + juce::String(index), nullptr);
+            text.setProperty("text", "abcd abcd", nullptr);
+            column.appendChild(text, nullptr);
+            root.appendChild(column, nullptr);
+        };
+        addColumn(0);
+        addColumn(1);
+
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(root, true));
+        host.fitToContent(100);
+
+        auto* columnComponent = host.find("shrink-column-0");
+        auto* textComponent = host.find<jive::TextComponent>("shrink-text-0");
+        expect(columnComponent != nullptr && textComponent != nullptr);
+        if (columnComponent == nullptr || textComponent == nullptr) {
+            return;
+        }
+
+        const auto expected = static_cast<int>(
+            std::ceil(textComponent->getTextLayout(static_cast<float>(textComponent->getWidth())).getHeight()));
+        expectEquals(columnComponent->getHeight(), expected,
+                     "a shrunk column must remeasure its wrapped content at the allocated width");
+    }
+
+    void testWordWrapChangeReflowsText() {
+        beginTest("Text: changing word-wrap reflows a fixed-width text");
+
+        juce::ValueTree root("Component");
+        root.setProperty("id", "wrap-root", nullptr);
+        root.setProperty("width", 100, nullptr);
+        root.setProperty("display", "flex", nullptr);
+        root.setProperty("flex-direction", "column", nullptr);
+
+        juce::ValueTree text("Text");
+        text.setProperty("id", "wrap-text", nullptr);
+        text.setProperty("width", 100, nullptr);
+        text.setProperty("text", "The quick brown fox jumps over the lazy dog and keeps running through the field.",
+                         nullptr);
+        root.appendChild(text, nullptr);
+
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(root, true));
+        host.fitToContent(100);
+
+        auto* component = host.find("wrap-text");
+        auto* textComponent = host.find<jive::TextComponent>("wrap-text");
+        expect(component != nullptr && textComponent != nullptr);
+        if (component == nullptr || textComponent == nullptr) {
+            return;
+        }
+
+        const auto wrappedHeight = component->getHeight();
+        expect(wrappedHeight > 20);
+
+        expect(host.setProperty("wrap-text", "word-wrap", "none"));
+        const auto expected = static_cast<int>(std::ceil(textComponent->getTextLayout(100.0f).getHeight()));
+        expectEquals(component->getHeight(), expected, "a wrap change must reflow the text immediately");
+        expect(component->getHeight() < wrappedHeight);
+    }
+
+    void testStyleSheetLiveMutationKeepsTransition() {
+        beginTest("StyleSheet: live mutation of the same style object keeps its transition");
+
+        juce::Component component;
+        component.setSize(100, 100);
+
+        juce::ValueTree state("Component");
+        auto shared = jive::Object::ReferenceCountedPointer { new jive::Object {} };
+        shared->setProperty("background", "#112233FF");
+        shared->setProperty("transition", "background 200ms linear 0s");
+        state.setProperty("style", juce::var(shared.get()), nullptr);
+
+        auto sheet = jive::StyleSheet::create(component, state);
+        expect(sheet->getBackground().getColour() == juce::Colour(0xFF112233));
+
+        shared->setProperty("background", "#445566FF");
+        expect(sheet->getBackground().getColour() == juce::Colour(0xFF112233),
+               "a live style mutation must start from the previous colour");
+
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(300);
+        expect(sheet->getBackground().getColour() == juce::Colour(0xFF445566),
+               "the transition must reach the new colour");
+
+        component.getProperties().remove("style-sheet");
+        sheet = nullptr;
     }
 };
 
