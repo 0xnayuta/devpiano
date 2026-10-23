@@ -30,7 +30,7 @@ struct TestEvent {
     bool noteOff = false;
 };
 
-devpiano::recording::RecordingTake makeTake(std::int64_t length, std::vector<TestEvent> events) {
+devpiano::recording::RecordingTake makeTake(std::int64_t length, const std::vector<TestEvent>& events) {
     devpiano::recording::RecordingTake take;
     take.sampleRate = kRate;
     take.lengthSamples = length;
@@ -112,7 +112,7 @@ public:
         rate = newRate;
         active = false;
         releaseRemaining = 0;
-        totalRelease = static_cast<double>(rate) * 4.0;
+        totalRelease = rate * 4.0;
         noteOnCount = 0;
         noteOffCount = 0;
         controllerCount = 0;
@@ -457,6 +457,6 @@ private:
     }
 };
 
-static ExportTailDurationTest exportTailDurationTest;
+ExportTailDurationTest exportTailDurationTest;
 
 } // namespace
