@@ -10,15 +10,16 @@
 #include "jive_ContainerItem.h"
 
 namespace jive {
-class GridItem : public ContainerItem::Child, private BoxModel::Listener {
+class GridItem : public ContainerItem::Child {
 public:
     explicit GridItem(std::unique_ptr<GuiItem> itemToDecorate);
     ~GridItem() override;
 
     [[nodiscard]] juce::GridItem toJuceGridItem(juce::Rectangle<float> parentContentBounds, LayoutStrategy strategy);
 
+    void idealSizeChanged() final;
+
 private:
-    void boxModelChanged(BoxModel&) final;
     void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) override;
 
     PassiveProperty<int> order;
@@ -27,8 +28,10 @@ private:
     PassiveProperty<juce::GridItem::StartAndEndProperty> gridColumn;
     PassiveProperty<juce::GridItem::StartAndEndProperty> gridRow;
     PassiveProperty<juce::String> gridArea;
+    PassiveProperty<float> idealWidth;
 
     const BoxModel& box { boxModel(*this) };
     std::unordered_map<ItemCacheKey, juce::GridItem> cachedItems;
+    std::uint64_t cachedItemsConstraintsVersion = 0;
 };
 } // namespace jive

@@ -145,8 +145,16 @@ void Text::updateTextComponent() {
         }
     }
 
-    idealWidth = nextWholeNumberAbove(
-        buildTextLayout(static_cast<float>(std::numeric_limits<juce::uint16>::max())).getWidth());
+    const auto naturalLayout = buildTextLayout(static_cast<float>(std::numeric_limits<juce::uint16>::max()));
+    const juce::Point naturalSize { naturalLayout.getWidth(), naturalLayout.getHeight() };
+    const auto currentLineSpacing = lineSpacing.get();
+    const auto measurementsChanged = !juce::exactlyEqual(naturalSize.x, previousNaturalSize.x)
+        || !juce::exactlyEqual(naturalSize.y, previousNaturalSize.y)
+        || !juce::exactlyEqual(currentLineSpacing, previousLineSpacing);
+    previousNaturalSize = naturalSize;
+    previousLineSpacing = currentLineSpacing;
+
+    idealWidth = nextWholeNumberAbove(naturalSize.x);
 
     if (auto* child = toType<ContainerItem::Child>()) {
         child->idealSizeChanged();
@@ -161,8 +169,10 @@ void Text::updateTextComponent() {
             = dynamic_cast<GuiItemDecorator&>(*parentItem).getTopLevelDecorator().toType<ContainerItem>()) {
             if (static_cast<bool>(state[ids::setupInProgress()])) {
                 containerParent->invalidateIdealSize();
-            } else {
+            } else if (measurementsChanged) {
                 containerParent->updateIdealSize();
+            } else {
+                containerParent->invalidateIdealSize();
             }
         }
     }

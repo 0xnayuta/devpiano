@@ -34,6 +34,7 @@ public:
 
     protected:
         using ItemCacheKey = std::pair<juce::Rectangle<float>, LayoutStrategy>;
+        static constexpr std::size_t maxNumCachedItems = 8;
 
         void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) override;
 

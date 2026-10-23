@@ -42,6 +42,7 @@ FlexItem::FlexItem(std::unique_ptr<GuiItem> itemToDecorate)
     , flexShrink { state, "flex-shrink" }
     , flexBasis { state, "flex-basis" }
     , alignSelf { state, "align-self" }
+    , parentDirection { state.getParent(), "flex-direction" }
     , layoutDummy { std::make_unique<FlexLayoutDummy>(*this) } {
     if (!flexShrink.exists()) {
         flexShrink = juce::FlexItem {}.flexShrink;
@@ -63,13 +64,9 @@ FlexItem::FlexItem(std::unique_ptr<GuiItem> itemToDecorate)
     flexBasis.onValueChange = updateParentLayout;
     flexBasis.onTransitionProgressed = updateParentLayout;
     alignSelf.onValueChange = updateParentLayout;
-
-    box.addListener(*this);
 }
 
-FlexItem::~FlexItem() {
-    box.removeListener(*this);
-}
+FlexItem::~FlexItem() = default;
 
 void FlexItem::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
     ContainerItem::Child::valueTreePropertyChanged(tree, property);
@@ -77,6 +74,19 @@ void FlexItem::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Ident
 }
 
 juce::FlexItem FlexItem::toJuceFlexItem(juce::Rectangle<float> parentContentBounds, LayoutStrategy strategy) {
+    const auto direction = parentDirection.getOr(juce::FlexBox::Direction::column);
+    const auto orientation
+        = direction == juce::FlexBox::Direction::row || direction == juce::FlexBox::Direction::rowReverse
+        ? Orientation::horizontal
+        : Orientation::vertical;
+
+    // 方向与盒模型约束构成缓存失效键：任一变化都会改变 applyConstraints 的结果。
+    if (box.getConstraintsVersion() != cachedItemsConstraintsVersion || orientation != cachedItemsOrientation) {
+        cachedItems.clear();
+        cachedItemsConstraintsVersion = box.getConstraintsVersion();
+        cachedItemsOrientation = orientation;
+    }
+
     const auto key = std::make_pair(parentContentBounds, strategy);
 
     if (cachedItems.find(key) == std::end(cachedItems)) {
@@ -90,29 +100,24 @@ juce::FlexItem FlexItem::toJuceFlexItem(juce::Rectangle<float> parentContentBoun
             flexItem.alignSelf = alignSelf;
         }
 
-        const auto orientation = [this]() {
-            const Property<juce::FlexBox::Direction> parentDirection {
-                state.getParent(),
-                "flex-direction",
-            };
-            const auto direction = parentDirection.get();
+        applyConstraints(flexItem, parentContentBounds, orientation, strategy);
 
-            if (direction == juce::FlexBox::Direction::row || direction == juce::FlexBox::Direction::rowReverse) {
-                return Orientation::horizontal;
-            }
-
-            return Orientation::vertical;
-        };
-        applyConstraints(flexItem, parentContentBounds, orientation(), strategy);
+        if (cachedItems.size() >= maxNumCachedItems) {
+            cachedItems.clear();
+        }
 
         cachedItems[key] = flexItem;
     }
 
     dynamic_cast<FlexLayoutDummy&>(*layoutDummy).setStrategy(strategy);
+    std::fprintf(stderr, "[flex] exists=%d ideal=%f bounds=%fx%f strategy=%d width=%f minWidth=%f\n",
+                 static_cast<int>(flexGrow.exists()), flexGrow.calculateCurrent(), parentContentBounds.getWidth(),
+                 parentContentBounds.getHeight(), static_cast<int>(strategy), cachedItems.find(key)->second.width,
+                 cachedItems.find(key)->second.minWidth);
     return cachedItems.find(key)->second;
 }
 
-void FlexItem::boxModelChanged(BoxModel&) {
+void FlexItem::idealSizeChanged() {
     cachedItems.clear();
 }
 } // namespace jive

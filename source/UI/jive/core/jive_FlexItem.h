@@ -10,15 +10,16 @@
 #include "jive_ContainerItem.h"
 
 namespace jive {
-class FlexItem : public ContainerItem::Child, private BoxModel::Listener {
+class FlexItem : public ContainerItem::Child {
 public:
     explicit FlexItem(std::unique_ptr<GuiItem> itemToDecorate);
     ~FlexItem() override;
 
     [[nodiscard]] juce::FlexItem toJuceFlexItem(juce::Rectangle<float> parentContentBounds, LayoutStrategy strategy);
 
+    void idealSizeChanged() final;
+
 private:
-    void boxModelChanged(BoxModel&) final;
     void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) override;
 
     PassiveProperty<int> order;
@@ -26,9 +27,12 @@ private:
     PassiveProperty<float> flexShrink;
     PassiveProperty<float> flexBasis;
     PassiveProperty<juce::FlexItem::AlignSelf> alignSelf;
+    PassiveProperty<juce::FlexBox::Direction> parentDirection;
 
     const BoxModel& box { boxModel(*this) };
     const std::unique_ptr<juce::Component> layoutDummy;
     std::unordered_map<ItemCacheKey, juce::FlexItem> cachedItems;
+    std::uint64_t cachedItemsConstraintsVersion = 0;
+    Orientation cachedItemsOrientation = Orientation::vertical;
 };
 } // namespace jive

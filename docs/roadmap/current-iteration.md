@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39 与 R0–R11 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）以及 39.5-4a/4d（构建守卫与脏标记、Flex gap 修复）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-4b/4c 与 39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
+> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）、39.5-4a/4b/4d（构建守卫与脏标记、Item 缓存失效、Flex gap 修复）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-4c 与 39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
 
 ## 0. 归档入口
 
@@ -170,7 +170,15 @@
 - **门面同步**:`ViewHost::fitToContent()` 按给定宽度设置组件后调用 `updateIdealSizeWithinContentBounds()`,保留 ideal-height 与子节点 bottom/margin、根 padding/border 校正;`relayoutContainer()` 改为经由容器 `refreshLayout()` 消费脏状态,不再只调用 `layOutChildren()`。
 - **Flex gap**:`FlexContainer` 支持 `gap`(半 margin + 布局区扩展);`custom-colour-palette` 的 220px 现在精确容纳 8 个 18px 色块、7 个 4px 间距与 44px Clear,Clear 的最右边界与色板右边界重合;删除 Clear 重复的 4px 左 margin。未做全应用 margin→gap 重写。
 - **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(25.9 s);`JiveCoreValues` 71 项(新增色板 gap 几何:首个色块 x=0、第 8 个 x=154、Clear 176..220、单一 4px 间距);`ViewHost` 37 项(新增解释后全树无 `setup-in-progress` 残留);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
-- **未启动**:4b(Item 缓存)与 4c(TextLayout 缓存)仍需分别实现和验证;真实 windows-mcp 表面证据仍在阶段出口补足。
+- **后续**:4b 已在 1.10 完成;4c(TextLayout 缓存)仍未启动,真实 windows-mcp 表面证据仍在阶段出口补足。
+
+### 1.10 Phase 39.5-4b 实施结果与验证
+
+- **完整失效键**:`FlexItem` 的几何缓存以盒模型 `constraintsVersion`、父级 `flex-direction` 推导的 `Orientation` 共同判定失效;`GridItem` 以 `constraintsVersion` 判定。版本覆盖 width/height/min/max/ideal/margin 变化(含 margin 过渡 tick),方向变化不再复用旧轴约束。
+- **文本测量**:`FlexItem`/`GridItem` 实现 `idealSizeChanged()` 清空缓存;`Text::updateTextComponent()` 仅在自然尺寸或 line-spacing 真正变化时 `updateIdealSize()`,否则只 `invalidateIdealSize()`,避免无变化重排。`GridItem` 额外监听自身 `ideal-width`,覆盖字体解析后宽度变化但状态未变的路径。
+- **监听与内存**:移除每个 Flex/Grid item 额外的 `BoxModel::Listener` 注册,缓存写入前限制为 8 项,避免连续尺寸变化导致无界增长。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(28.9 s);`JiveCoreValues` 85 项(新增方向、margin、文本换行、line-spacing 失效回归);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`ViewHost` 37、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。负向验证:临时移除方向/版本判定后方向与 margin 断言失败;临时清空 `idealSizeChanged()` 后 line-spacing 断言失败,确认测试能拦截真实回归。
+- **未启动**:4c(TextLayout 缓存)。
 
 ## 2. 后续候选阶段(暂缓)
 

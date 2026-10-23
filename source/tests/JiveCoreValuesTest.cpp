@@ -30,6 +30,9 @@ public:
         testBlockCoordinateExclusivity();
         testPassiveDispatchThroughSetProperty();
         testFlexGapFillsBindingPalette();
+        testFlexItemCacheInvalidation();
+        testTextMeasurementReflowsFlexItem();
+        testGridItemMarginInvalidatesCache();
         testParsedObjectParentChain();
         testStyleSheetCalculatedStateIsolation();
     }
@@ -238,6 +241,118 @@ private:
         expectEquals(clearBounds.getX() - lastSwatchBounds.getRight(), 4, "one gap between the last swatch and Clear");
         expectEquals(clearBounds.getWidth(), 44);
         expectEquals(clearBounds.getRight(), palette->getWidth(), "Clear must end at the palette edge");
+    }
+
+    void testFlexItemCacheInvalidation() {
+        beginTest("FlexItem: direction and margin invalidate cached geometry");
+
+        juce::ValueTree root { "Component" };
+        root.setProperty("id", "cache-root", nullptr);
+        root.setProperty("display", "flex", nullptr);
+        root.setProperty("flex-direction", "row", nullptr);
+        root.setProperty("width", 200, nullptr);
+        root.setProperty("height", 100, nullptr);
+
+        juce::ValueTree child { "Text" };
+        child.setProperty("id", "cache-child", nullptr);
+        child.setProperty("text", "Hi", nullptr);
+        child.setProperty("flex-shrink", 0.0f, nullptr);
+        root.appendChild(child, nullptr);
+
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(root, true));
+        host.fitToContent(200);
+
+        auto* component = host.find("cache-child");
+        expect(component != nullptr);
+        if (component == nullptr) {
+            return;
+        }
+
+        expect(component->getWidth() < 200, "row layout uses the text's natural width");
+        expect(component->getWidth() > 0);
+
+        root.setProperty("flex-direction", "column", nullptr);
+        host.relayoutContainer("cache-root");
+        expectEquals(component->getWidth(), 200, "column layout must not reuse the row constraints");
+
+        child.setProperty("margin", "0 0 0 20", nullptr);
+        host.relayoutContainer("cache-root");
+        expectEquals(component->getX(), 20, "margin changes must not reuse cached item geometry");
+    }
+
+    void testTextMeasurementReflowsFlexItem() {
+        beginTest("FlexItem: text measurement changes reflow the cached geometry");
+
+        juce::ValueTree root { "Component" };
+        root.setProperty("id", "text-root", nullptr);
+        root.setProperty("display", "flex", nullptr);
+        root.setProperty("flex-direction", "column", nullptr);
+        root.setProperty("width", 300, nullptr);
+
+        juce::ValueTree text { "Text" };
+        text.setProperty("id", "cache-text", nullptr);
+        text.setProperty("text", "Hi", nullptr);
+        text.setProperty("width", 100, nullptr);
+        root.appendChild(text, nullptr);
+
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(root, true));
+        host.fitToContent(300);
+
+        auto* component = host.find("cache-text");
+        expect(component != nullptr);
+        if (component == nullptr) {
+            return;
+        }
+
+        const auto initialHeight = component->getHeight();
+        text.setProperty("text", "A long line of text that must wrap onto several lines inside the narrow column.",
+                         nullptr);
+
+        expect(component->getHeight() > initialHeight, "wrapped text must grow the flex item");
+
+        const auto heightBeforeLineSpacing = component->getHeight();
+        text.setProperty("line-spacing", 20.0f, nullptr);
+        expect(component->getHeight() > heightBeforeLineSpacing,
+               "line spacing changes must invalidate the cached text height");
+    }
+
+    void testGridItemMarginInvalidatesCache() {
+        beginTest("GridItem: margin changes invalidate cached geometry");
+
+        juce::ValueTree root { "Component" };
+        root.setProperty("id", "grid-root", nullptr);
+        root.setProperty("display", "grid", nullptr);
+        root.setProperty("justify-items", "start", nullptr);
+        root.setProperty("align-items", "start", nullptr);
+        root.setProperty("width", 200, nullptr);
+        root.setProperty("height", 100, nullptr);
+
+        juce::ValueTree child { "Button" };
+        child.setProperty("id", "grid-child", nullptr);
+        child.setProperty("width", 50, nullptr);
+        child.setProperty("height", 20, nullptr);
+        root.appendChild(child, nullptr);
+
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(root, true));
+        host.fitToContent(200);
+
+        auto* component = host.find("grid-child");
+        expect(component != nullptr);
+        if (component == nullptr) {
+            return;
+        }
+
+        expectEquals(component->getX(), 0);
+
+        child.setProperty("margin", "0 0 0 20", nullptr);
+        host.relayoutContainer("grid-root");
+        expectEquals(component->getX(), 20, "grid item margin changes must not reuse cached geometry");
     }
 
     void testParsedObjectParentChain() {

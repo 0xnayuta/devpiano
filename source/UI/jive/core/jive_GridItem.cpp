@@ -15,7 +15,8 @@ GridItem::GridItem(std::unique_ptr<GuiItem> itemToDecorate)
     , alignSelf { state, "align-self" }
     , gridColumn { state, "grid-column" }
     , gridRow { state, "grid-row" }
-    , gridArea { state, "grid-area" } {
+    , gridArea { state, "grid-area" }
+    , idealWidth { state, "ideal-width" } {
     static const juce::GridItem defaultGridItem;
 
     if (!justifySelf.exists()) {
@@ -48,20 +49,23 @@ GridItem::GridItem(std::unique_ptr<GuiItem> itemToDecorate)
     gridColumn.onValueChange = updateParentLayout;
     gridRow.onValueChange = updateParentLayout;
     gridArea.onValueChange = updateParentLayout;
-
-    box.addListener(*this);
+    // 文本字体解析后 ideal-width 可能变化而不改其它状态，缓存几何必须失效。
+    idealWidth.onValueChange = updateParentLayout;
 }
 
-GridItem::~GridItem() {
-    box.removeListener(*this);
-}
+GridItem::~GridItem() = default;
 
 void GridItem::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) {
     ContainerItem::Child::valueTreePropertyChanged(tree, property);
-    forwardPropertyChange(tree, property, order, justifySelf, alignSelf, gridColumn, gridRow, gridArea);
+    forwardPropertyChange(tree, property, order, justifySelf, alignSelf, gridColumn, gridRow, gridArea, idealWidth);
 }
 
 juce::GridItem GridItem::toJuceGridItem(juce::Rectangle<float> parentContentBounds, LayoutStrategy strategy) {
+    if (box.getConstraintsVersion() != cachedItemsConstraintsVersion) {
+        cachedItems.clear();
+        cachedItemsConstraintsVersion = box.getConstraintsVersion();
+    }
+
     const auto key = std::make_pair(parentContentBounds, strategy);
 
     if (cachedItems.find(key) == std::end(cachedItems)) {
@@ -90,13 +94,17 @@ juce::GridItem GridItem::toJuceGridItem(juce::Rectangle<float> parentContentBoun
             }
         }
 
+        if (cachedItems.size() >= maxNumCachedItems) {
+            cachedItems.clear();
+        }
+
         cachedItems[key] = gridItem;
     }
 
     return cachedItems.find(key)->second;
 }
 
-void GridItem::boxModelChanged(BoxModel&) {
+void GridItem::idealSizeChanged() {
     cachedItems.clear();
 }
 } // namespace jive
