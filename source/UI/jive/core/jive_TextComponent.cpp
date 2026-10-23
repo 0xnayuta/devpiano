@@ -7,6 +7,9 @@
 
 #include "jive_TextComponent.h"
 
+#include <algorithm>
+#include <iterator>
+
 namespace jive {
 TextComponent::TextComponent() {
     canvas.onPaint = [this](juce::Graphics& g) {
@@ -14,7 +17,8 @@ TextComponent::TextComponent() {
             return;
         }
 
-        getAttributedString().draw(g, getLocalBounds().toFloat());
+        const auto bounds = getLocalBounds().toFloat();
+        getTextLayout(bounds.getWidth()).draw(g, bounds);
     };
     canvas.setAlwaysOnTop(true);
     canvas.setBufferedToImage(true);
@@ -34,6 +38,7 @@ const juce::String& TextComponent::getText() const {
 void TextComponent::setText(const juce::String& newText) {
     if (newText != text) {
         text = newText;
+        textLayoutsSourceMayBeOutOfDate = true;
         canvas.repaint();
     }
 }
@@ -45,6 +50,7 @@ juce::Font TextComponent::getFont() const {
 void TextComponent::setFont(const juce::Font& newFont) {
     if (newFont != font) {
         font = newFont;
+        textLayoutsSourceMayBeOutOfDate = true;
         listeners.call(&Listener::textFontChanged, *this);
         canvas.repaint();
     }
@@ -53,6 +59,7 @@ void TextComponent::setFont(const juce::Font& newFont) {
 void TextComponent::setJustification(juce::Justification newJustification) {
     if (newJustification != justification) {
         justification = newJustification;
+        textLayoutsSourceMayBeOutOfDate = true;
         canvas.repaint();
     }
 }
@@ -60,6 +67,7 @@ void TextComponent::setJustification(juce::Justification newJustification) {
 void TextComponent::setWordWrap(juce::AttributedString::WordWrap newWordWrap) {
     if (newWordWrap != wordWrap) {
         wordWrap = newWordWrap;
+        textLayoutsSourceMayBeOutOfDate = true;
         canvas.repaint();
     }
 }
@@ -67,6 +75,7 @@ void TextComponent::setWordWrap(juce::AttributedString::WordWrap newWordWrap) {
 void TextComponent::setDirection(juce::AttributedString::ReadingDirection newDirection) {
     if (newDirection != direction) {
         direction = newDirection;
+        textLayoutsSourceMayBeOutOfDate = true;
         canvas.repaint();
     }
 }
@@ -74,6 +83,7 @@ void TextComponent::setDirection(juce::AttributedString::ReadingDirection newDir
 void TextComponent::setLineSpacing(float newLineSpacing) {
     if (!juce::approximatelyEqual(newLineSpacing, lineSpacing)) {
         lineSpacing = newLineSpacing;
+        textLayoutsSourceMayBeOutOfDate = true;
         canvas.repaint();
     }
 }
@@ -85,17 +95,20 @@ juce::Colour TextComponent::getTextColour() const {
 void TextComponent::setTextColour(juce::Colour newColour) {
     if (newColour != textColour) {
         textColour = newColour;
+        textLayoutsSourceMayBeOutOfDate = true;
         canvas.repaint();
     }
 }
 
 void TextComponent::clearAttributes() {
     appendices.clear();
+    textLayoutsSourceMayBeOutOfDate = true;
     canvas.repaint();
 }
 
 void TextComponent::append(const juce::AttributedString& attributedStringToAppend) {
     appendices.add(attributedStringToAppend);
+    textLayoutsSourceMayBeOutOfDate = true;
     canvas.repaint();
 }
 
@@ -121,6 +134,66 @@ juce::AttributedString TextComponent::getAttributedString() const {
     }
 
     return attributedString;
+}
+
+static bool isEquivalent(const juce::AttributedString& a, const juce::AttributedString& b) {
+    if (a.getText() != b.getText() || a.getJustification() != b.getJustification() || a.getWordWrap() != b.getWordWrap()
+        || a.getReadingDirection() != b.getReadingDirection()
+        || !juce::exactlyEqual(a.getLineSpacing(), b.getLineSpacing())
+        || a.getNumAttributes() != b.getNumAttributes()) {
+        return false;
+    }
+
+    for (auto i = 0; i < a.getNumAttributes(); ++i) {
+        const auto& first = a.getAttribute(i);
+        const auto& second = b.getAttribute(i);
+
+        if (first.range != second.range || first.colour != second.colour || first.font != second.font) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// 较窄宽度下的换行位置与创建宽度一致时可直接复用，避免重复 shaping。
+static bool canBeReusedAt(const juce::TextLayout& layout, float createdAtMaxWidth, float maxWidth,
+                          juce::AttributedString::WordWrap wordWrap) {
+    return wordWrap == juce::AttributedString::WordWrap::none || juce::exactlyEqual(maxWidth, createdAtMaxWidth)
+        || (layout.getWidth() <= maxWidth && maxWidth <= createdAtMaxWidth);
+}
+
+const juce::TextLayout& TextComponent::getTextLayout(float maxWidth) const {
+    if (textLayoutsSourceMayBeOutOfDate) {
+        updateTextLayoutsSource(getAttributedString());
+    }
+
+    const auto reusable
+        = std::find_if(textLayouts.begin(), textLayouts.end(), [this, maxWidth](const CachedTextLayout& cached) {
+              return canBeReusedAt(cached.layout, cached.maxWidth, maxWidth, textLayoutsSource.getWordWrap());
+          });
+
+    if (reusable != textLayouts.end()) {
+        std::rotate(reusable, std::next(reusable), textLayouts.end());
+        return textLayouts.back().layout;
+    }
+
+    if (textLayouts.size() >= maxNumCachedTextLayouts) {
+        textLayouts.erase(textLayouts.begin());
+    }
+
+    auto& created = textLayouts.emplace_back(CachedTextLayout { maxWidth, {} });
+    created.layout.createLayout(textLayoutsSource, maxWidth);
+    return created.layout;
+}
+
+void TextComponent::updateTextLayoutsSource(const juce::AttributedString& attributedString) const {
+    if (!isEquivalent(textLayoutsSource, attributedString)) {
+        textLayoutsSource = attributedString;
+        textLayouts.clear();
+    }
+
+    textLayoutsSourceMayBeOutOfDate = false;
 }
 
 void TextComponent::addListener(Listener& listener) const {

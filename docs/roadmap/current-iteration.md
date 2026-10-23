@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39 与 R0–R11 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）、39.5-4a/4b/4d（构建守卫与脏标记、Item 缓存失效、Flex gap 修复）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-4c 与 39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
+> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）、39.5-4a/4b/4c/4d（构建守卫与脏标记、Item 缓存失效、TextLayout 缓存、Flex gap 修复）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
 
 ## 0. 归档入口
 
@@ -178,7 +178,15 @@
 - **文本测量**:`FlexItem`/`GridItem` 实现 `idealSizeChanged()` 清空缓存;`Text::updateTextComponent()` 仅在自然尺寸或 line-spacing 真正变化时 `updateIdealSize()`,否则只 `invalidateIdealSize()`,避免无变化重排。`GridItem` 额外监听自身 `ideal-width`,覆盖字体解析后宽度变化但状态未变的路径。
 - **监听与内存**:移除每个 Flex/Grid item 额外的 `BoxModel::Listener` 注册,缓存写入前限制为 8 项,避免连续尺寸变化导致无界增长。
 - **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(28.9 s);`JiveCoreValues` 85 项(新增方向、margin、文本换行、line-spacing 失效回归);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`ViewHost` 37、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。负向验证:临时移除方向/版本判定后方向与 margin 断言失败;临时清空 `idealSizeChanged()` 后 line-spacing 断言失败,确认测试能拦截真实回归。
-- **未启动**:4c(TextLayout 缓存)。
+- **后续**:4c 已在 1.11 完成。
+
+### 1.11 Phase 39.5-4c 实施结果与验证
+
+- **测量复用**:`TextComponent::getTextLayout(maxWidth)` 按最大宽度缓存 `juce::TextLayout`;`Text` 的 ideal-height native function 与自然尺寸测量都改为读取该缓存,不再每次重新 shaping。
+- **绘制共享**:Canvas 的 `onPaint` 使用同一 `getTextLayout(当前宽度)`,绘制与测量共享缓存条目。
+- **复用与失效**:布局在 `word-wrap: none`、相同宽度,或换行结果不变(布局宽 ≤ 目标宽 ≤ 创建宽)时复用;文本、字体、对齐、换行、方向、颜色、行距或附录变化都会标记源失效。缓存最多 16 条,最近使用条目提升到末尾,满时淘汰最旧条目。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(26.5 s);`JiveCoreValues` 93 项(新增同宽复用、窄宽复用、文本变化重建、离屏绘制有字迹);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`ViewHost` 37、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
+- **未启动**:39.5-5(目录物理拆分)与真实 windows-mcp 表面验收。
 
 ## 2. 后续候选阶段(暂缓)
 

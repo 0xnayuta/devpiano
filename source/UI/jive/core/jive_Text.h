@@ -34,8 +34,6 @@ private:
     void textFontChanged(TextComponent& text) final;
     void valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property) final;
 
-    juce::TextLayout buildTextLayout(float maxWidth = -1.0f) const;
-
     void updateTextComponent();
 
     PassiveProperty<juce::String> text;

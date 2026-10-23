@@ -49,11 +49,23 @@ public:
 
     [[nodiscard]] juce::AttributedString getAttributedString() const;
 
+    /** 返回按给定最大宽度缓存的布局；引用仅在下次调用前有效。 */
+    [[nodiscard]] const juce::TextLayout& getTextLayout(float maxWidth) const;
+
     void addListener(Listener&) const;
     void removeListener(Listener&) const;
 
 private:
+    struct CachedTextLayout {
+        float maxWidth;
+        juce::TextLayout layout;
+    };
+
     std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override;
+
+    void updateTextLayoutsSource(const juce::AttributedString& attributedString) const;
+
+    static constexpr std::size_t maxNumCachedTextLayouts = 16;
 
     juce::AttributedString::ReadingDirection direction { juce::AttributedString::ReadingDirection::natural };
     juce::Font font { juce::FontOptions {} };
@@ -63,6 +75,10 @@ private:
     std::optional<juce::Colour> textColour { juce::Colours::black };
     juce::AttributedString::WordWrap wordWrap { juce::AttributedString::WordWrap::byWord };
     juce::Array<juce::AttributedString> appendices;
+
+    mutable juce::AttributedString textLayoutsSource;
+    mutable bool textLayoutsSourceMayBeOutOfDate { true };
+    mutable std::vector<CachedTextLayout> textLayouts;
 
     Canvas canvas;
 

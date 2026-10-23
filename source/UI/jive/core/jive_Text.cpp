@@ -7,7 +7,6 @@
 
 #include "jive_Text.h"
 
-#include "jive_CommonGuiItem.h"
 #include "jive_ContainerItem.h"
 
 namespace jive {
@@ -39,7 +38,7 @@ Text::Text(std::unique_ptr<GuiItem> itemToDecorate)
     lineSpacing.onValueChange = [this]() { updateTextComponent(); };
 
     state.setProperty("ideal-height", juce::var { [this](const juce::var::NativeFunctionArgs& args) {
-                          const auto layout = buildTextLayout(args.arguments[0]);
+                          const auto& layout = getTextComponent().getTextLayout(args.arguments[0]);
                           return std::ceil(layout.getHeight());
                       } },
                       nullptr);
@@ -102,22 +101,6 @@ void Text::textFontChanged(TextComponent&) {
     updateTextComponent();
 }
 
-juce::TextLayout Text::buildTextLayout(float maxWidth) const {
-    for (const auto* parentItem = getParent(); maxWidth < 0.0f && parentItem != nullptr;
-         parentItem = parentItem->getParent()) {
-        if (const auto& parentBoxModel
-            = dynamic_cast<const GuiItemDecorator*>(getParent())->toType<CommonGuiItem>()->boxModel;
-            !parentBoxModel.hasAutoWidth()) {
-            maxWidth = parentBoxModel.getContentBounds().getWidth();
-        }
-    }
-
-    juce::TextLayout layout;
-    layout.createLayout(getTextComponent().getAttributedString(), maxWidth);
-
-    return layout;
-}
-
 template <typename T> [[nodiscard]] static auto nextWholeNumberAbove(T value) {
     static_assert(std::is_floating_point<T>());
     const auto ceiled = std::ceil(value);
@@ -145,7 +128,8 @@ void Text::updateTextComponent() {
         }
     }
 
-    const auto naturalLayout = buildTextLayout(static_cast<float>(std::numeric_limits<juce::uint16>::max()));
+    const auto& naturalLayout
+        = getTextComponent().getTextLayout(static_cast<float>(std::numeric_limits<juce::uint16>::max()));
     const juce::Point naturalSize { naturalLayout.getWidth(), naturalLayout.getHeight() };
     const auto currentLineSpacing = lineSpacing.get();
     const auto measurementsChanged = !juce::exactlyEqual(naturalSize.x, previousNaturalSize.x)

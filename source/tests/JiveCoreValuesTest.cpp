@@ -32,6 +32,7 @@ public:
         testFlexGapFillsBindingPalette();
         testFlexItemCacheInvalidation();
         testTextMeasurementReflowsFlexItem();
+        testTextLayoutCacheReuse();
         testGridItemMarginInvalidatesCache();
         testParsedObjectParentChain();
         testStyleSheetCalculatedStateIsolation();
@@ -318,6 +319,49 @@ private:
         text.setProperty("line-spacing", 20.0f, nullptr);
         expect(component->getHeight() > heightBeforeLineSpacing,
                "line spacing changes must invalidate the cached text height");
+    }
+
+    void testTextLayoutCacheReuse() {
+        beginTest("TextComponent: layout cache reuses equivalent measurements");
+
+        ::jive::TextComponent text;
+        text.setFont(juce::Font { juce::FontOptions { 15.0f } });
+        text.setText("The quick brown fox jumps over the lazy dog and keeps running through the field.");
+
+        const auto* wrapped = &text.getTextLayout(120.0f);
+        expect(wrapped->getNumLines() > 1);
+        const auto* sameWidth = &text.getTextLayout(120.0f);
+        expect(sameWidth == wrapped, "identical widths must reuse the cached layout");
+
+        const auto wrappedWidth = wrapped->getWidth();
+        const auto* narrower = &text.getTextLayout(wrappedWidth);
+        expect(narrower == wrapped, "a narrower width that keeps the same line breaks must reuse the layout");
+
+        const auto* wider = &text.getTextLayout(400.0f);
+        expect(wider != nullptr);
+        const auto wideWidth = wider->getWidth();
+
+        text.setText("Hi");
+        const auto* changed = &text.getTextLayout(400.0f);
+        expect(changed->getWidth() < wideWidth, "changed text must not reuse the stale layout");
+
+        text.setText("Cached layout rendering");
+        text.setSize(120, 60);
+        const auto image = text.createComponentSnapshot(text.getLocalBounds());
+        expect(image.isValid());
+        expectEquals(image.getWidth(), 120);
+
+        const juce::Image::BitmapData pixels { image, juce::Image::BitmapData::readOnly };
+        auto hasInk = false;
+        for (auto y = 0; y < pixels.height && !hasInk; ++y) {
+            for (auto x = 0; x < pixels.width; ++x) {
+                if (pixels.getPixelColour(x, y).getAlpha() > 0) {
+                    hasInk = true;
+                    break;
+                }
+            }
+        }
+        expect(hasInk, "cached layout must still paint the text");
     }
 
     void testGridItemMarginInvalidatesCache() {
