@@ -336,7 +336,6 @@ juce::ValueTree KeyBindingEditDialog::makeKeyBindingEditLayout(bool hasExistingB
     clearColourBtn.setProperty("height", 22, nullptr);
     clearColourBtn.setProperty("min-height", 22, nullptr);
     clearColourBtn.setProperty("max-height", 22, nullptr);
-    clearColourBtn.setProperty("margin", "0 0 0 4", nullptr);
     colourPalette.appendChild(clearColourBtn, nullptr);
 
     colourRow.appendChild(colourPalette, nullptr);

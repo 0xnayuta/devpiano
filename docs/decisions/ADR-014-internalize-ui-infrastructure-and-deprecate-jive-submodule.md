@@ -127,3 +127,4 @@ graph LR
    - **公约 1（底层封存）**：`source/UI/jive/core/` 源码正式列为稳定底层资产，严禁因日常业务开发修改其内部实现；
    - **公约 2（开发纪律）**：后续任何业务开发（包含声学控制、预设管理等），只准在 `LayoutModel` 中调用 C++ DSL 组装 ValueTree，只准通过 `ViewHost` 访问组件，复杂自绘封装为原生 `juce::Component` 注入；
    - **公约 3（重心回归）**：全面终结 UI 基础设施治理工作，全项目研发精力彻底回归物理建模钢琴算法与声学演奏护城河。
+   - **目录边界（Phase 39.5-5）**：核心源码按职责归入 `source/UI/jive/core/` 下的 `values/`（标识符、Property/Object、转换器与过渡基础工具）、`geometry/`（长度、盒模型、方向、圆角与插值）、`style/`（样式表、选择器、交互状态、填充/渐变/颜色/字体与背景绘制）、`layout/`（解释器、GuiItem、工厂、容器与保留控件）。`jive_core.h`、`jive_components.h`、`jive_layouts.h`、`jive_style_sheets.h` 保留在 core 根作为内部聚合入口；这四个目录是维护分组，不是独立 CMake module，也不承诺严格单向依赖分层。

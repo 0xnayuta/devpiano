@@ -16,9 +16,10 @@ namespace devpiano::ui::jive {
 ///   VariantConverter<jive::Object::Ptr>, which REJECTS plain
 ///   juce::DynamicObject vars (jassert + nullptr), and its parseJSON-string
 ///   path is broken (the Object is released before the var takes ownership).
-///   So we build real ::jive::Object instances ourselves (makeJiveObject)
-///   and keep them alive in ownedStyles; ValueTree properties hold the raw
-///   pointers without ownership.
+///   So we build real ::jive::Object instances ourselves (makeJiveObject).
+///   ownedStyles/cachedStyles keep lookup references; the ValueTree "style"
+///   var also retains the object through ReferenceCountedObject, so dropping
+///   the catalog's references cannot destroy a style still in use.
 ///
 /// Rule keys: component type ("Button"), id ("#header"), and pseudo-state
 /// keys ("hover", "active", "focus", "disabled", "checked") nested inside
@@ -76,8 +77,8 @@ private:
 
     juce::DynamicObject::Ptr rules;
 
-    /// Keeps every style jive::Object alive for the lifetime of the catalog
-    /// (ValueTree properties hold raw DynamicObject pointers without ownership).
+    /// Keeps every style jive::Object available for lookup; the ValueTree
+    /// "style" var independently retains the same object while referenced.
     mutable std::vector<::jive::Object::ReferenceCountedPointer> ownedStyles;
     mutable std::map<juce::String, ::jive::Object::ReferenceCountedPointer> cachedStyles;
 };

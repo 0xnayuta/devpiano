@@ -9,6 +9,6 @@
 #include "jive_components.h"
 #include "jive_core.h"
 
-#include "jive_StyleIdentifier.h"
-#include "jive_StyleSelectors.h"
-#include "jive_StyleSheet.h"
+#include "UI/jive/core/style/jive_StyleIdentifier.h"
+#include "UI/jive/core/style/jive_StyleSelectors.h"
+#include "UI/jive/core/style/jive_StyleSheet.h"

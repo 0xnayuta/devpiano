@@ -1,6 +1,28 @@
 ## [Unreleased]
 
+### Changed
+
+- **Declarative UI Build Guard and Layout Convergence** — interpretation marks each subtree in progress and defers component sizing and parent re-measurement until one root-level convergence. ContainerItem now tracks ideal-size/children dirtiness and the constraints it was measured against, ViewHost measures content through the container API, and relayoutContainer consumes dirty state instead of only re-running child layout. The old unrestrained/within-constraints measurement entry points are removed.
+
+- **Flex Gap Support** — flex containers honour the `gap` property by expanding the layout bounds and giving every item half a gap of margin, so spacing appears only between adjacent items. The key-binding palette now lays out eight swatches and the Clear button exactly across its 220px width; the Clear button's duplicated left margin is removed.
+
+- **Layout Item Cache Invalidation** — flex and grid item geometry caches are invalidated by the box-model constraint version, the parent flex direction and child natural-size changes (including text reflow). Per-item box-model listeners are removed, each cache is bounded to eight entries, and text only reflows its container when its measured size, line spacing, word-wrap or reading direction actually changes.
+
+- **Text Layout Caching** — `TextComponent` caches shaped `juce::TextLayout` instances per maximum width and reuses them across painting, ideal-size measurement and line-spacing reflow. The cache is invalidated by text, font, justification, wrap, direction and colour changes, and is bounded to 16 layouts with most-recently-used promotion.
+
+- **JIVE Core Directory Split** — internalized UI sources are organized into `values/`, `geometry/`, `style/` and `layout/` by responsibility, while the aggregate headers remain at the core root. Cross-directory includes, CMake source paths and consumer includes are updated explicitly; no layout or style logic changed.
+
+- **JIVE Static Analysis Fixes** — qualify the dependent transition call for Clang, snapshot previous transition state before replacing the transitions owner, collapse the duplicated text reflow branch and remove redundant float casts found by the full clang-tidy scan.
+
+- **Declarative UI Centralized Property Dispatch** — convert the retained BoxModel, common-item, container/item and widget properties to passive properties routed through one owner listener per node, preserving existing value/transition callbacks. BoxModel replaces the `box-model-callback-lock` tree property with instance state, reads parent sizes directly instead of constructing temporary properties, tracks a constraints version and exposes explicit constraints without feeding the unset-max sentinel into a rectangle. Property listener registrations on the styled main window and settings layouts fall from 9043/12004 to 3957/3799.
+
+- **Declarative UI Value and Object Migration** — turn `jive::Length` into a px/% value type (auto stays a Property-level state), add unit-safe interpolation, and migrate BoxModel, container children, BlockItem, CommonGuiItem, Slider, ComboBox and ProgressBar to `Property<Length>`. Properties now observe replaced held objects, re-read transition definitions, notify on property removal, and keep a strong transition owner; BlockItem only clears the opposite coordinate when the current one still exists. Parsed `jive::Object` graphs initialise parent links and pair nested subscriptions, and each StyleSheet keeps its own calculated values instead of writing `calculated-*` into shared style objects.
+
+- **Declarative UI Unused-Capability Pruning** — remove the internal JIVE paths with no production consumers: View/PassiveView and `makeView`, the Label decorator, declarative `on-click`/`on-change` event dispatch, the ComboBox Option/Header/Separator tree protocol, interpreter aliases/custom decorators/structure listeners, diagnostic string-stream operators, and the per-decorator Remover. Component factories, native JUCE callbacks, style application, ComboBox item management and `selected` bridging are unchanged; main-window, settings and dialog geometry stay identical.
+
 ### Fixed
+
+- **JIVE Review Fixes** — keep the transition container alive while dispatching progress callbacks and detach destroyed nested objects before subscription cleanup, removing two memory-safety regressions (callback self-destruction and nested-object removal without an external owner). Also notify consumers when a running transition is removed, invalidate item caches on animated box-model inputs, normalize padding constraints and remeasure shrunken containers at their allocated content width, reflow text on word-wrap or reading-direction changes, preserve calculated style state during live mutation of the same style object, remove residual flex diagnostics, and restore the upstream v2 2026 copyright notice.
 
 - **WAV Take-End Release and Finite Tail** — replace the automatic end-of-take All Sound Off panic in both WAV exporters with identity-tracked NoteOffs and CC64/66/67 pedal release. The export window now defaults to 6.0 seconds and is configurable through `WavExportOptions::tailSeconds` in the closed 0–30 second range for built-in, plugin and dual-layer paths; 0 disables the extra tail and file length remains deterministic. The current UI uses the default and has no duration control. Explicit in-take panic, layer/endpoint hard stops, and over-window truncation remain unchanged.
 

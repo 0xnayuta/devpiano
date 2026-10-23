@@ -7,7 +7,7 @@
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/JiveModalDialog.h"
 #include "UI/jive/StyleCatalog.h"
-#include "UI/jive/core/jive_TextComponent.h"
+#include "UI/jive/core/layout/jive_TextComponent.h"
 #include <array>
 
 class JiveModalDialogTest final : public juce::UnitTest {
