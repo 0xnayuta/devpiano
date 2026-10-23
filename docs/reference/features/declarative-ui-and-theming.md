@@ -23,6 +23,19 @@ devpiano 使用按 [ADR-014](../../decisions/ADR-014-internalize-ui-infrastructu
 4. **编译期二进制内嵌（零外部文件依赖）**：
    - 静态 Token 与样式表由 CMake `juce_add_binary_data` 编译期内嵌为 `devpiano_binary_data`，确保单可执行文件在脱离源码目录时 100% 具备完整的主题与布局规则。
 
+### 1.1 核心目录职责（Phase 39.5-5）
+
+`source/UI/jive/core/` 按维护职责分为四个子目录：
+
+| 目录 | 职责 |
+| --- | --- |
+| `values/` | 标识符、`Property`/`Object`、变体转换器、缓动/过渡/计时与时间解析 |
+| `geometry/` | `Length`、`BoxModel`、方向、圆角、Bezier、传递函数与插值 |
+| `style/` | 样式表、选择器、交互状态、填充/渐变/颜色、字体工具与背景绘制 |
+| `layout/` | 解释器、GuiItem、组件工厂、容器/子项与保留控件 |
+
+`jive_core.h`、`jive_components.h`、`jive_layouts.h`、`jive_style_sheets.h` 仍位于 core 根，作为内部聚合入口；四个目录是维护分组，不是独立 CMake module，也不宣称严格单向依赖分层。跨目录 include 使用从 `source/` 出发的显式路径。
+
 ---
 
 ## 2. JIVE 声明式布局体系

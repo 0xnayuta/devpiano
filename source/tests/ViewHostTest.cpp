@@ -4,7 +4,7 @@
 #include "UI/jive/DesignTokens.h"
 #include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
-#include "UI/jive/core/jive_Identifiers.h"
+#include "UI/jive/core/values/jive_Identifiers.h"
 
 class ViewHostTest final : public juce::UnitTest {
 public:

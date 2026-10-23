@@ -14,8 +14,8 @@
 #include "UI/native/StatusBarMidiDot.h"
 #include "UI/native/TimelineBar.h"
 
-#include "UI/jive/core/jive_BackgroundCanvas.h"
 #include "UI/jive/core/jive_layouts.h"
+#include "UI/jive/core/style/jive_BackgroundCanvas.h"
 
 // vars, which jive::VariantConverter<jive::Object::Ptr> rejects (jassert +
 // nullptr) -- so no styles ever applied and text stayed invisible (black on

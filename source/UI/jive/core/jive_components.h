@@ -6,9 +6,9 @@
 //==============================================================================
 #pragma once
 
-#include "jive_BackgroundCanvas.h"
-#include "jive_Canvas.h"
-#include "jive_IgnoredComponent.h"
-#include "jive_NormalisedProgressBar.h"
-#include "jive_TextComponent.h"
+#include "UI/jive/core/layout/jive_IgnoredComponent.h"
+#include "UI/jive/core/layout/jive_NormalisedProgressBar.h"
+#include "UI/jive/core/layout/jive_TextComponent.h"
+#include "UI/jive/core/style/jive_BackgroundCanvas.h"
+#include "UI/jive/core/style/jive_Canvas.h"
 #include "jive_core.h"

@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39 与 R0–R11 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）、39.5-4a/4b/4c/4d（构建守卫与脏标记、Item 缓存失效、TextLayout 缓存、Flex gap 修复）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
+> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）、39.5-4a/4b/4c/4d（构建守卫与脏标记、Item 缓存失效、TextLayout 缓存、Flex gap 修复）与 39.5-5（目录归位与最终集成）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；阶段实现与结构已收口，真实 windows-mcp 表面验收仍是阶段完成前必须补齐的独立证据。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
 
 ## 0. 归档入口
 
@@ -186,7 +186,15 @@
 - **绘制共享**:Canvas 的 `onPaint` 使用同一 `getTextLayout(当前宽度)`,绘制与测量共享缓存条目。
 - **复用与失效**:布局在 `word-wrap: none`、相同宽度,或换行结果不变(布局宽 ≤ 目标宽 ≤ 创建宽)时复用;文本、字体、对齐、换行、方向、颜色、行距或附录变化都会标记源失效。缓存最多 16 条,最近使用条目提升到末尾,满时淘汰最旧条目。
 - **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(26.5 s);`JiveCoreValues` 93 项(新增同宽复用、窄宽复用、文本变化重建、离屏绘制有字迹);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`ViewHost` 37、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
-- **未启动**:39.5-5(目录物理拆分)与真实 windows-mcp 表面验收。
+- **后续**:39.5-5 已在 1.12 完成;真实 windows-mcp 表面验收仍待执行。
+
+### 1.12 Phase 39.5-5 实施结果与验证
+
+- **目录归位**:101 个 core 文件按职责移入四个子目录:`values/` 23 个、`geometry/` 10 个、`style/` 18 个、`layout/` 46 个;`jive_core.h`、`jive_components.h`、`jive_layouts.h`、`jive_style_sheets.h` 保留在 core 根作为聚合入口。未新增独立 CMake module,未改变任何布局/样式逻辑。
+- **include 与构建**:core 内部与外部消费者统一改为从 `source/` 出发的显式 `UI/jive/core/<group>/...` 路径(内部 190 处、外部 22 处);CMake 的 42 个 core 源文件路径同步更新;保留既有 `source/UI/jive/core` include 根仅用于聚合头,未增加四个裸搜索目录。WSL configure/compile database 已刷新。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(25.4 s);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`ViewHost` 37、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34、`JiveCoreValues` 93 全部通过。
+- **文档**:同步 `docs/reference/features/declarative-ui-and-theming.md` 的四目录职责、ADR-014 维护边界、`THIRD-PARTY-NOTICES.md` 的 v2 部分移植来源与 MIT 声明,以及 `CHANGELOG.md`。
+- **未完成**:真实 windows-mcp 主窗口/设置/弹窗/绑定色板表面验收;按 1.4 完成条件,Phase 39.5 暂不记整体完成。
 
 ## 2. 后续候选阶段(暂缓)
 

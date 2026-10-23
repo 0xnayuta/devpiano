@@ -26,25 +26,25 @@ namespace jive {
 class GuiItem;
 }
 
-#include "jive_ComponentFactory.h"
-#include "jive_Display.h"
-#include "jive_LayoutStrategy.h"
-#include "jive_Overflow.h"
+#include "UI/jive/core/layout/jive_ComponentFactory.h"
+#include "UI/jive/core/layout/jive_Display.h"
+#include "UI/jive/core/layout/jive_LayoutStrategy.h"
+#include "UI/jive/core/layout/jive_Overflow.h"
 
-#include "jive_CommonGuiItem.h"
-#include "jive_ContainerItem.h"
-#include "jive_GuiItem.h"
-#include "jive_GuiItemDecorator.h"
+#include "UI/jive/core/layout/jive_CommonGuiItem.h"
+#include "UI/jive/core/layout/jive_ContainerItem.h"
+#include "UI/jive/core/layout/jive_GuiItem.h"
+#include "UI/jive/core/layout/jive_GuiItemDecorator.h"
 
-#include "jive_BlockContainer.h"
-#include "jive_BlockItem.h"
-#include "jive_FlexContainer.h"
-#include "jive_FlexItem.h"
+#include "UI/jive/core/layout/jive_BlockContainer.h"
+#include "UI/jive/core/layout/jive_BlockItem.h"
+#include "UI/jive/core/layout/jive_FlexContainer.h"
+#include "UI/jive/core/layout/jive_FlexItem.h"
 
-#include "jive_Button.h"
-#include "jive_ComboBox.h"
-#include "jive_ProgressBar.h"
-#include "jive_Slider.h"
-#include "jive_Text.h"
+#include "UI/jive/core/layout/jive_Button.h"
+#include "UI/jive/core/layout/jive_ComboBox.h"
+#include "UI/jive/core/layout/jive_ProgressBar.h"
+#include "UI/jive/core/layout/jive_Slider.h"
+#include "UI/jive/core/layout/jive_Text.h"
 
-#include "jive_Interpreter.h"
+#include "UI/jive/core/layout/jive_Interpreter.h"

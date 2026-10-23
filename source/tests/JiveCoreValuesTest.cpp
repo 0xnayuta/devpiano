@@ -2,12 +2,12 @@
 
 #include "UI/KeyBindingEditDialog.h"
 #include "UI/ViewHost.h"
-#include "UI/jive/core/jive_Length.h"
-#include "UI/jive/core/jive_NormalisedProgressBar.h"
-#include "UI/jive/core/jive_Object.h"
-#include "UI/jive/core/jive_Property.h"
-#include "UI/jive/core/jive_StyleSheet.h"
-#include "UI/jive/core/jive_TextComponent.h"
+#include "UI/jive/core/geometry/jive_Length.h"
+#include "UI/jive/core/layout/jive_NormalisedProgressBar.h"
+#include "UI/jive/core/layout/jive_TextComponent.h"
+#include "UI/jive/core/style/jive_StyleSheet.h"
+#include "UI/jive/core/values/jive_Object.h"
+#include "UI/jive/core/values/jive_Property.h"
 
 // ============================================================================
 /// JiveCoreValuesTest — Phase 39.5-2 value/property/object contracts.

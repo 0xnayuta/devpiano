@@ -10,7 +10,8 @@ This file contains notices and licensing terms for third-party software componen
 - **Original Author**: Copyright (c) 2021 James Johnson
 - **License**: MIT License
 - **Snapshot Version**: Commit `89d5787a762e674ee8b7141031a99e6743948f05` (based on `v1.3.0-29-g89d5787`, `main` branch)
-- **Usage in devpiano**: Core layout primitives (`BoxModel`, `Property`, `FlexContainer`, `FlexItem`, `GuiItem`, `Interpreter`, `Object`, `ComponentFactory`) internalized into `source/UI/jive/core/` and adapted under `devpiano::ui` pursuant to ADR-014.
+- **Selected v2 Port**: Phase 39.5 additionally adapted selected Property/Object, layout item cache and TextLayout cache implementations from the upstream `v2` branch at commit `e25b4d5` (2026). These are partial ports, not a wholesale v2 snapshot; the MIT licence and copyright below cover both the internalized v1 core and the selected v2 portions.
+- **Usage in devpiano**: Core layout primitives (`BoxModel`, `Property`, `FlexContainer`, `FlexItem`, `GuiItem`, `Interpreter`, `Object`, `ComponentFactory`) internalized into `source/UI/jive/core/` and adapted under `devpiano::ui` pursuant to ADR-014. The internalized sources are organized into `values/`, `geometry/`, `style/` and `layout/`; aggregate headers remain at the core root.
 
 ```text
 MIT License
