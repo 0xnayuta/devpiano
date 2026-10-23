@@ -339,52 +339,71 @@ void StyleSheet::updateStyles() {
     letterSpacingStyles.clear();
     textDecorationStyles.clear();
 
-    if (auto styleState = style.get(); styleState != nullptr) {
+    const auto styleState = style.get();
+    const auto styleObjectChanged = styleState != lastStyleObject;
+    lastStyleObject = styleState;
+
+    if (styleState != nullptr) {
         updateStyles(*styleState, StyleIdentifier {});
 
         const auto onTransitionProgressed = [this] { applyStyles(); };
+        const auto needsNewCalculatedState = styleObjectChanged || calculatedState == nullptr;
 
-        calculatedBackground.reset();
-        calculatedForeground.reset();
-        calculatedBorderFill.reset();
-        calculatedBorderRadii.reset();
-        calculatedFontSize.reset();
-        calculatedFontStretch.reset();
-        calculatedLetterSpacing.reset();
+        if (needsNewCalculatedState) {
+            calculatedBackground.reset();
+            calculatedForeground.reset();
+            calculatedBorderFill.reset();
+            calculatedBorderRadii.reset();
+            calculatedFontSize.reset();
+            calculatedFontStretch.reset();
+            calculatedLetterSpacing.reset();
 
-        calculatedState = new Object {};
-        if (const auto transitionDefinition = styleState->getProperty("transition"); !transitionDefinition.isVoid()) {
-            calculatedState->setProperty("transition", cloneTransitionDefinition(transitionDefinition));
+            calculatedState = new Object {};
+            calculatedTransitionDefinition = juce::var {};
         }
 
-        calculatedBackground = std::make_unique<Property<Fill>>(calculatedState, "calculated-background");
-        calculatedBackground->setTransitionSourceProperty("background");
-        calculatedBackground->onTransitionProgressed = onTransitionProgressed;
+        // 同一 style 对象的属性变更必须保留 calculated-* 与动画进度；
+        // 只有对象替换/清空才重置。过渡定义变化时同步到私有计算状态。
+        const auto transitionDefinition = styleState->getProperty("transition");
+        if (needsNewCalculatedState || !transitionDefinition.equals(calculatedTransitionDefinition)) {
+            if (transitionDefinition.isVoid()) {
+                calculatedState->removeProperty("transition");
+            } else {
+                calculatedState->setProperty("transition", cloneTransitionDefinition(transitionDefinition));
+            }
+            calculatedTransitionDefinition = transitionDefinition;
+        }
 
-        calculatedForeground = std::make_unique<Property<Fill>>(calculatedState, "calculated-foreground");
-        calculatedForeground->setTransitionSourceProperty("foreground");
-        calculatedForeground->onTransitionProgressed = onTransitionProgressed;
+        if (needsNewCalculatedState) {
+            calculatedBackground = std::make_unique<Property<Fill>>(calculatedState, "calculated-background");
+            calculatedBackground->setTransitionSourceProperty("background");
+            calculatedBackground->onTransitionProgressed = onTransitionProgressed;
 
-        calculatedBorderFill = std::make_unique<Property<Fill>>(calculatedState, "calculated-border");
-        calculatedBorderFill->setTransitionSourceProperty("border");
-        calculatedBorderFill->onTransitionProgressed = onTransitionProgressed;
+            calculatedForeground = std::make_unique<Property<Fill>>(calculatedState, "calculated-foreground");
+            calculatedForeground->setTransitionSourceProperty("foreground");
+            calculatedForeground->onTransitionProgressed = onTransitionProgressed;
 
-        calculatedBorderRadii
-            = std::make_unique<Property<BorderRadii<float>>>(calculatedState, "calculated-border-radius");
-        calculatedBorderRadii->setTransitionSourceProperty("border-radius");
-        calculatedBorderRadii->onTransitionProgressed = onTransitionProgressed;
+            calculatedBorderFill = std::make_unique<Property<Fill>>(calculatedState, "calculated-border");
+            calculatedBorderFill->setTransitionSourceProperty("border");
+            calculatedBorderFill->onTransitionProgressed = onTransitionProgressed;
 
-        calculatedFontSize = std::make_unique<Property<float>>(calculatedState, "calculated-font-size");
-        calculatedFontSize->setTransitionSourceProperty("font-size");
-        calculatedFontSize->onTransitionProgressed = onTransitionProgressed;
+            calculatedBorderRadii
+                = std::make_unique<Property<BorderRadii<float>>>(calculatedState, "calculated-border-radius");
+            calculatedBorderRadii->setTransitionSourceProperty("border-radius");
+            calculatedBorderRadii->onTransitionProgressed = onTransitionProgressed;
 
-        calculatedFontStretch = std::make_unique<Property<float>>(calculatedState, "calculated-font-stretch");
-        calculatedFontStretch->setTransitionSourceProperty("font-stretch");
-        calculatedFontStretch->onTransitionProgressed = onTransitionProgressed;
+            calculatedFontSize = std::make_unique<Property<float>>(calculatedState, "calculated-font-size");
+            calculatedFontSize->setTransitionSourceProperty("font-size");
+            calculatedFontSize->onTransitionProgressed = onTransitionProgressed;
 
-        calculatedLetterSpacing = std::make_unique<Property<float>>(calculatedState, "calculated-letter-spacing");
-        calculatedLetterSpacing->setTransitionSourceProperty("letter-spacing");
-        calculatedLetterSpacing->onTransitionProgressed = onTransitionProgressed;
+            calculatedFontStretch = std::make_unique<Property<float>>(calculatedState, "calculated-font-stretch");
+            calculatedFontStretch->setTransitionSourceProperty("font-stretch");
+            calculatedFontStretch->onTransitionProgressed = onTransitionProgressed;
+
+            calculatedLetterSpacing = std::make_unique<Property<float>>(calculatedState, "calculated-letter-spacing");
+            calculatedLetterSpacing->setTransitionSourceProperty("letter-spacing");
+            calculatedLetterSpacing->onTransitionProgressed = onTransitionProgressed;
+        }
     } else {
         calculatedBackground.reset();
         calculatedForeground.reset();
@@ -394,6 +413,7 @@ void StyleSheet::updateStyles() {
         calculatedFontStretch.reset();
         calculatedLetterSpacing.reset();
         calculatedState = nullptr;
+        calculatedTransitionDefinition = juce::var {};
     }
 
     applyStyles();

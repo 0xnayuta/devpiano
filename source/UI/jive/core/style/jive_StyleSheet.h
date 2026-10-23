@@ -76,6 +76,8 @@ private:
     // 每个 StyleSheet 私有，承载 calculated-* 与从声明式样式复制的 transition 定义，
     // 避免把动画中间值写回共享样式对象。
     Object::ReferenceCountedPointer calculatedState;
+    Object::ReferenceCountedPointer lastStyleObject;
+    juce::var calculatedTransitionDefinition;
 
     std::unique_ptr<Property<Fill>> calculatedBackground;
     std::unique_ptr<Property<Fill>> calculatedForeground;
