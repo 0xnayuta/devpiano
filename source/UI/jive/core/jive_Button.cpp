@@ -8,10 +8,6 @@
 #include "jive_Button.h"
 
 namespace jive {
-static void triggerClick(juce::Button& button) {
-    button.triggerClick();
-}
-
 [[nodiscard]] static juce::Button* findFirstChildButton(const juce::Component& container) {
     for (auto* child : container.getChildren()) {
         if (auto* button = dynamic_cast<juce::Button*>(child)) {
@@ -36,8 +32,7 @@ Button::Button(std::unique_ptr<GuiItem> itemToDecorate)
     , padding { state, "padding" }
     , minWidth { state, "min-width" }
     , minHeight { state, "min-height" }
-    , focusable { state, "focusable" }
-    , onClick { state, "on-click" } {
+    , focusable { state, "focusable" } {
     const BoxModel::ScopedCallbackLock boxModelLock { boxModel(*this) };
 
     if (!triggerEvent.exists()) {
@@ -82,7 +77,6 @@ Button::Button(std::unique_ptr<GuiItem> itemToDecorate)
     getButton().setTitle(text);
     getButton().setButtonText(text);
 
-    onClick.onTrigger = [this]() { triggerClick(getButton()); };
     getButton().addListener(this);
     getButton().addComponentListener(this);
 }
@@ -114,7 +108,6 @@ void Button::buttonClicked(juce::Button* button) {
     jassertquiet(button == &getButton());
 
     toggled = getButton().getToggleState();
-    onClick.triggerWithoutSelfCallback();
 }
 
 void Button::componentParentHierarchyChanged(juce::Component& comp) {

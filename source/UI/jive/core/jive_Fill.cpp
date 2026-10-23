@@ -8,7 +8,6 @@
 #include "jive_Fill.h"
 
 #include "jive_MiscVariantConverters.h"
-#include "jive_StringStreams.h"
 
 namespace jive {
 Fill::Fill()
@@ -74,18 +73,5 @@ var VariantConverter<jive::Fill>::toVar(const jive::Fill& fill) {
 
     jassertfalse;
     return var {};
-}
-
-String& operator<<(String& str, const jive::Fill& fill) {
-    str << "jive::Fill{ ";
-
-    if (fill.getColour().has_value()) {
-        str << *fill.getColour();
-    } else if (fill.getGradient().has_value()) {
-        str << *fill.getGradient();
-    }
-
-    str << " }";
-    return str;
 }
 } // namespace juce

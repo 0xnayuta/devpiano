@@ -115,9 +115,4 @@ template <typename Arithmetic> struct VariantConverter<jive::BorderRadii<Arithme
         return {};
     }
 };
-
-template <typename T> String& operator<<(String& str, const jive::BorderRadii<T>& border) {
-    return str << "jive::BorderRadii<" << typeid(T).name() << "> { " << border.topLeft << ", " << border.topRight
-               << ", " << border.bottomRight << ", " << border.bottomLeft << " }";
-}
 } // namespace juce

@@ -30,8 +30,7 @@ Slider::Slider(std::unique_ptr<GuiItem> itemToDecorate, float defaultWidth, floa
     , velocityThreshold { state, "velocity-threshold" }
     , velocityOffset { state, "velocity-offset" }
     , snapToMouse { state, "snap-to-mouse" }
-    , focusable { state, "focusable" }
-    , onChange { state, "on-change" } {
+    , focusable { state, "focusable" } {
     const BoxModel::ScopedCallbackLock boxModelLock { boxModel(*this) };
 
     if (!max.exists()) {
@@ -142,7 +141,6 @@ void Slider::sliderValueChanged(juce::Slider* slider) {
     }
 
     value = getSlider().getTextFromValue(getSlider().getValue());
-    onChange.triggerWithoutSelfCallback();
 }
 
 juce::Slider::SliderStyle Slider::getStyleForOrientation(Orientation ori) {

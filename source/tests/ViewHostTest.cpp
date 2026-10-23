@@ -2,6 +2,7 @@
 
 #include "UI/ViewHost.h"
 #include "UI/jive/DesignTokens.h"
+#include "UI/jive/LayoutModel.h"
 #include "UI/jive/StyleCatalog.h"
 
 class ViewHostTest final : public juce::UnitTest {
@@ -15,8 +16,68 @@ public:
         devpiano::ui::DesignTokens::get().reset();
 
         testLifecycleAndBasicLayout();
+        testReloadMoveAndExternalTreeLifetime();
         testTypedComponentLookup();
         testPropertyAccessors();
+        testSliderValueSyncsToState();
+    }
+
+    void testSliderValueSyncsToState() {
+        beginTest("ViewHost: slider interaction writes back to the layout tree");
+
+        juce::ValueTree root("Component");
+        root.setProperty("width", 200, nullptr);
+        root.setProperty("height", 100, nullptr);
+        juce::ValueTree slider("Slider");
+        slider.setProperty("id", "probe-slider", nullptr);
+        slider.setProperty("width", 100, nullptr);
+        slider.setProperty("height", 20, nullptr);
+        root.addChild(slider, -1, nullptr);
+
+        devpiano::ui::ViewHost host;
+        host.registerDefaultComponents();
+        expect(host.loadLayout(root, false));
+        auto* component = host.find<juce::Slider>("probe-slider");
+        expect(component != nullptr);
+        if (component == nullptr) {
+            return;
+        }
+
+        component->setValue(0.5, juce::sendNotificationSync);
+        expectEquals(host.getProperty("probe-slider", "value").toString(), component->getTextFromValue(0.5));
+    }
+
+    void testReloadMoveAndExternalTreeLifetime() {
+        beginTest("ViewHost: reload, move and externally held layouts after teardown");
+
+        auto first = devpiano::ui::jive::makePluginPanelTree();
+        auto second = devpiano::ui::jive::makePluginPanelTree();
+
+        {
+            devpiano::ui::ViewHost host;
+            host.registerDefaultComponents();
+            expect(host.loadLayout(first, true));
+            host.setBounds(0, 0, 900, 400);
+            host.reset();
+            expect(!host.isValid());
+
+            expect(host.loadLayout(second, true));
+            expect(host.isValid());
+
+            devpiano::ui::ViewHost moved { std::move(host) };
+            expect(moved.isValid());
+            expect(moved.getRootComponent() != nullptr);
+            moved.reset();
+            expect(!moved.isValid());
+        }
+
+        // Both layout trees outlive the interpreted items; mutating them must
+        // not reach any listener owned by the destroyed host.
+        first.setProperty("height", 120, nullptr);
+        second.addChild(juce::ValueTree("Component"), -1, nullptr);
+        second.removeChild(0, nullptr);
+        expect(first.isValid());
+        expect(second.isValid());
     }
 
     void testLifecycleAndBasicLayout() {

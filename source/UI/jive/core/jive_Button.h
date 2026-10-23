@@ -28,8 +28,6 @@ private:
     void buttonClicked(juce::Button* button) final;
     void componentParentHierarchyChanged(juce::Component& component) final;
 
-    void updateTriggerEvent();
-
     Property<bool> toggleable;
     Property<bool> toggled;
     Property<bool> toggleOnClick;
@@ -43,8 +41,6 @@ private:
     Property<float> minWidth;
     Property<float> minHeight;
     Property<bool> focusable;
-
-    Event onClick;
 
 #if JIVE_IS_PLUGIN_PROJECT
     std::unique_ptr<juce::ButtonParameterAttachment> parameterAttachment;

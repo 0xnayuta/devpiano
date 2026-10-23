@@ -23,7 +23,6 @@
 #include "jive_ComboBox.h"
 #include "jive_CommonGuiItem.h"
 #include "jive_Display.h"
-#include "jive_Label.h"
 #include "jive_ProgressBar.h"
 #include "jive_Slider.h"
 
@@ -40,51 +39,10 @@ void Interpreter::setComponentFactory(const ComponentFactory& newFactory) {
     componentFactory = newFactory;
 }
 
-void Interpreter::setAlias(const juce::Identifier& aliasType, const juce::ValueTree& treeToReplaceWith) {
-    aliases.emplace(aliasType, treeToReplaceWith.createCopy());
-}
-
-template <typename Decorator> void Interpreter::addDecorator(const juce::Identifier& itemType) {
-    customDecorators.emplace_back(
-        itemType, [](std::unique_ptr<GuiItem> item) { return std::make_unique<Decorator>(std::move(item)); });
-}
-
 std::unique_ptr<GuiItem> Interpreter::interpret(const juce::ValueTree& tree,
                                                 juce::AudioProcessor* pluginProcessor) const {
     JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED;
     return interpret(tree, nullptr, pluginProcessor);
-}
-
-void Interpreter::listenTo(GuiItem& item) {
-    if (observedItem != nullptr) {
-        observedItem->state.removeListener(this);
-    }
-
-    observedItem = &item;
-    observedItem->state.addListener(this);
-}
-
-[[nodiscard]] static GuiItem* findItem(GuiItem& root, const juce::ValueTree& state) {
-    if (root.state == state) {
-        return &root;
-    }
-
-    for (auto* const child : root.getChildren()) {
-        if (auto* item = findItem(*child, state)) {
-            return item;
-        }
-    }
-
-    return nullptr;
-}
-
-void Interpreter::valueTreeChildAdded(juce::ValueTree& parentTree, juce::ValueTree& childWhichHasBeenAdded) {
-    if (observedItem != nullptr) {
-        if (auto* parentItem = findItem(*observedItem, parentTree)) {
-            const auto index = parentTree.indexOf(childWhichHasBeenAdded);
-            insertChild(*parentItem, index, childWhichHasBeenAdded);
-        }
-    }
 }
 
 static std::unique_ptr<GuiItem> decorateWithDisplayBehaviour(std::unique_ptr<GuiItem> item) {
@@ -144,9 +102,6 @@ static std::unique_ptr<GuiItem> decorateWithWidgetBehaviour(std::unique_ptr<GuiI
     if (name == "ComboBox") {
         return std::make_unique<ComboBox>(std::move(item));
     }
-    if (name == "Label") {
-        return std::make_unique<Label>(std::move(item));
-    }
     if (name == "ProgressBar") {
         return std::make_unique<ProgressBar>(std::move(item));
     }
@@ -160,37 +115,14 @@ static std::unique_ptr<GuiItem> decorateWithWidgetBehaviour(std::unique_ptr<GuiI
     return item;
 }
 
-using DecoratorCreator = std::function<std::unique_ptr<GuiItemDecorator>(std::unique_ptr<GuiItem>)>;
-
-static std::vector<const DecoratorCreator*>
-collectDecoratorCreators(const juce::Identifier& itemType,
-                         const std::vector<std::pair<juce::Identifier, DecoratorCreator>>& decorators) {
-    std::vector<const DecoratorCreator*> creators;
-
-    for (const auto& decorator : decorators) {
-        if (decorator.first == itemType) {
-            creators.push_back(&decorator.second);
-        }
-    }
-
-    return creators;
-}
-
-static std::unique_ptr<GuiItem>
-decorate(std::unique_ptr<GuiItem> item,
-         const std::vector<std::pair<juce::Identifier, DecoratorCreator>>& customDecorators,
-         [[maybe_unused]] juce::AudioProcessor* pluginProcessor) {
+static std::unique_ptr<GuiItem> decorate(std::unique_ptr<GuiItem> item,
+                                         [[maybe_unused]] juce::AudioProcessor* pluginProcessor) {
     item = std::make_unique<CommonGuiItem>(std::move(item));
     item = decorateWithHereditaryBehaviour(std::move(item));
     item = decorateWithWidgetBehaviour(std::move(item));
 
     if (!item->isContent()) {
         item = decorateWithDisplayBehaviour(std::move(item));
-    }
-
-    for (const auto* decorateWithCustomDecorations :
-         collectDecoratorCreators(item->state.getType(), customDecorators)) {
-        item = (*decorateWithCustomDecorations)(std::move(item));
     }
 
 #if JIVE_IS_PLUGIN_PROJECT
@@ -202,80 +134,28 @@ decorate(std::unique_ptr<GuiItem> item,
     return item;
 }
 
-void Interpreter::setupItemsRecursive(GuiItem& item) const {
-    for (auto* child : item.getChildren()) {
-        setupItemsRecursive(*child);
-    }
-
-    if (auto view = item.getView(); view != nullptr) {
-        view->setup(item);
-    }
-}
-
 std::unique_ptr<GuiItem> Interpreter::interpret(const juce::ValueTree& tree, GuiItem* const parent,
                                                 juce::AudioProcessor* pluginProcessor) const {
     auto item = createUndecoratedItem(tree, parent);
 
     if (item != nullptr) {
-        item = decorate(std::move(item), customDecorators, pluginProcessor);
+        item = decorate(std::move(item), pluginProcessor);
         setChildItems(*item);
-
-        if (item->isTopLevel()) {
-            setupItemsRecursive(*item);
-        }
     }
 
     return item;
 }
 
-void Interpreter::expandAlias(juce::ValueTree& tree) const {
-    if (const auto alias = aliases.find(tree.getType()); alias != std::end(aliases)) {
-        auto replacement = alias->second.createCopy();
-
-        for (auto i = 0; i < tree.getNumProperties(); i++) {
-            auto propertyName = tree.getPropertyName(i);
-            replacement.setProperty(propertyName, tree[propertyName], nullptr);
-        }
-
-        for (auto child : tree) {
-            replacement.addChild(child.createCopy(), tree.indexOf(child), nullptr);
-        }
-
-        auto parent = tree.getParent();
-        const auto indexInParent = parent.indexOf(tree);
-
-        parent.removeChild(tree, nullptr);
-        parent.addChild(replacement, indexInParent, nullptr);
-        tree = replacement;
-    }
-}
-
 std::unique_ptr<GuiItem> Interpreter::createUndecoratedItem(const juce::ValueTree& tree, GuiItem* const parent) const {
-    // jassert(tree.getType().toString() != "svg");
-    auto expandedTree = tree;
-    expandAlias(expandedTree);
-
-    if (auto component = createComponent(expandedTree, parent)) {
-        return std::make_unique<GuiItem>(std::move(component), expandedTree,
+    if (auto component = createComponent(tree)) {
+        return std::make_unique<GuiItem>(std::move(component), tree,
 #if JIVE_GUI_ITEMS_HAVE_STYLE_SHEETS
-                                         StyleSheet::create(*component, expandedTree),
+                                         StyleSheet::create(*component, tree),
 #endif
                                          parent);
     }
 
     return nullptr;
-}
-
-void Interpreter::insertChild(GuiItem& item, int index, const juce::ValueTree& childState) const {
-    auto childItem = interpret(childState, &item, nullptr);
-
-    if (childItem != nullptr) {
-        setupItemsRecursive(*childItem);
-
-        if (item.isContainer() || childItem->isContent()) {
-            item.insertChild(std::move(childItem), index);
-        }
-    }
 }
 
 void Interpreter::setChildItems(GuiItem& item) const {
@@ -292,20 +172,7 @@ void Interpreter::setChildItems(GuiItem& item) const {
     item.setChildren(std::move(children));
 }
 
-std::unique_ptr<juce::Component> Interpreter::createComponent(const juce::ValueTree& tree,
-                                                              const GuiItem* parent) const {
-    if (auto* viewObject = dynamic_cast<jive::View*>(tree["view-object"].getObject())) {
-        if (auto component = viewObject->createComponent(tree)) {
-            return component;
-        }
-    }
-
-    for (const auto* ancestor = parent; ancestor != nullptr; ancestor = ancestor->getParent()) {
-        if (auto component = ancestor->getView()->createComponent(tree)) {
-            return component;
-        }
-    }
-
+std::unique_ptr<juce::Component> Interpreter::createComponent(const juce::ValueTree& tree) const {
     return componentFactory.create(tree.getType());
 }
 } // namespace jive

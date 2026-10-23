@@ -9,9 +9,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "jive_Bezier.h"
-#include "jive_Find.h"
 #include "jive_Interpolate.h"
-#include "jive_StringStreams.h"
 #include "jive_TransferFunction.h"
 #include "jive_Visitor.h"
 
@@ -22,11 +20,9 @@
 #include "jive_Transitions.h"
 
 #include "jive_Colours.h"
-#include "jive_Event.h"
 #include "jive_Object.h"
 #include "jive_Property.h"
 #include "jive_PropertyBehaviours.h"
-#include "jive_ReferenceCountedValueTreeWrapper.h"
 
 #include "jive_AttributedStringVariantConverters.h"
 #include "jive_FlexVariantConverters.h"

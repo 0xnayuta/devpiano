@@ -8,49 +8,6 @@
 #include "jive_ComboBox.h"
 
 namespace jive {
-ComboBox::Option::Option(juce::ValueTree sourceTree, int itemIndex, juce::ComboBox& box)
-    : tree { std::move(sourceTree) }
-    , comboBox { box }
-    , index { itemIndex }
-    , id { index + 1 }
-    , text { tree, "text" }
-    , enabled { tree, "enabled" }
-    , selected { tree, "selected" } {
-    comboBox.addItem(text, id);
-
-    text.onValueChange = [this]() { comboBox.changeItemText(id, text); };
-
-    selected.onValueChange = [this]() {
-        if (selected) {
-            comboBox.setSelectedItemIndex(index);
-            wasSelected = true;
-        } else if (wasSelected) {
-            comboBox.setSelectedId(0);
-            wasSelected = false;
-        }
-    };
-
-    if (selected) {
-        comboBox.setSelectedItemIndex(index);
-        wasSelected = true;
-    }
-
-    enabled.onValueChange = [this]() { comboBox.setItemEnabled(id, enabled); };
-    comboBox.setItemEnabled(id, enabled);
-}
-
-void ComboBox::Option::setSelected(bool shouldBeSelected) {
-    selected = shouldBeSelected;
-}
-
-ComboBox::Header::Header(juce::ValueTree sourceTree, ComboBox& box)
-    : comboBox { box }
-    , text { sourceTree, "text" } {
-    box.getComboBox().addSectionHeading(text);
-
-    text.onValueChange = [this]() { comboBox.updateItems(); };
-}
-
 ComboBox::ComboBox(std::unique_ptr<GuiItem> itemToDecorate)
     : GuiItemDecorator(std::move(itemToDecorate))
     , editable { state, "editable" }
@@ -58,8 +15,7 @@ ComboBox::ComboBox(std::unique_ptr<GuiItem> itemToDecorate)
     , selected { state, "selected" }
     , width { state, "width" }
     , height { state, "height" }
-    , focusable { state, "focusable" }
-    , onChange { state, "on-change" } {
+    , focusable { state, "focusable" } {
     const BoxModel::ScopedCallbackLock boxModelLock { boxModel(*this) };
 
     if (!focusable.exists()) {
@@ -72,27 +28,10 @@ ComboBox::ComboBox(std::unique_ptr<GuiItem> itemToDecorate)
     tooltip.onValueChange = [this]() { getComboBox().setTooltip(tooltip); };
     getComboBox().setTooltip(tooltip);
 
-    selected.onValueChange = [this]() {
-        getComboBox().setSelectedItemIndex(selected);
-
-        auto currentlySelectedOption = state.getChildWithProperty("selected", true);
-
-        if (currentlySelectedOption.isValid()) {
-            currentlySelectedOption.setProperty("selected", false, nullptr);
-        }
-
-        if (selected < options.size()) {
-            if (auto* selectedOption = options[selected]) {
-                selectedOption->setSelected(true);
-            }
-        }
-    };
-
-    updateItems();
+    selected.onValueChange = [this]() { getComboBox().setSelectedItemIndex(selected); };
     getComboBox().setSelectedItemIndex(selected);
-    getComboBox().addListener(this);
 
-    state.addListener(this);
+    getComboBox().addListener(this);
 
     if (width.isAuto()) {
         width = "50";
@@ -125,41 +64,9 @@ const juce::ComboBox& ComboBox::getComboBox() const {
     return *dynamic_cast<const juce::ComboBox*>(getComponent().get());
 }
 
-void ComboBox::updateItems() {
-    options.clear();
-    getComboBox().clear();
-
-    for (auto childState : state) {
-        if (childState.hasType("Option")) {
-            options.add(std::make_unique<Option>(childState, options.size(), getComboBox()));
-        } else if (childState.hasType("Header")) {
-            headers.add(std::make_unique<Header>(childState, *this));
-        } else if (childState.hasType("Separator")) {
-            getComboBox().addSeparator();
-        }
-    }
-}
-
-void ComboBox::valueTreeChildAdded(juce::ValueTree& parentState, juce::ValueTree& /* child */) {
-    if (parentState != state) {
-        return;
-    }
-
-    updateItems();
-}
-
-void ComboBox::valueTreeChildRemoved(juce::ValueTree& parentState, juce::ValueTree& /* child */, int /* index */) {
-    if (parentState != state) {
-        return;
-    }
-
-    updateItems();
-}
-
 void ComboBox::comboBoxChanged(juce::ComboBox* box) {
     jassertquiet(box == &getComboBox());
 
     selected = getComboBox().getSelectedItemIndex();
-    onChange.triggerWithoutSelfCallback();
 }
 } // namespace jive

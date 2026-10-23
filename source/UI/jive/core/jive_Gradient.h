@@ -53,7 +53,4 @@ template <> struct VariantConverter<jive::Gradient> {
     static var toVar(const jive::Gradient& gradient);
     static jive::Gradient fromVar(const var& value);
 };
-
-String& operator<<(String& str, const jive::Gradient::ColourStop& stop);
-String& operator<<(String& str, const jive::Gradient& gradient);
 } // namespace juce

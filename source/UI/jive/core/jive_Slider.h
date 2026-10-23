@@ -51,8 +51,6 @@ private:
     Property<bool> snapToMouse;
     Property<bool> focusable;
 
-    Event onChange;
-
 #if JIVE_IS_PLUGIN_PROJECT
     std::unique_ptr<juce::SliderParameterAttachment> parameterAttachment;
 #endif

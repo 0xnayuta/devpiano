@@ -31,8 +31,6 @@ class GuiItem;
 #include "jive_LayoutStrategy.h"
 #include "jive_Overflow.h"
 
-#include "jive_View.h"
-
 #include "jive_CommonGuiItem.h"
 #include "jive_ContainerItem.h"
 #include "jive_GuiItem.h"
@@ -45,7 +43,6 @@ class GuiItem;
 
 #include "jive_Button.h"
 #include "jive_ComboBox.h"
-#include "jive_Label.h"
 #include "jive_ProgressBar.h"
 #include "jive_Slider.h"
 #include "jive_Text.h"

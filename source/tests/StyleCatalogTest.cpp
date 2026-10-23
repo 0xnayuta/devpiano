@@ -193,7 +193,7 @@ private:
 
         // StyleSheet must have applied the #title rule -- the text colour
         // proves the style pipeline end to end.
-        expectEquals(text->getTextColour(), juce::Colour(0xFFEEEEEE));
+        expect(text->getTextColour() == juce::Colour(0xFFEEEEEE), "title text colour must come from #title rule");
     }
     void testDesignTokensHotReload() {
         beginTest("DesignTokens reload propagates to DevPianoLookAndFeel");
@@ -327,7 +327,7 @@ private:
             return;
         }
 
-        expectEquals(text->getTextColour(), juce::Colour(0xFFAABBCC));
+        expect(text->getTextColour() == juce::Colour(0xFFAABBCC), "initial Text foreground must apply");
 
         // Hot reload: new rules pushed to live tree
         const juce::var json2 = juce::JSON::parse(
@@ -336,14 +336,14 @@ private:
         catalog.loadFromJSON(json2);
         catalog.refreshStyles(item->state);
 
-        expectEquals(text->getTextColour(), juce::Colour(0xFFFF00AA));
+        expect(text->getTextColour() == juce::Colour(0xFFFF00AA), "reloaded #title foreground must apply");
 
         // Hot reload: #title rule removed, falls back to Text type rule
         const juce::var json3 = juce::JSON::parse(R"({ "Text": { "foreground": "#123456" } })");
         catalog.loadFromJSON(json3);
         catalog.refreshStyles(item->state);
 
-        expectEquals(text->getTextColour(), juce::Colour(0xFF123456));
+        expect(text->getTextColour() == juce::Colour(0xFF123456), "fallback Text foreground must apply");
     }
 
     void testStatusBarTreeInterprets() {
@@ -432,22 +432,6 @@ private:
             expectComponent(id);
         }
         expectComponent("plugin-path-editor");
-        // Filter combo must stay free of declarative Option children: its
-        // items are managed programmatically by MainComponent, and JIVE's
-        // Option "selected" write-back would clear the combo on the second
-        // user selection otherwise.
-        auto* filter = ::jive::findItemWithID(*item, "plugin-filter-combo");
-        expect(filter != nullptr, "filter combo missing");
-        if (filter != nullptr) {
-            int optionCount = 0;
-            for (auto child : filter->state) {
-                if (child.hasType("Option")) {
-                    ++optionCount;
-                }
-            }
-            expectEquals(optionCount, 0);
-            expect(!filter->state.hasProperty("selected"), "filter combo must not declare a selected property");
-        }
     }
 
     void testKeyboardAreaTreeInterprets() {
@@ -1203,50 +1187,6 @@ public:
         if (toggleBtn != nullptr) {
             expect(toggleBtn->isVisible(), "toggle button visible after toggling");
         }
-
-        // Combo options populated like updatePluginPanelState must be
-        // enabled and selectable (JIVE defaults missing "enabled" to false).
-        testComboOptionsEnabled(interpreter);
-    }
-
-    void testComboOptionsEnabled(::jive::Interpreter& interpreter) {
-        beginTest("combo options are enabled");
-
-        auto pluginTree = devpiano::ui::jive::makePluginPanelTree();
-        devpiano::ui::jive::StyleCatalog::get().applyToTree(pluginTree);
-        devpiano::ui::jive::ScopedJiveTree pluginItem = interpreter.interpret(pluginTree);
-        expect(pluginItem != nullptr, "plugin panel interpretation failed");
-        if (pluginItem == nullptr) {
-            return;
-        }
-
-        auto* selectorItem = jive::findItemWithID(*pluginItem, "plugin-selector");
-        expect(selectorItem != nullptr, "plugin-selector missing");
-        if (selectorItem == nullptr) {
-            return;
-        }
-
-        const auto addOption = [&selectorItem](const juce::String& optionText, int index) {
-            auto option = juce::ValueTree("Option");
-            option.setProperty("text", optionText, nullptr);
-            option.setProperty("enabled", true, nullptr);
-            selectorItem->state.addChild(option, index, nullptr);
-        };
-        addOption("pianoteq 9", 0);
-        addOption("surge XT", 1);
-        selectorItem->state.setProperty("selected", 0, nullptr);
-
-        auto* combo = dynamic_cast<juce::ComboBox*>(selectorItem->getComponent().get());
-        expect(combo != nullptr, "selector is not a ComboBox");
-        if (combo == nullptr) {
-            return;
-        }
-
-        expectEquals(combo->getNumItems(), 2);
-        expect(combo->isItemEnabled(1), "first option must be enabled");
-        expect(combo->isItemEnabled(2), "second option must be enabled");
-        expect(combo->isEnabled(), "combo itself must be enabled");
-        expectEquals(combo->getText(), juce::String("pianoteq 9"));
     }
 };
 
@@ -1328,9 +1268,6 @@ public:
         if (filterItem == nullptr) {
             return;
         }
-
-        expect(!filterItem->state.hasProperty("selected"), "layout must not declare a selected property");
-        expectEquals(filterItem->state.getNumChildren(), 0, "layout must not declare Option children");
 
         auto* combo = dynamic_cast<juce::ComboBox*>(filterItem->getComponent().get());
         expect(combo != nullptr, "filter is a ComboBox");

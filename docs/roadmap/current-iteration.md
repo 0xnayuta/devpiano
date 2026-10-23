@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39 与 R0–R11 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）是当前候选的 UI 基础设施阶段，**未启动**；Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
+> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**进行中**：39.5-1（基线与未用能力闭包精简）已完成并通过 Windows Debug 构建、默认 CTest 与定向 UI 回归；39.5-2 至 39.5-5 未启动。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
 
 ## 0. 归档入口
 
@@ -99,6 +99,48 @@
 - **集成门禁**：格式在本轮集成后统一执行，clang-tidy 仅在迭代边界全量执行；源文件增删/移动后刷新编译数据库。一次性计数/烟测脚手架在证据记录后移除。记录同配置基线对照、波动和未测边界，不把规划中的收益当量测结果。
 - **失败处置**：按完整依赖闭包修复或回退该逻辑批次，不留下新旧 API/shim/双路径；不要为保留已证明有风险的半套上游实现放宽回归。文本跨宽度复用等非必要启发式可以不引入；目录拆分是维护目标，不以 UI 加速幅度决定是否完成。
 - **完成条件**：39.5-1 至 39.5-5 全部按上述闭包交付，生产消费者、Windows Debug app/tests、默认 CTest、定向风险路径和真实 UI 证据齐备后才记完成。本次规划复审不等于启动实现、构建通过或性能认证；Phase 39/40–42 的既有结论不变。
+
+### 1.5 Phase 39.5-1 修改前基线(2026-10-23)
+
+在 Windows Debug(MSVC、`./scripts/dev.sh win-build`)上以临时探针 `JiveBaselineProbe` 运行 5 次;探针、`DEVPIANO_JIVE_BASELINE` 宏与 `jive_BaselineProbe.h` 在证据记录后随 39.5-1 一并移除,不进入永久测试。耗时取 5 次中位数并给出最小–最大;结构计数(Property/GuiItem/Remover、通知次数)在各次运行间完全一致,分配次数有少量波动。计时已用 `std::chrono::steady_clock` 与 QPC 对照校准。
+
+| 场景 | 解释 ms | 常驻 Property | Property 构造 | 分配次数 | 分配字节 | GuiItem | Remover | Box/State 监听 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 主窗口 1280x720 | 1.299(1.269–1.366) | 9067 | 41229 | 283,338–283,959 | 12.31–12.34 MB | 511 | 511 | 323 / 83 |
+| 主窗口 1920x1080 | 1.306(1.278–1.321) | 9067 | 41229 | 283,338 | 12.31 MB | 511 | 511 | 323 / 83 |
+| 设置 680x900 | 1.166(1.145–1.225) | 12004 | 44733 | 214,602–214,838 | 11.88–11.90 MB | 720 | 720 | 446 / 134 |
+| 长消息确认弹窗 | 0.057(0.055–0.061) | 654 | 2389 | 17,156–17,169 | 1.26–1.27 MB | 37 | 37 | 23 / 6 |
+| 键位绑定弹窗 | 0.168(0.162–0.184) | 2622 | 9086 | 38,830–38,858 | 2.27–2.28 MB | 154 | 154 | 100 / 28 |
+
+“Box/State 监听”是 `BoxModel::Listener` 与 `state.addListener` 的注册数,与每个 `Property` 自身的监听、每个 GuiItem 的 Remover 分开统计,不是 listener 总量。主窗口一次解释同时发生 30,161 次 `Property::get`、6,909 次 `set`、8,037 次有效通知与 29,311 次 transition 查询。
+
+| 二次布局 / 更新 | ms | 分配 | 临时 Property | 通知 | transition 查询 | 布局次数 | ideal 重测 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 主窗口 `setBounds(1280x720)` | 0.043 | 5,698 | 1,757 | 84 | 1,291 | 29 | 3 |
+| 50 轮文本/高度/启用更新 | 0.152 | 37,054 | 2,536 | 727 | 2,258 | 105 | 54 |
+| `refreshTitles()` | 0.003 | 67 | 1 | 1 | 1 | 0 | 0 |
+
+修改前几何(主窗口 1280x720):`main-area` 1280x696@(0,0)、`header` 1248x36@(16,16)、`plugin-panel` 1248x42@(16,62)、`controls-panel` 1248x220@(16,116)、`custom-keyboard` 1248x146@(16,540)、`status-bar` 1280x24@(0,696)。绑定弹窗根 460x282;`custom-colour-palette` 220x24@(224,188),其中 Clear 44x22@(372,189)——Flex gap 当前不生效,Clear 的 4px 左 margin 是唯一间距来源。
+
+未测量:JUCE 内部 listener 容器的真实容量、音频线程行为、物理设备与插件矩阵。上述数字是同一镜像树、同一 Debug 配置下的相对基线,不写成产品性能承诺。
+
+**39.5-1 精简后复测(同一探针、同一配置)**:GuiItem 数、全部几何、二次布局计数与 50 轮更新路径完全不变;差异仅来自被删除的未用闭包。
+
+| 场景 | Remover 注册 | 常驻 Property | state 监听 | 解释分配 | 分配字节 | 解释 ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 主窗口 1280x720 | 511 → 0 | 9067 → 9043 | 83 → 80 | 283,338–283,959 → 282,286–282,900 | 12.31–12.34 → 12.25–12.29 MB | 1.299 → 1.261 |
+| 设置 680x900 | 720 → 0 | 12004 → 11947 | 134 → 115 | 214,602–214,838 → 212,809–213,045 | 11.88–11.90 → 11.80 MB | 1.166 → 1.126 |
+| 键位绑定弹窗 | 154 → 0 | 2622 → 2615 | 28 → 27 | 38,830–38,858 → 38,515–38,543 | 2.27–2.28 → 2.26 MB | 0.168 → 0.165 |
+
+`state` 监听减少量与各布局的 ComboBox 数一致(主窗口 3、设置 19、绑定弹窗 1),即删除的是 `Option/Header/Separator` 重建链;Property 与分配的下降来自 `Event`、View 链和选项属性。二次布局(0.043→0.049 ms)与 50 轮更新(0.152→0.154 ms、分配 37,054 不变)属于运行波动,不记为改进。探针在该复测后删除。
+
+### 1.6 Phase 39.5-1 实施结果与验证
+
+- **删除的未用闭包**:`jive_Find.*`、`jive_StringStreams.*`、`jive_Label.*`、`jive_Event.h`、`jive_View.*`、`jive_ReferenceCountedValueTreeWrapper.h`;Fill/Gradient/BorderRadii 的无调用诊断流;Interpreter 的 alias/customDecorator/listenTo/结构回调/`setupItemsRecursive`;GuiItem 的 View 链与 Remover;Button/Slider/ComboBox 的声明式 Event;ComboBox 的 Option/Header/Separator 树模型、选项监听与重建;`Button::updateTriggerEvent` 死声明。
+- **保留**:`ComponentFactory`/`ViewHost::configureComponentFactory`、原生 JUCE 回调、ComboBox 原生条目管理与 `selected` 属性桥接、Button toggle/radio 同步、Slider 值回写、样式与过渡、Text/Block/Flex/Grid 布局。
+- **验证**:Windows Debug app 与 `devpiano_tests` 构建通过;默认 `ctest` 通过(约 40 s);定向 `LayoutGoldenTest` 391、`JiveModalDialog` 417、`StyleCatalog` 176、`JiveRender` 13、`PluginPanelToggle` 34、`ViewHost` 35、`SettingsLayoutModel` 66、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9 项断言全部通过;主窗口/设置/弹窗几何与精简前逐像素一致。`ViewHost` 新增“重载、移动、宿主销毁后继续变更外部布局树”的生命周期回归与“滑块原生值回写布局属性”回归。
+- **测试调整**:删除只构造已淘汰 Option 协议的 `testComboOptionsEnabled`;删除变为恒真的“无 Option 子节点/无 selected”断言;4 处 `expectEquals<juce::Colour>` 改为 `expect(...)`,不再依赖已删除的诊断流。原生下拉重建与二次选中回归保留。
+- **未覆盖**:windows-mcp 真实表面验收、语言切换、绑定色板、真实插件与音频设备;这些仍按 1.4 在后续任务/阶段出口执行。39.5-1 不宣称 listener 总量或性能收益,探针已移除。
 
 ## 2. 后续候选阶段（暂缓）
 
