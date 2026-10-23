@@ -200,7 +200,7 @@ flowchart TD
 
 ## 3. 88 键物理参数化表（`Piano88KeyTable.h`）
 
-`PianoSynthVoice` 使用 **88 键连续物理参数模型**。弦长/阻尼以 Bensa 等文献为设计线索，保留固定模型值；刚度 $B$ 使用 **19 个节点**：17 个受控软件参考锚点（MIDI 21/24/26/28/33/36/40/43/45/47/48/52/57/60/69/72/84）与 96/108 两个文献外推节点，节点间 log 插值。21/24/26/28 按 v41 弱力度政策取值，其余锚点取独立通过族中位数；84 以上自 C6 参考锚点按 Young 1952 / Rigaud-David-Daudet 2013 的高音桥斜率外推。软件输出拟合不认证真实弦身份、特定琴型逐键参数或高音全域实测；Task 39-2 的 inconclusive 收尾与表冻结边界见 [任务记录](../../roadmap/current-iteration.md#task-39-2-收尾记录2026-10-19证据不足--不注入-b)，不把生产回归通过当成外部校准成功：
+`PianoSynthVoice` 使用 **88 键连续物理参数模型**。弦长/阻尼以 Bensa 等文献为设计线索，保留固定模型值；刚度 $B$ 使用 **19 个节点**：17 个受控软件参考锚点（MIDI 21/24/26/28/33/36/40/43/45/47/48/52/57/60/69/72/84）与 96/108 两个文献外推节点，节点间 log 插值。21/24/26/28 按 v41 弱力度政策取值，其余锚点取独立通过族中位数；84 以上自 C6 参考锚点按 Young 1952 / Rigaud-David-Daudet 2013 的高音桥斜率外推。软件输出拟合不认证真实弦身份、特定琴型逐键参数或高音全域实测；Task 39-2 的 inconclusive 收尾与表冻结边界见 [任务记录](../../archive/phase39-acoustic-baseline-and-voicing-calibration.md#task-39-2-收尾记录2026-10-19证据不足--不注入-b)，不把生产回归通过当成外部校准成功：
 
 | 参数项 | 符号 | 取值范围 (A0 → C8) | 物理意义与声学作用 |
 |---|---|:---:|---|
@@ -217,7 +217,7 @@ flowchart TD
 | **阻尼常数** | `b1` / `b2` | $0.25 \to 9.17\text{ s}^{-1}$ / $7.5\times10^{-5} \to 2.1\times10^{-3}\text{ m}^2\text{s}^{-1}$ | 当前模型使用 $b_1+b_2(m\pi/L)^2$；这里只澄清量纲，不认证材料常数或改变数值 |
 | **模态阻尼斜率** | `decayDampingC` | $0.38 \to 0.12$ | 历史参数；当前生产路径不读取，实际分音阻尼由 `b1`/`b2` 计算；列为 R0 候选清理项 |
 
-> **离散分区与相位收敛**：`stringCount` 与 `partialCount` 仍为离散配置，拍频分音保持 `min(partialCount,6)`，不恢复 MIDI 96 硬切。当前生产路径保留低中音区原有独立初相；在既有 MIDI 80–100 失谐收敛区间内，相差沿最短角差连续归零，避免零失谐处突然换相。振幅采用下述单音总预算，不逐分音加补偿、不增加逐键增益表。历史 U2 的台阶改善保留为局部结构证据，但整体音色由后续恢复候选重新建立；人工验收与默认整音切换记录见[当前迭代](../../roadmap/current-iteration.md#task-39-5--39-3-用户受控试听反馈与音色验收重开记录2026-10-19)。
+> **离散分区与相位收敛**：`stringCount` 与 `partialCount` 仍为离散配置，拍频分音保持 `min(partialCount,6)`，不恢复 MIDI 96 硬切。当前生产路径保留低中音区原有独立初相；在既有 MIDI 80–100 失谐收敛区间内，相差沿最短角差连续归零，避免零失谐处突然换相。振幅采用下述单音总预算，不逐分音加补偿、不增加逐键增益表。历史 U2 的台阶改善保留为局部结构证据，但整体音色由后续恢复候选重新建立；人工验收与默认整音切换记录见 [Phase 39 归档](../../archive/phase39-acoustic-baseline-and-voicing-calibration.md#task-39-5--39-3-用户受控试听反馈与音色验收重开记录2026-10-19)。
 
 ---
 
@@ -320,7 +320,7 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
      - 当切换至第三方 VST3 插件时，JUCE 原生适配器存在框架层固有开销（`juce_VST3PluginFormatImpl.h` 的 `SpinLock processMutex` 与 `juce_VST3Common.h` 的 `CriticalSection` 转换）；
      - 单块存在 **2048 条 MIDI 消息上限**（`enum { maxNumEvents = 2048 }`），超额事件被框架截断；第三方插件内部行为超出宿主控制。产品自有发声的零锁零分配不外推至第三方插件；
 3. **单核 CPU 性能 SLA 与实测边界**：44.1/48 kHz、8 复音的长期目标仍为 **$\le 0.7\%$**，不因单次测量改写目标。该目标不是物理常数，也不由零锁/零分配自动推出；Debug 未优化配置的 callback/音频时长比不是已认证的单核 CPU 占用。
-   - Phase 37 的同配置 Duplex 开关增量与 callback 观察见 [直接实施证据归档](../../archive/phase37-38-piano-calibration-and-keyboard-performance.md#phase-37-直接实施证据与验证边界)，没有 Release 构建或 ≤0.7% 认证，不向其他硬件或厂商外推。参数/流程和软件门禁证据随阶段归档保存，后续任务见 [当前迭代](../../roadmap/current-iteration.md)，不能以历史测量认证新增 DSP 成本。
+   - Phase 37 的同配置 Duplex 开关增量与 callback 观察见 [直接实施证据归档](../../archive/phase37-38-piano-calibration-and-keyboard-performance.md#phase-37-直接实施证据与验证边界)，没有 Release 构建或 ≤0.7% 认证，不向其他硬件或厂商外推。参数/流程和软件门禁证据随阶段归档保存，阶段状态与后续候选见 [roadmap](../../roadmap/roadmap.md)，不能以历史测量认证新增 DSP 成本。
    - Task 39-5 在 Windows Debug 用带已知正调用自检的 IAT 观察器覆盖起音、参数/快照、密集输入、多复音、偷声部、Panic 后重用、44.1/48/96 kHz 重新准备、Take 预设边界与密集长事件回放：产品自有回调闭包内分配、临界区与库函数三角在测试用例场景下均为 0；8 复音起音校准与零偏移的两次 Debug 样本差异方向相反，单次计时方差大于锚点采样成本，表明在当前测量分辨率内未引入明显增量，但不宣称绝对“零成本”或无条件全回调保证。该记录是 Debug 测试桩环境下的单次场景观察，严禁外推为 Release CPU SLA 或物理设备真实 deadline 认证。
 
 ---
