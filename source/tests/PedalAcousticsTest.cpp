@@ -163,7 +163,8 @@ private:
         const auto previousTrigger = f.voices[0]->triggerCounter;
         f.synth.noteOn(1, 60, 0.8f);
         f.render();
-        expectGreaterThan(f.voices[0]->triggerCounter, previousTrigger, "voice zero must be reused");
+        expectGreaterThan(static_cast<juce::uint64>(f.voices[0]->triggerCounter),
+                          static_cast<juce::uint64>(previousTrigger), "voice zero must be reused");
         expectEquals(activeVoiceCount(f), Fixture::kVoiceCount);
         expect(f.synth.isPedalAcousticsActive(), "owner tail must outlive voice-zero reuse");
     }
