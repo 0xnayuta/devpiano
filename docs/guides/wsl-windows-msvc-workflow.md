@@ -82,6 +82,13 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 ./scripts/dev.sh win-build --reconfigure      # 强制重新配置
 ./scripts/dev.sh win-build --clean-win-build  # 清空构建树后重建（含删除守卫）
 
+# ── Windows 镜像 CTest（Debug，默认） ──
+./scripts/dev.sh win-test                     # 同步、configure BUILD_TESTS=ON、构建并运行
+./scripts/dev.sh win-test --no-sync           # 复用刚构建的镜像
+./scripts/dev.sh win-test --no-sync --name JiveCoreValues
+./scripts/dev.sh win-test --no-sync --category DevPiano/UI
+./scripts/dev.sh win-test --no-sync -- --repeat until-fail:3
+
 # ── Windows MSVC Release（仅明确发布需求时） ──
 ./scripts/dev.sh win-build --release
 ./scripts/dev.sh win-build --release --no-sync
@@ -102,7 +109,7 @@ export WIN_MIRROR_DIR='G:\source\projects\devpiano'
 ./scripts/dev.sh wsl-build --configure-only
 ```
 
-WSL 主工作树只负责源码编辑和 clangd 编译数据库；不要在此运行 `wsl-build` 完整构建、Release 构建或 `dev.sh test`。日常 Debug 构建与软件测试在 Windows 镜像树进行（Windows 单测命令见 [`quickstart.md`](quickstart.md)）。
+WSL 主工作树只负责源码编辑和 clangd 编译数据库；不要在此运行 `wsl-build` 完整构建、Release 构建或 `dev.sh test`。日常 Debug 构建与软件测试在 Windows 镜像树进行：构建用 `win-build`，测试用 `win-test`（命令见 [`quickstart.md`](quickstart.md)）。
 
 ### 2. 仅同步到 Windows 镜像树
 
@@ -120,7 +127,7 @@ WSL 主工作树只负责源码编辑和 clangd 编译数据库；不要在此�
 ./scripts/dev.sh win-sync --check
 ```
 
-### 4. 触发 Windows MSVC Debug 验证构建
+### 3. 触发 Windows MSVC Debug 验证构建
 
 ```bash
 ./scripts/build_msvc_from_wsl.sh
@@ -150,6 +157,25 @@ WSL 主工作树只负责源码编辑和 clangd 编译数据库；不要在此�
 ./scripts/build_msvc_from_wsl.sh --release
 ./scripts/build_msvc_from_wsl.sh --release --no-sync
 ```
+
+### 4. 运行 Windows 镜像 CTest
+
+```bash
+./scripts/dev.sh win-test
+# 等价于：
+./scripts/build_msvc_from_wsl.sh --tests
+```
+
+`win-test` 会在同一次调用中完成镜像同步、`BUILD_TESTS=ON` 配置、`devpiano_tests` 构建和默认 CTest。常用定向方式：
+
+```bash
+./scripts/dev.sh win-test --no-sync --name JiveCoreValues
+./scripts/dev.sh win-test --no-sync --category DevPiano/UI
+./scripts/dev.sh win-test --no-sync --ctest-verbose
+./scripts/dev.sh win-test --no-sync -- --repeat until-fail:3
+```
+
+`--name` / `--category` 直接运行测试二进制，不能与 `--` 后的 CTest 参数同用。`--release` 仅用于明确的 Release 测试需求；默认 Debug。
 
 ## Windows 构建目录清理安全门禁
 
@@ -226,8 +252,8 @@ bash scripts/tests/win_clean_guard_test.sh
 
 `scripts/build_wsl.sh` 支持：`--release`、`--configure-only`、`--reconfigure`、`--clean`。
 
-`scripts/build_msvc_from_wsl.sh` 支持：`--release`、`--no-sync`、`--full`、`--sync-only`、`--reconfigure`、`--clean-win-build`、`--allow-non-build-assets`（仅随 `--clean-win-build` 使用，用于显式放行含非构建资产的构建目录），用于更细粒度地控制 Windows 侧验证流程。
+`scripts/build_msvc_from_wsl.sh` 支持：`--release`、`--no-sync`、`--full`、`--sync-only`、`--reconfigure`、`--clean-win-build`、`--allow-non-build-assets`（仅随 `--clean-win-build` 使用，用于显式放行含非构建资产的构建目录）、`--tests`、`--ctest-verbose`、`--name`、`--category` 与 `-- <ctest args...>`，用于更细粒度地控制 Windows 侧验证流程。
 
-`scripts/dev.sh` 提供统一入口：`wsl-configure`、`wsl-build`、`win-sync`、`win-build`。configure/build 子命令可用 `--release` 选择 Release（仅明确要求时）；同步只接受 `--check` / `--full`，不接受 `--release`。WSL 主工作树仍只做 Debug configure，软件构建与测试在 Windows 镜像树执行。
+`scripts/dev.sh` 提供统一入口：`wsl-configure`、`wsl-build`、`win-sync`、`win-build`、`win-test`。configure/build/test 子命令可用 `--release` 选择 Release（仅明确要求时）；同步只接受 `--check` / `--full`，不接受 `--release`。WSL 主工作树仍只做 Debug configure，软件构建与测试在 Windows 镜像树执行。
 
 `scripts/sync_to_win.sh` / `scripts/dev.sh win-sync` 支持 `--check` 参数，以 `robocopy /L` 零写入模式列出待同步变更，不实际复制或删除任何文件。

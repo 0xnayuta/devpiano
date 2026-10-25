@@ -139,8 +139,9 @@ Recommended development setup: **WSL primary working tree + Windows mirror tree 
 # 5. Windows MSVC Debug validation (includes mirror sync)
 ./scripts/dev.sh win-build
 
-# 6. Windows Debug unit tests: in the mirror's Developer PowerShell,
-#    configure BUILD_TESTS=ON and run CTest (see docs/guides/quickstart.md).
+# 6. Windows Debug unit tests (mirror CTest; syncs and configures BUILD_TESTS=ON)
+./scripts/dev.sh win-test
+./scripts/dev.sh win-test --no-sync --name JiveCoreValues
 
 # 7. Release build (only when preparing a release)
 ./scripts/dev.sh win-build --release
@@ -154,7 +155,7 @@ Recommended development setup: **WSL primary working tree + Windows mirror tree 
 
 Every critical commit must satisfy the following three gates:
 1. **Formatting**: `./scripts/dev.sh format --check` passes with zero violations;
-2. **Unit Tests**: build with `BUILD_TESTS=ON` and run CTest for `devpiano_tests` in the Windows mirror; see [`docs/guides/quickstart.md`](docs/guides/quickstart.md). Linux CI uses `./scripts/dev.sh test`; running that script locally in WSL would build in the primary tree instead of the Windows mirror;
+2. **Unit Tests**: `./scripts/dev.sh win-test` syncs the Windows mirror, configures `BUILD_TESTS=ON`, builds `devpiano_tests`, and runs the default CTest suite. Linux CI uses `./scripts/dev.sh test`; running that script locally in WSL would build in the primary tree instead of the Windows mirror;
 3. **Build Validation**: WSL `./scripts/dev.sh wsl-build --configure-only` + Windows `./scripts/dev.sh win-build` compile successfully.
 
 ---

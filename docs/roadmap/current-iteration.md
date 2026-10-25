@@ -92,8 +92,8 @@
 
 ### 1.4 验证、失败处置与完成条件
 
-- **Windows Debug app 和 tests 都要构建**：`./scripts/dev.sh win-build` 不代替确认测试目标已构建；镜像树按 [quickstart 的 Windows Debug 单元测试](../guides/quickstart.md#windows-debug-单元测试) 启用 `BUILD_TESTS`、构建 `devpiano_tests`，再运行默认 `ctest --test-dir build-win-msvc --output-on-failure`。不在本地 WSL 跑产品测试，不默认 Release。
-- **定向命令按注册名，不按文件名**：测试可执行文件用 `--category DevPiano/UI`，或用 `--name` 单独选择 `LayoutGoldenTest`、`StyleCatalog`、`ViewHost`、`JiveModalDialog`、`SettingsLayoutModel`、`JiveTeardownOrder`、`ComboRebuild`、`FilterComboDefault`、`FilterComboVisibilityAdaptation`、`PresetComboRebuild` 等实际注册名。CTest 当前只注册总测试入口，不能用 `ctest -R StyleCatalogTest` 冒充跑了该 suite；核对日志中确有执行。
+- **Windows Debug app 和 tests 都要构建**：`./scripts/dev.sh win-build` 不代替测试目标确认；改用 `./scripts/dev.sh win-test` 完成镜像同步、`BUILD_TESTS=ON` 配置、`devpiano_tests` 构建与默认 CTest。定向 suite 用 `--name`/`--category`，`--` 后参数透传 ctest。不在本地 WSL 跑产品测试，不默认 Release。
+- **定向命令按注册名，不按文件名**：测试可执行文件用 `--category DevPiano/UI`，或用 `--name` 单独选择 `LayoutGoldenTest`、`StyleCatalog`、`ViewHost`、`JiveModalDialog`、`JiveCoreValues`、`SettingsLayoutModel`、`JiveTeardownOrder`、`ComboRebuild`、`FilterComboDefault`、`FilterComboVisibilityAdaptation`、`PresetComboRebuild` 等实际注册名。CTest 当前只注册总测试入口，不能用 `ctest -R StyleCatalogTest` 冒充跑了该 suite；核对日志中确有执行。
 - **风险回归而非重钉实现**：复用现有几何/原生交互用例；为样式观察递归、transition 删除/替换、坐标互斥、缓存失效和色板 gap 等可信消费者边界保留必要回归。所有永久 UI 测试纯内存、离屏、无原生顶层窗口，异步按钮显式 drainMessages；不复制上游 `#if JIVE_UNIT_TESTS` / `JIVE_TRACE`，不保留已裁协议或 wording/wiring 测试。
 - **真实表面独立验收**：按 [Windows MCP 工作流](../guides/windows-mcp-omp.md) 在主会话操作镜像 Debug 产物；验证窗口身份和前后 `mode='auto'` 快照/截图，覆盖主窗口收缩、设置语言切换、绑定色板、长消息、折叠、样式状态和正常关闭，不拿单测代替真实表面，也不认证硬件/商业插件矩阵。
 - **集成门禁**：格式在本轮集成后统一执行，clang-tidy 仅在迭代边界全量执行；源文件增删/移动后刷新编译数据库。一次性计数/烟测脚手架在证据记录后移除。记录同配置基线对照、波动和未测边界，不把规划中的收益当量测结果。

@@ -2,6 +2,8 @@
 
 ### Changed
 
+- **Windows Mirror Test Entry** — add `./scripts/dev.sh win-test` (and `build_msvc_from_wsl.sh --tests`) to sync the mirror, configure `BUILD_TESTS=ON`, build `devpiano_tests`, and run CTest on the Windows mirror. Targeted suites use `--name` or `--category`; extra CTest arguments follow `--`. The existing Linux/WSL `./scripts/dev.sh test` behavior is unchanged.
+
 - **Declarative UI Build Guard and Layout Convergence** — interpretation marks each subtree in progress and defers component sizing and parent re-measurement until one root-level convergence. ContainerItem now tracks ideal-size/children dirtiness and the constraints it was measured against, ViewHost measures content through the container API, and relayoutContainer consumes dirty state instead of only re-running child layout. The old unrestrained/within-constraints measurement entry points are removed.
 
 - **Flex Gap Support** — flex containers honour the `gap` property by expanding the layout bounds and giving every item half a gap of margin, so spacing appears only between adjacent items. The key-binding palette now lays out eight swatches and the Clear button exactly across its 220px width; the Clear button's duplicated left margin is removed.

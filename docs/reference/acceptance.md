@@ -537,12 +537,13 @@
 
    ```bash
    ./scripts/dev.sh wsl-build --configure-only
-   # Windows Debug 单元测试使用镜像树 Developer PowerShell，见下方链接
+   # Windows 镜像 CTest 使用 ./scripts/dev.sh win-test，见下方说明
    ./scripts/dev.sh format --check
    ./scripts/dev.sh win-build             # Windows 镜像 MSVC 编译链接验证
+   ./scripts/dev.sh win-test              # Windows 镜像 BUILD_TESTS=ON + 默认 CTest
    ```
 
-   Windows 侧先以 `BUILD_TESTS=ON` 构建 `devpiano_tests`，再用 CTest 运行，具体命令见 [`../guides/quickstart.md`](../guides/quickstart.md)；Linux CI 使用 `./scripts/dev.sh test`，本地 WSL 主树不运行该脚本。
+   `win-test` 会同步镜像、配置 `BUILD_TESTS=ON`、构建 `devpiano_tests` 并运行默认 CTest；`--name` / `--category` 用于定向 suite。Linux CI 使用 `./scripts/dev.sh test`，本地 WSL 主树不运行该脚本。
 
 2. **冒烟手工回归**：
    - 启动程序，音频设备初始化正常；

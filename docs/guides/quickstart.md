@@ -207,6 +207,14 @@ source ~/.bashrc
 ./scripts/dev.sh win-build --clean-win-build  # 守卫只检查构建目录顶层；证据/未知条目默认拒绝
 # 归档并确认后，才可显式追加 --allow-non-build-assets 放行非构建资产
 
+# ── Windows 镜像 CTest（Debug，默认） ──
+./scripts/dev.sh win-test
+./scripts/dev.sh win-test --no-sync
+./scripts/dev.sh win-test --no-sync --name JiveCoreValues
+./scripts/dev.sh win-test --no-sync --category DevPiano/UI
+./scripts/dev.sh win-test --no-sync --ctest-verbose
+./scripts/dev.sh win-test --no-sync -- --repeat until-fail:3
+
 # ── Windows MSVC Release（仅明确发布需求时） ──
 ./scripts/dev.sh win-build --release
 ./scripts/dev.sh win-build --release --no-sync
@@ -246,7 +254,23 @@ source ~/.bashrc
 
 ### Windows Debug 单元测试
 
-在镜像树的 **Developer PowerShell for VS** 中执行（先用 `./scripts/dev.sh win-build` 同步并构建 Debug；如覆盖了 `WIN_MIRROR_DIR`，替换下面的默认路径）：
+首选统一入口：
+
+```bash
+./scripts/dev.sh win-test
+./scripts/dev.sh win-test --no-sync --name JiveCoreValues
+./scripts/dev.sh win-test -- --repeat until-fail:3
+```
+
+`win-test` 会同步 WSL 工作树到 Windows 镜像、以 `BUILD_TESTS=ON` 配置 Debug 构建树、构建 `devpiano_tests`，再运行默认 CTest。常用选项：
+
+- `--no-sync`：刚执行过 `win-build` / `win-test`，镜像已最新时跳过同步；
+- `--name <suite>` / `--category <DevPiano/...>`：直接运行测试二进制，用于定向 suite；两者互斥；
+- `--ctest-verbose`：CTest 详细输出；定向模式下转为测试二进制 `--verbose`；
+- `--` 之后的参数透传给 `ctest`，不能与 `--name` / `--category` 同用；
+- `--release`：仅在明确需要 Release 验证时使用，默认 Debug。
+
+需要手动复现时，在镜像树的 **Developer PowerShell for VS** 中执行（先用 `./scripts/dev.sh win-build` 或 `win-test` 同步；如覆盖了 `WIN_MIRROR_DIR`，替换下面的默认路径）：
 
 ```powershell
 Set-Location 'G:\source\projects\devpiano'
@@ -255,7 +279,7 @@ cmake --build --preset windows-msvc-debug --target devpiano_tests
 ctest --test-dir build-win-msvc --output-on-failure
 ```
 
-默认门禁选择 `DevPiano/` 前缀类别，`ChordRecognitionTest` 属于 `DevPiano/Core`。需确认实际执行范围时使用 `ctest --test-dir build-win-msvc --verbose` 或检查 `Testing/Temporary/LastTest.log`；不能把编译接入或另行 category 补跑当作默认覆盖。
+默认门禁选择 `DevPiano/` 前缀类别，`ChordRecognitionTest` 属于 `DevPiano/Core`。需确认实际执行范围时使用 `./scripts/dev.sh win-test --no-sync --ctest-verbose` 或检查 `Testing/Temporary/LastTest.log`；不能把编译接入或另行 category 补跑当作默认覆盖。
 
 文件测试使用 `devpiano::test::ScopedTempDir`，不构造默认生产日志或调用会创建真实用户目录的预设探针。音频 fixture 必须在 buffer 到达调用者后构造 `AudioSourceChannelInfo`，不依赖具名返回的可选 NRVO。
 

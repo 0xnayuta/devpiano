@@ -175,8 +175,11 @@ devpiano 是个人维护、尚未承诺稳定兼容性的开发中桌面应用�
 # 仅刷新 WSL configure / compile_commands.json（clangd/LSP 依赖此文件）
 ./scripts/dev.sh wsl-build --configure-only
 
-# Linux CI 单元测试；本地 WSL 不运行，Windows 测试见 quickstart 的 Windows Debug 单元测试
+# Linux CI 单元测试；本地 WSL 不运行
 ./scripts/dev.sh test
+
+# Windows 镜像 CTest（自动同步、configure BUILD_TESTS=ON、构建并运行 devpiano_tests）
+./scripts/dev.sh win-test
 
 # Windows MSVC 验证构建（内置同步，一般不需要单独 win-sync）
 ./scripts/dev.sh win-build
@@ -280,7 +283,7 @@ devpiano 是个人维护、尚未承诺稳定兼容性的开发中桌面应用�
 6. **刷新编译数据库（必要时）**：如增删源文件或变更头文件依赖，运行 `./scripts/dev.sh wsl-build --configure-only`。
 7. **回归测试与 Windows 构建验证**：
    - Windows MSVC Debug 验证构建：`./scripts/dev.sh win-build`
-   - Windows 镜像树运行相关回归及默认 CTest，命令见 [`quickstart.md`](docs/guides/quickstart.md#windows-debug-单元测试)；`./scripts/dev.sh test` 仅用于 Linux CI。
+   - Windows 镜像 CTest：`./scripts/dev.sh win-test`（同步、配置 `BUILD_TESTS=ON`、构建 `devpiano_tests` 并运行）；`./scripts/dev.sh test` 仅用于 Linux CI。
    - 需要观察真实界面或对运行中产物做受控交互时，用 `windows-mcp` 对镜像树构建产物做实际表面核验与截图取证（见 §3 的 windows-mcp 规则）。
 8. **环境异常自检**：涉及环境或路径问题时，先运行 `./scripts/dev.sh self-check`。
 

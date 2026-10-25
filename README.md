@@ -139,8 +139,9 @@ source/
 # 5. Windows MSVC Debug 验证构建（内置同步）
 ./scripts/dev.sh win-build
 
-# 6. Windows Debug 单元测试：在镜像树 Developer PowerShell 中运行
-#    BUILD_TESTS=ON + ctest；具体命令见 docs/guides/quickstart.md
+# 6. Windows Debug 单元测试（镜像树 CTest；自动同步并配置 BUILD_TESTS=ON）
+./scripts/dev.sh win-test
+./scripts/dev.sh win-test --no-sync --name JiveCoreValues
 
 # 7. Release 构建（仅发布时）
 ./scripts/dev.sh win-build --release
@@ -154,7 +155,7 @@ source/
 
 每次关键修改提交前，必须满足以下三道质量门禁：
 1. **代码格式**：`./scripts/dev.sh format --check` 零违规；
-2. **单元测试**：在 Windows 镜像树用 `BUILD_TESTS=ON` 构建并以 CTest 运行 `devpiano_tests`，命令见 [`docs/guides/quickstart.md`](docs/guides/quickstart.md)；Linux CI 使用 `./scripts/dev.sh test`，在本地 WSL 调用该脚本会违反镜像验证工作流；
+2. **单元测试**：`./scripts/dev.sh win-test` 在 Windows 镜像树同步、配置 `BUILD_TESTS=ON`、构建 `devpiano_tests` 并运行默认 CTest；Linux CI 使用 `./scripts/dev.sh test`，在本地 WSL 调用该脚本会违反镜像验证工作流；
 3. **构建验证**：WSL 配置 `wsl-build --configure-only` + Windows 镜像 `./scripts/dev.sh win-build` 编译成功。
 
 ---

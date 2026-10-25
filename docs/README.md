@@ -28,7 +28,7 @@
 
 **工程三闸门基线**：
 - **格式化**：`.clang-format`（WebKit 规范），`./scripts/dev.sh format --check`
-- **单元测试**：Windows 镜像树配置 `BUILD_TESTS=ON` 并用 CTest 运行 `devpiano_tests`（命令见 [`guides/quickstart.md`](guides/quickstart.md)）；Linux CI 使用 `./scripts/dev.sh test`，本地 WSL 主树不运行该脚本
+- **单元测试**：`./scripts/dev.sh win-test` 在 Windows 镜像树配置 `BUILD_TESTS=ON`、构建 `devpiano_tests` 并运行 CTest；Linux CI 使用 `./scripts/dev.sh test`，本地 WSL 主树不运行该脚本
 - **构建验证**：WSL 配置 `wsl-build --configure-only` + Windows 验证 `./scripts/dev.sh win-build`
 
 ---
