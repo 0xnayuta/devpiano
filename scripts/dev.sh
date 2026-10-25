@@ -34,6 +34,8 @@ Commands:
   win-sync [--check] [--full] [--fast-times]
                              Sync the workspace to the Windows mirror
   win-build [opts]           Sync and optionally build with MSVC (Debug default)
+  win-test [opts] [-- ctest args...]
+                             Build devpiano_tests and run CTest on the Windows mirror
   format [--check]           Format source/ with clang-format-21
   tidy [files...]            Incremental clang-tidy on changed or given files
   tidy --all                 Full clang-tidy scan (iteration-boundary gate)
@@ -83,6 +85,11 @@ Examples:
   # Tests: args are forwarded to ctest; TestRunner flags need the binary
   ./scripts/dev.sh test
   ./scripts/dev.sh test --verbose
+
+  # Windows mirror tests: BUILD_TESTS=ON, devpiano_tests, CTest
+  ./scripts/dev.sh win-test
+  ./scripts/dev.sh win-test --no-sync --name JiveCoreValues
+  ./scripts/dev.sh win-test -- --repeat until-fail:3
 
   # Profiling and packaging
   ./scripts/dev.sh time-trace
@@ -135,6 +142,10 @@ EOF
   win-build)
     log 'dispatch -> scripts/build_msvc_from_wsl.sh'
     exec "${ROOT_DIR}/scripts/build_msvc_from_wsl.sh" "$@"
+    ;;
+  win-test)
+    log 'dispatch -> scripts/build_msvc_from_wsl.sh --tests'
+    exec "${ROOT_DIR}/scripts/build_msvc_from_wsl.sh" --tests "$@"
     ;;
   format)
     if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
@@ -305,6 +316,8 @@ TestRunner options (--verbose, --skip-category, --include-juce,
 --include-files, --category, --name) are not ctest options. Pass them
 to the test binary directly:
   build-wsl-clang/devpiano_tests_artefacts/Debug/devpiano_tests --help
+
+For the Windows mirror, use ./scripts/dev.sh win-test instead.
 
 Environment:
   DEVPIANO_USE_CCACHE=1  Use ccache for the test build

@@ -6,12 +6,42 @@ param(
     [switch]$Release,
     [switch]$ClangTidy,
     [switch]$SkipConfigure,
+    [switch]$Tests,
+    [switch]$CtestVerbose,
+    [string]$TestName = '',
+    [string]$TestCategory = '',
+    [string]$CtestArgsJson = '[]',
     [string]$VsInstallPath = $env:VSINSTALLDIR,
     [string]$VsDevCmdPath = $env:VS_DEVCMD_PATH
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+if (-not $Tests -and ($CtestVerbose -or $TestName -or $TestCategory -or $CtestArgsJson -ne '[]')) {
+    throw 'Test options require -Tests.'
+}
+if ($Tests -and $ClangTidy) {
+    throw '-Tests cannot be combined with -ClangTidy.'
+}
+if ($TestName -and $TestCategory) {
+    throw '-TestName and -TestCategory are mutually exclusive.'
+}
+
+$ctestExtraArgs = @()
+if ($CtestArgsJson) {
+    try {
+        $parsedCtestArgs = $CtestArgsJson | ConvertFrom-Json
+    } catch {
+        throw "Invalid -CtestArgsJson: $($_.Exception.Message)"
+    }
+    if ($null -ne $parsedCtestArgs) {
+        $ctestExtraArgs = @($parsedCtestArgs | ForEach-Object { [string]$_ })
+    }
+}
+if ($Tests -and ($TestName -or $TestCategory) -and $ctestExtraArgs.Count -gt 0) {
+    throw 'Extra ctest arguments cannot be combined with -TestName or -TestCategory.'
+}
 
 # Resolve presets: -Release flag overrides defaults
 if ($Release) {
@@ -194,10 +224,9 @@ Write-Log "VS installation: $installationPath"
 Write-Log "configure preset: $ConfigurePreset"
 Write-Log "build preset: $BuildPreset"
 
-Enter-DeveloperPowerShell -InstallationPath $installationPath -InstanceId $vsInstance.InstanceId
-
 Push-Location $MirrorDir
 try {
+    Enter-DeveloperPowerShell -InstallationPath $installationPath -InstanceId $vsInstance.InstanceId
     $presetBuild = Get-PresetBuildDirectory -MirrorDir $MirrorDir `
         -ConfigurePresetName $ConfigurePreset -BuildPresetName $BuildPreset
     $resolvedBuildDir = [string]$presetBuild.BuildDir
@@ -235,21 +264,37 @@ try {
                 throw "SkipConfigure requested but CMAKE_BUILD_TYPE is '$($buildTypeMatch.Groups[1].Value.Trim())', expected '$($presetBuild.BuildType)'."
             }
         }
+        if ($Tests) {
+            $buildTestsMatch = [regex]::Match($cacheText, '(?m)^BUILD_TESTS:BOOL=(ON|OFF)\s*$')
+            if (-not $buildTestsMatch.Success -or $buildTestsMatch.Groups[1].Value -ne 'ON') {
+                throw "SkipConfigure requested for tests but BUILD_TESTS is not ON in $cmakeCache. Reconfigure without --no-configure."
+            }
+        }
 
         Write-Log 'skipping CMake configure; reusing the existing build tree'
     } else {
-        Write-Log "cmake --preset $ConfigurePreset"
-        & cmake --preset $ConfigurePreset
+        $configureArgs = @('--preset', $ConfigurePreset)
+        if ($Tests) {
+            $configureArgs += '-DBUILD_TESTS=ON'
+        }
+        Write-Log ("cmake " + ($configureArgs -join ' '))
+        & cmake @configureArgs
         if ($LASTEXITCODE -ne 0) {
             throw "CMake configure failed with exit code $LASTEXITCODE"
         }
     }
 
-    Write-Log 'killing any stale DevPiano.exe process'
-    Get-Process -Name "DevPiano" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    if (-not $Tests) {
+        Write-Log 'killing any stale DevPiano.exe process'
+        Get-Process -Name "DevPiano" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
 
-    Write-Log "cmake --build --preset $BuildPreset"
-    & cmake --build --preset $BuildPreset
+    $buildArgs = @('--build', '--preset', $BuildPreset)
+    if ($Tests) {
+        $buildArgs += @('--target', 'devpiano_tests')
+    }
+    Write-Log ("cmake " + ($buildArgs -join ' '))
+    & cmake @buildArgs
     if ($LASTEXITCODE -ne 0) {
         # 偶发 LNK1163（COMDAT 节选择无效）：WSL 镜像同步让 ninja 重编部分
         # obj，而 MSVC 增量链接的 .ilk 仍按旧 obj 布局合并新 COMDAT。清除
@@ -257,10 +302,61 @@ try {
         Write-Log "build failed (exit $LASTEXITCODE); clearing incremental-link state and retrying once"
         Get-ChildItem -Path $MirrorDir -Recurse -Filter *.ilk -ErrorAction SilentlyContinue |
             Remove-Item -Force -ErrorAction SilentlyContinue
-        & cmake --build --preset $BuildPreset
+        & cmake @buildArgs
     }
     if ($LASTEXITCODE -ne 0) {
         throw "CMake build failed with exit code $LASTEXITCODE"
+    }
+
+    if ($Tests) {
+        $testExitCode = 0
+        if ($TestName -or $TestCategory) {
+            $artefactsDir = Join-Path $resolvedBuildDir 'devpiano_tests_artefacts'
+            $testExe = ''
+            if ($presetBuild.BuildType) {
+                $testExe = Join-Path $artefactsDir (Join-Path $presetBuild.BuildType 'devpiano_tests.exe')
+            }
+            if (-not $testExe -or -not (Test-Path -LiteralPath $testExe -PathType Leaf)) {
+                $foundExe = Get-ChildItem -LiteralPath $artefactsDir -Filter 'devpiano_tests.exe' -Recurse -File -ErrorAction SilentlyContinue |
+                    Select-Object -First 1
+                if ($null -ne $foundExe) {
+                    $testExe = $foundExe.FullName
+                }
+            }
+            if (-not $testExe -or -not (Test-Path -LiteralPath $testExe -PathType Leaf)) {
+                throw "devpiano_tests.exe was not found under $artefactsDir"
+            }
+            $testArgs = @()
+            if ($TestName) {
+                $testArgs += @('--name', $TestName)
+            } else {
+                $testArgs += @('--category', $TestCategory)
+            }
+            if ($CtestVerbose) {
+                $testArgs += '--verbose'
+            }
+            Write-Log ("running " + $testExe + " " + ($testArgs -join ' '))
+            & $testExe @testArgs
+            $testExitCode = $LASTEXITCODE
+        } else {
+            $ctestCommand = Get-Command ctest -ErrorAction SilentlyContinue
+            if ($null -eq $ctestCommand) {
+                throw 'ctest was not found in PATH after entering the Visual Studio developer environment.'
+            }
+            $testArgs = @('--test-dir', $resolvedBuildDir, '--output-on-failure')
+            if ($CtestVerbose) {
+                $testArgs += '-V'
+            }
+            if ($ctestExtraArgs.Count -gt 0) {
+                $testArgs += $ctestExtraArgs
+            }
+            Write-Log ("ctest " + ($testArgs -join ' '))
+            & ctest @testArgs
+            $testExitCode = $LASTEXITCODE
+        }
+        if ($testExitCode -ne 0) {
+            throw "Tests failed with exit code $testExitCode"
+        }
     }
 
     if ($ClangTidy) {
@@ -276,4 +372,8 @@ try {
     Pop-Location
 }
 
-Write-Log 'MSVC validation build completed successfully'
+if ($Tests) {
+    Write-Log 'MSVC test run completed successfully'
+} else {
+    Write-Log 'MSVC validation build completed successfully'
+}

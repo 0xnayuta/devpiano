@@ -36,7 +36,9 @@ fail() {
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/build_msvc_from_wsl.sh [options]
+Usage: ./scripts/build_msvc_from_wsl.sh [options] [-- ctest args...]
+
+When invoked as `./scripts/dev.sh win-test`, --tests is implied.
 
 Options:
   --release             Use windows-msvc-release preset (default: windows-msvc-debug)
@@ -52,6 +54,11 @@ Options:
   --allow-non-build-assets
                         Allow --clean-win-build to delete a build directory that
                         contains non-build assets (requires manual confirmation)
+  --tests               Configure BUILD_TESTS=ON, build devpiano_tests and run CTest
+  --ctest-verbose       Verbose test output (requires --tests)
+  --name <suite>        Run one suite through the test binary (requires --tests)
+  --category <name>     Run one exact category through the test binary (requires --tests)
+  -- <ctest args...>    Forward remaining arguments to ctest (requires --tests)
   -h, --help            Show this help
 EOF
 }
@@ -73,6 +80,11 @@ ALLOW_NON_BUILD_ASSETS=0
 USE_RELEASE=0
 CLANG_TIDY=0
 NO_CONFIGURE=0
+TESTS=0
+CTEST_VERBOSE=0
+TEST_NAME=''
+TEST_CATEGORY=''
+CTEST_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --release)
@@ -107,6 +119,27 @@ while [[ $# -gt 0 ]]; do
       ;;
     --clang-tidy)
       CLANG_TIDY=1
+      ;;
+    --tests)
+      TESTS=1
+      ;;
+    --ctest-verbose)
+      CTEST_VERBOSE=1
+      ;;
+    --name)
+      [[ $# -ge 2 ]] || fail '--name requires a test suite name'
+      TEST_NAME="$2"
+      shift
+      ;;
+    --category)
+      [[ $# -ge 2 ]] || fail '--category requires a category name'
+      TEST_CATEGORY="$2"
+      shift
+      ;;
+    --)
+      shift
+      CTEST_ARGS=("$@")
+      break
       ;;
     -h|--help)
       usage
@@ -202,6 +235,29 @@ fi
 
 if [[ "${SKIP_SYNC}" == "1" && ( "${FULL_SYNC}" == "1" || "${FAST_TIMES}" == "1" ) ]]; then
   fail '--full and --fast-times require sync; remove --no-sync'
+fi
+
+if [[ "${TESTS}" != "1" ]]; then
+  [[ "${CTEST_VERBOSE}" == "0" ]] || fail '--ctest-verbose requires --tests'
+  [[ -z "${TEST_NAME}" ]] || fail '--name requires --tests'
+  [[ -z "${TEST_CATEGORY}" ]] || fail '--category requires --tests'
+  [[ ${#CTEST_ARGS[@]} -eq 0 ]] || fail 'ctest arguments require --tests'
+fi
+
+if [[ -n "${TEST_NAME}" && -n "${TEST_CATEGORY}" ]]; then
+  fail '--name and --category are mutually exclusive'
+fi
+
+if [[ -n "${TEST_NAME}" || -n "${TEST_CATEGORY}" ]] && [[ ${#CTEST_ARGS[@]} -gt 0 ]]; then
+  fail 'extra ctest arguments cannot be combined with --name or --category'
+fi
+
+if [[ "${TESTS}" == "1" && "${SYNC_ONLY}" == "1" ]]; then
+  fail '--tests cannot be combined with --sync-only'
+fi
+
+if [[ "${TESTS}" == "1" && "${CLANG_TIDY}" == "1" ]]; then
+  fail '--tests cannot be combined with --clang-tidy'
 fi
 
 normalize_windows_mirror_dir() {
@@ -339,6 +395,9 @@ fi
 if [[ "${NO_CONFIGURE}" == "1" ]]; then
   log 'mode: no-configure'
 fi
+if [[ "${TESTS}" == "1" ]]; then
+  log 'mode: tests'
+fi
 
 PS_ARGS=(
   -NoProfile
@@ -354,7 +413,31 @@ fi
 if [[ "${NO_CONFIGURE}" == "1" ]]; then
   PS_ARGS+=(-SkipConfigure)
 fi
+if [[ "${TESTS}" == "1" ]]; then
+  PS_ARGS+=(-Tests)
+fi
+if [[ "${CTEST_VERBOSE}" == "1" ]]; then
+  PS_ARGS+=(-CtestVerbose)
+fi
+if [[ -n "${TEST_NAME}" ]]; then
+  PS_ARGS+=(-TestName "${TEST_NAME}")
+fi
+if [[ -n "${TEST_CATEGORY}" ]]; then
+  PS_ARGS+=(-TestCategory "${TEST_CATEGORY}")
+fi
+if [[ ${#CTEST_ARGS[@]} -gt 0 ]]; then
+  CTEST_ARGS_JSON="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "${CTEST_ARGS[@]}")" \
+    || fail 'failed to serialize ctest arguments'
+  PS_ARGS+=(-CtestArgsJson "${CTEST_ARGS_JSON}")
+fi
 
-"${WINDOWS_POWERSHELL}" "${PS_ARGS[@]}"
+(
+  cd -- "${WIN_MIRROR_DIR_WSL}"
+  "${WINDOWS_POWERSHELL}" "${PS_ARGS[@]}"
+)
 
-success 'MSVC validation build complete'
+if [[ "${TESTS}" == "1" ]]; then
+  success 'MSVC test run complete'
+else
+  success 'MSVC validation build complete'
+fi
