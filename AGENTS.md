@@ -91,7 +91,8 @@
   - Windows（构建验证 + 软件测试）：镜像树下 `build-win-msvc`
 - **默认仅使用 Debug 构建**。Release 构建（`--release`）仅在用户明确要求时才执行，或由用户手动进行。不要主动发起 Release 构建。
 - 关键修改后优先使用项目脚本验证，而不是直接手写 `cmake --build .`。
-- **clang-tidy 只在迭代边界执行全量检查（`./scripts/dev.sh tidy --all`），禁止提交前逐文件运行**——诊断由 clangd 波浪线实时提示（`.clangd` 已启用），全量在迭代边界兜底。例外：修改 `.clang-tidy` / `.clang-format` 配置后可用单文件快速验证配置效果。
+- **clang-tidy 只在迭代边界执行全量检查（`./scripts/dev.sh tidy --all`），禁止提交前逐文件运行**——诊断由 clangd 波浪线实时提示（`.clangd` 已启用），全量在迭代边界兜底。例外：修改 `.clang-tidy` / `.clang-format` 配置后可用单文件快速验证配置效果；全量 tidy 已报错后的修复循环按下方失败复跑规则执行。
+- **全量门禁失败后的修复循环只重跑失败项**：`./scripts/dev.sh win-test` 或 `./scripts/dev.sh tidy --all` 报错后，测试优先用 `./scripts/dev.sh win-test --name <suite>` / `--category <DevPiano/...>` 定向复跑失败 suite，需要复用 CTest 失败记录时用 `./scripts/dev.sh win-test -- --rerun-failed`；tidy 只对失败代码文件执行 `./scripts/dev.sh tidy <files...>`。禁止每次修复后重复全量测试或全量 tidy；修复完成、正式收口前再执行一次全量门禁确认。
 - 需要快速检查环境时，先运行：
 
 ```bash
@@ -166,7 +167,7 @@ devpiano 是个人维护、尚未承诺稳定兼容性的开发中桌面应用�
 # 检查格式合规（CI 模式）
 ./scripts/dev.sh format --check
 
-# 增量静态检查（clang-tidy，仅配置变更验证/例外场景使用；日常提交前不做）
+# 增量静态检查（clang-tidy，仅配置变更验证或全量失败后的定向复检；日常提交前不做）
 ./scripts/dev.sh tidy
 
 # 全量静态检查（迭代边界门禁，约 19 分钟；唯一例行 clang-tidy 执行点）
@@ -178,7 +179,7 @@ devpiano 是个人维护、尚未承诺稳定兼容性的开发中桌面应用�
 # Linux CI 单元测试；本地 WSL 不运行
 ./scripts/dev.sh test
 
-# Windows 镜像 CTest（自动同步、configure BUILD_TESTS=ON、构建并运行 devpiano_tests）
+# Windows 镜像 CTest（日常回归默认；自动同步、configure BUILD_TESTS=ON、构建并运行 devpiano_tests）
 ./scripts/dev.sh win-test
 
 # Windows MSVC 验证构建（内置同步，一般不需要单独 win-sync）
@@ -283,7 +284,7 @@ devpiano 是个人维护、尚未承诺稳定兼容性的开发中桌面应用�
 6. **刷新编译数据库（必要时）**：如增删源文件或变更头文件依赖，运行 `./scripts/dev.sh wsl-build --configure-only`。
 7. **回归测试与 Windows 构建验证**：
    - Windows MSVC Debug 验证构建：`./scripts/dev.sh win-build`
-   - Windows 镜像 CTest：`./scripts/dev.sh win-test`（同步、配置 `BUILD_TESTS=ON`、构建 `devpiano_tests` 并运行）；`./scripts/dev.sh test` 仅用于 Linux CI。
+   - Windows 镜像 CTest：`./scripts/dev.sh win-test`（同步、配置 `BUILD_TESTS=ON`、构建 `devpiano_tests` 并运行）。日常回归默认使用该入口；`./scripts/dev.sh test` 仅用于 Linux CI。
    - 需要观察真实界面或对运行中产物做受控交互时，用 `windows-mcp` 对镜像树构建产物做实际表面核验与截图取证（见 §3 的 windows-mcp 规则）。
 8. **环境异常自检**：涉及环境或路径问题时，先运行 `./scripts/dev.sh self-check`。
 
