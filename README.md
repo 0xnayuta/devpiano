@@ -81,11 +81,12 @@ devpiano 是一款基于 JUCE 9.0.1 框架的现代电脑键盘钢琴应用，�
 
 - **现代化异步非阻塞渲染**：`WavExportTask` 演进为纯异步工作任务流（`startAsync`），彻底消除消息循环阻塞，端到端经 `InstrumentEndpoint` 统一调度；
 - **单层与固定双层渲染**：保留内置 Piano/Sine 或当前 VST3 单层，新增固定 Piano + 单 VST3；独立缓冲、层增益与有界采样延迟对齐后混音，只经过一次公共 Master/Reverb。实时与独立离线实例共用最终 MIDI 身份；双层缺少插件明确失败并保护目标，不静默只导出钢琴，不承诺厂商输出逐比特相同；
+- **有限尾音与 take-end 释放**：渲染到 take 末尾时按身份追踪补未释放音符的 NoteOff 与 CC64/66/67 Off，不再自动 All Sound Off 截断尾音；默认追加 6.0 秒，`WavExportOptions::tailSeconds` 可配 0–30 秒（0 关闭），内置、插件与双层路径共享。当前 UI 使用默认值，尚无时长控件；超窗声音仍可能被截断；
 - **进度与协作取消**：显示导出进度，取消后等待实际工作退出再释放资源；失败或提交前取消保留原目标，仅清理任务自有临时文件。厂商永久阻塞时无法保证有限时间内结束。
 
 ### 🎨 内生声明式 UI 运行时与设计系统（Declarative UI & Design System）
 
-- **声明式 UI 架构**：主界面、设置面板与弹窗容器使用内生 `source/UI/jive/core/`（ADR-014，外部 JIVE 子模块已退役），以 `ValueTree`、JSON 样式与 Flex/CSS Grid 排版；业务经 `ViewHost` 门面访问组件，Native 自绘组件保留各自几何与绘制职责。
+- **声明式 UI 架构**：主界面、设置面板与弹窗容器使用内生 `source/UI/jive/core/`（ADR-014，外部 JIVE 子模块已退役），以 `ValueTree`、JSON 样式与 Flex/CSS Grid 排版；Phase 39.5 已按产品消费闭包精简并选择性对齐 v2 的属性/过渡、盒模型约束、TextLayout 缓存与 Flex gap，core 按 `values/`、`geometry/`、`style/`、`layout/` 组织。业务经 `ViewHost` 门面访问组件，Native 自绘组件保留各自几何与绘制职责。
 - **现代化暗黑主题**：基于 `DevPianoLookAndFeel` 的旋钮化 ADSR/音量调节、演奏走带与节拍器控件、状态栏 MIDI 活动/节拍反馈、插件名称、音频指标与调号；
 - **绿色单文件资产内嵌**：设计 Token（`design_tokens.json`）、样式表（`style_sheets.json`）与中文语言包（`zh_CN.loc`）由 CMake 编译期二进制静态内嵌，单文件绿色分发零外部文件依赖。
 

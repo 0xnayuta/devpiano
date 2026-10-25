@@ -22,7 +22,7 @@
 ### C++ 构建耗时热点：std::regex 模板实例化（已解决）与重型 UI 测试单元
 
 > 通过 `-ftime-trace` 与 `scripts/analyze_build_time.py` 构建微观剖析发现的编译期性能瓶颈及处理状态：
-> 1. **`std::regex` 模板递归膨胀（已解决）**：`source/UI/jive/core/jive_TimeParser.h` 已重构为零外部依赖的纯 C++ 确定性字符串扫描器，彻底移除了 `#include <regex>`，消除了其通过 `jive_core.h` 在全仓各编译单元反复递归实例化 `<regex>` 的巨大 CPU 耗时开销；
+> 1. **`std::regex` 模板递归膨胀（已解决）**：`source/UI/jive/core/values/jive_TimeParser.h` 已重构为零外部依赖的纯 C++ 确定性字符串扫描器，彻底移除了 `#include <regex>`，消除了其通过 `jive_core.h` 在全仓各编译单元反复递归实例化 `<regex>` 的巨大 CPU 耗时开销；
 > 2. **重型 UI 测试编译单元**：`SettingsLayoutModelTest.cpp` 与 `JiveModalDialogTest.cpp` 因集中实例化了复杂的 JIVE 声明式解释器、样式引擎与全部组件工厂，仍属于业务层编译耗时相对较长的测试单元。
 >
 > **跟进计划**：
@@ -262,8 +262,8 @@
 ### 虚拟键盘高频 MIDI 播放 CPU 占用（Phase 14 + Phase 16 已解决）
 
 在播放密集 MIDI 文件时，音频 DSP 与 UI 渲染占用大量 CPU。修复：
-1. **DSP 层（Phase 14-A）**：`PianoSynthVoice` 采用 Magic Circle 二阶递归正弦振荡器，消除 `std::sin`，音频线程单核 CPU 降至 ~0.7%；
-2. **UI 渲染层（Phase 16-A）**：`CustomKeyboard` 引入局部脏矩形重绘（`repaintKey(k)`）与 `g.getClipBounds()` 快速裁剪早退，消灭全量 88 键 `repaint()`，UI 光栅化渲染耗时降低 70% 以上。
+1. **DSP 层（Phase 14-A）**：`PianoSynthVoice` 采用 Magic Circle 二阶递归正弦振荡器，消除 `std::sin`，显著降低逐采样三角与递归振荡成本；8 复音单核 CPU ≤0.7% 仍是独立 SLA 目标，不由该历史测量或 Debug 门禁认证；
+2. **UI 渲染层（Phase 16-A）**：`CustomKeyboard` 引入局部脏矩形重绘（`repaintKey(k)`）与 `g.getClipBounds()` 快速裁剪早退，消灭全量 88 键 `repaint()`，显著降低密集播放时的 UI 光栅化开销。
 
 - **回归线索**：密集 MIDI 播放时 UI 线程满载 / 虚拟键盘按键残影
 - **关联**：`CustomKeyboard::timerCallback()`，`CustomKeyboard::repaintKey()`，[`../reference/features/builtin-piano-synthesis.md`](../reference/features/builtin-piano-synthesis.md)
@@ -323,6 +323,22 @@
 - **修复**：通过 `dialog->getContentComponent()` 获取实际内容指针并包装为 `juce::Component::SafePointer` 传入模态完成回调。
 - **回归线索**：点击弹窗右上角 X 按钮关闭后，业务侧临时状态未还原、`onCancel` 丢失。
 - **关联**：`JiveModalDialog.cpp`，`JiveModalDialogTest.cpp`。
+
+### JIVE 运行时生命周期、过渡与布局缓存（Phase 39.5 独立复审）
+
+- **历史反证**：独立复审确认 2 个 P1 与 8 个 P2。`Property` 的字符串 transition 容器在 progress 回调销毁 owner 后被继续写入，隔离探针以访问冲突退出；`Object::syncNestedObjects()` 在删除/替换唯一拥有的嵌套对象后解引用已释放子对象。行为侧：移除/替换活动 transition 不通知最终值，`ViewHost` alpha 永久停在 `0.705882`；BoxModel 动画 margin tick 未推进 `constraintsVersion`，Flex/Grid 缓存复用中间 `16` 而错过最终 `80`；padding 约束重复扣减，嵌套高度由 `178` 修正为 `161`；收缩容器未按实际内容宽度重测，高度由 `18` 修正为 `36`；`word-wrap`/`reading-direction` 变化未重排，`byWord`→`none` 由 `125` 修正为 `18`；同一 style 对象 live mutation 立即 snap，未从旧色过渡；`FlexItem` 残留无条件 `fprintf`。
+- **当前修复**：`Transitions::updateTransitions()` 在派发期间持有强引用，回调返回后不再写已释放状态；嵌套对象析构时从父对象裸指针集合注销，父对象析构时断开父链；transition 移除/替换显式通知最终值；全部 BoxModel 几何输入（含 margin/width/height/padding/border 过渡 tick）推进约束版本；容器约束与父内容约束按零原点相交；收缩容器按实际内容区宽度重测；`Text` 将 `word-wrap`/`reading-direction` 纳入重排条件；`StyleSheet` 仅在同一 style 对象属性变更时保留 calculated/transition 状态；删除调试残留并补齐上游 v2 的 2026 copyright。
+- **回归线索**：`JiveCoreValuesTest` 覆盖 transition 移除通知、回调自毁、嵌套对象删除、动画 margin、padding/shrink 测量、word-wrap 重排、同对象样式过渡、方向/文本/line-spacing 缓存失效与 Flex gap；`ViewHostTest` 覆盖无 `setup-in-progress` 残留、宿主销毁后外部布局树变更；`LayoutGoldenTest` 保留几何金标。
+- **关联**：`source/UI/jive/core/values/jive_Property.h`、`jive_Object.*`、`jive_Transitions.*`、`source/UI/jive/core/geometry/jive_BoxModel.*`、`source/UI/jive/core/layout/jive_Text.*`、`jive_ContainerItem*`、`jive_FlexItem*`、`source/UI/jive/core/style/jive_StyleSheet.*`。
+- **边界**：缓存容量与布局耗时是实现参数，不是产品契约；真实硬件、IME 全组合与商业插件矩阵仍由独立验收覆盖。
+
+### WAV 导出 take-end 自动 All Sound Off 与固定 2 秒尾音
+
+- **历史反证**：两条离线导出路径在 take 末尾自动注入 CC120/CC123，提前截断 Release、Room 与插件自然尾音；固定 2.0 秒窗口不能按内容调整。
+- **当前修复**：`prepareRenderTimeline()` 在 take 末尾按 `PlaybackIdentityTracker` 的通道与锁定输出音高排空未释放音符，再发送全通道 CC64/66/67 Off；take 内显式 CC120/CC123、层关闭与端点切换仍硬停。`WavExportOptions::tailSeconds` 默认 6.0 秒、闭区间 0–30 秒，内置、插件与双层共享；0 表示不追加尾音，文件长度仍由时间线确定性计算。当前 UI 使用默认值，尚无时长控件。
+- **回归线索**：`ExportTailEndTest` 覆盖末尾身份释放、显式 panic、零尾音与层切换；`ExportTailDurationTest` 覆盖默认值、范围、非法拒绝与长度确定性；`RenderPipelineTest` 覆盖时间线准入。
+- **关联**：`source/Recording/RenderPipeline.*`、`source/Export/WavExportOptions.h`、`source/Recording/WavFileExporter.cpp`、`source/Recording/PluginOfflineRenderer.cpp`。
+- **边界**：超窗声音仍可能在文件结束处截断；不承诺第三方插件的全部自然尾音完整，也不外推商业插件或物理声卡矩阵。
 
 ---
 

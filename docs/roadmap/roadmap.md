@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-**近期状态：内置钢琴音源结构整理（R0–R11）已完成并归档** [2026-10-23]；Phase 39 已冻结并归档（Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过）；**Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）已完成**（用户人工表面验收无明显问题，Windows Debug 构建、默认 CTest 与增量 clang-tidy 通过）；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定。R0–R11 历史见 [结构整理归档](../archive/r0-r11-physical-piano-source-refactor.md)，Phase 39 历史见 [声学基线归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)；Phase 39.5 的任务拆分、事实核查与验证门禁见 [当前迭代](current-iteration.md)。
+**近期状态：内置钢琴音源结构整理（R0–R11）已完成并归档** [2026-10-23]；Phase 39 已冻结并归档（Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过）；**Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）已完成**（用户人工表面验收无明显问题，Windows Debug 构建、默认 CTest 与增量 clang-tidy 通过）；**最近维护任务 E3 已完成**：WAV 导出在 take 结束按身份补 NoteOff 与踏板 Off，不再自动 All Sound Off 截断；默认尾音 6.0 秒、可由 `WavExportOptions::tailSeconds` 配 0–30 秒，内置/插件/双层共享，当前 UI 使用默认值。Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定。R0–R11 历史见 [结构整理归档](../archive/r0-r11-physical-piano-source-refactor.md)，Phase 39 历史见 [声学基线归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)；Phase 39.5 的任务拆分、事实核查与验证门禁见 [当前迭代](current-iteration.md)。
 
 **最近软件交付：Phase 38 电脑键盘分区、三踏板与固定双层** [软件交付完成，2026-10-10]；Phase 37 [已完成，2026-10-08]。原任务、直接消费者、失败记录和后续修复归属见 [Phase 37/38 完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md)。CPU SLA 与商业厂商/物理硬件补验不由 Debug 门禁或本次归档认证；Phase 36 归档与 AUDIT-004 实机边界保持独立。
 
@@ -364,7 +364,7 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 4. **Task 37-4：可保存的钢琴风格预设**：补齐风格所需声学字段，提供经真实音频和试听区分的参数化风格，不将未标定的 Upright/Fortepiano 型号复刻包装成旋钮快照；
 5. **Task 37-5：实时、录制与离线集成**：设置、普通预设、Take 快照、实时和内置 WAV 消费同一有效声学配置，验证采样级切换、原发音身份与实时预算。
 
-**直接交付**：实际 A4/分音对校准、未踩踏板的有界 Duplex、五种参数化风格与真实 Save As/重启音色恢复、整段非零 wet 快照实时/WAV 对照及原身份释放已验证；离线混响初始状态不再污染起音。Windows Debug app/tests、默认 CTest、格式和全量 tidy 通过，零堆/对应锁与库三角观察有正调用自检。现有 2.0 秒 WAV 截断边界保留；未执行 Release 或 ≤0.7% CPU 认证，硬件/厂商补验不外推。完整任务与证据见 [Phase 37 完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md#2-phase-37物理建模调律与被动共鸣校准)。
+**直接交付**：实际 A4/分音对校准、未踩踏板的有界 Duplex、五种参数化风格与真实 Save As/重启音色恢复、整段非零 wet 快照实时/WAV 对照及原身份释放已验证；离线混响初始状态不再污染起音。Windows Debug app/tests、默认 CTest、格式和全量 tidy 通过，零堆/对应锁与库三角观察有正调用自检。交付时保留固定 2.0 秒 WAV 截断边界；未执行 Release 或 ≤0.7% CPU 认证，硬件/厂商补验不外推。完整任务与证据见 [Phase 37 完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md#2-phase-37物理建模调律与被动共鸣校准)。
 
 ### Phase 38：电脑键盘分区、三踏板控制与固定双层演奏（Keyboard Zones, Three-Pedal Control & Fixed Dual Layer）[软件交付完成，2026-10-10]
 
@@ -377,6 +377,8 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 5. **Task 38-5：双层状态与录制/导出/UI 闭环**：保存层模式与配比，实时和独立离线实例均执行复合渲染，明确插件依赖、失败/取消与实际 UI 验证边界，不承诺跨机器还原原厂商音色。
 
 **直接交付**：最终身份无重复变换、CC66 边沿与原通道释放、固定分区/完整 Num keyCode、非零区域音乐配置及本机模式独立恢复、端点所有权、采样延迟和实时/离线固定双层均有消费者证据。实际绑定、Editor、后台/进度窗取消、保持输入时重扫/加载及正常关闭通过，Windows Debug app/tests、默认 CTest、格式与全量 tidy 通过。硬件键盘/声卡、商业厂商、CPU SLA、跨机音色和超 2.0 秒尾音不外推。详细任务与证据见 [Phase 38 完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md#3-phase-38电脑键盘分区三踏板控制与固定双层演奏)，后续修复另见归档第 6 节，不改写原验证记录。
+
+> Phase 37/38 交付时的固定 2.0 秒 WAV 窗口与"超 2.0 秒不外推"保留为历史验收边界。当前实现已由 E3 更新为 take-end 身份释放与默认 6.0 秒、可配 0–30 秒的有限尾音，见 [离线渲染](../reference/features/plugin-offline-rendering.md)。
 
 ### Phase 39：可复核声学基线与三力度整音校准[已归档；Task 39-2 inconclusive，阶段未通过]
 
@@ -396,7 +398,7 @@ Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失
 
 **明确不移植**：整套上游 StyleSheet/LookAndFeel、SourceFile/FileObserver、外部 XML/JSON 热重载、逐节点文件本地化、选择器/字体/渐变语法改义与内部布局属性前缀改名。保留本地圆角更新修复及无正则 TimeParser；Length 仅保留 px/%，删除未用 em/rem。默认控件行为保持，默认值写回按真实读取依赖处理，不以内部注册或测试自造输入替未用能力保留实现。
 
-**状态与验收**：已完成。39.5-1 至 39.5-5 全部交付：构建守卫与容器脏标记/约束测量、Item 缓存完整失效、TextLayout 测量/绘制共享缓存、Flex gap 与绑定色板修复、core 目录归入 `values/`、`geometry/`、`style/`、`layout/` 且聚合头保留在根。全量 clang-tidy 首轮发现的问题已修复，修复后对受影响 TU 增量检查通过；Windows Debug app/tests 与默认 CTest 通过。用户已完成主窗口、设置、绑定色板、长消息、折叠与关闭等人工表面验收，确认无明显问题。未声明硬件/商业插件矩阵结论，也未把缓存收益写成未经量测的零开销承诺。
+**状态与验收**：已完成。39.5-1 至 39.5-5 全部交付：构建守卫与容器脏标记/约束测量、Item 缓存完整失效、TextLayout 测量/绘制共享缓存、Flex gap 与绑定色板修复、core 目录归入 `values/`、`geometry/`、`style/`、`layout/` 且聚合头保留在根。全量 clang-tidy 首轮发现的问题已修复，修复后对受影响 TU 增量检查通过；Windows Debug app/tests 与默认 CTest 通过。用户已完成主窗口、设置、绑定色板、长消息、折叠与关闭等人工表面验收，确认无明显问题。随后独立复审确认 2 个 P1 与 8 个 P2，已全部修复并新增 `JiveCoreValues` 回归，默认 CTest 与主窗口冒烟通过；详见 [当前迭代 1.14](current-iteration.md#114-phase-395-独立复审修复2026-10-23)。未声明硬件/商业插件矩阵结论，也未把缓存收益写成未经量测的零开销承诺。
 
 ### Phase 40：同音弦耦合、双阶段衰减与 Una Corda 深化[暂缓：2026-10-22 起，恢复须用户明确决定]
 

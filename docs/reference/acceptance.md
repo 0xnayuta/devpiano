@@ -235,7 +235,7 @@
 - [x] **Phase 12（谐波加法 v1）**：8 分音谐波加法合成、Velocity 响度/亮度双映射与 Tone 调节。
 - [x] **Phase 13（刚性失谐与模态耗散 v2）**：JOS PASP 刚性琴弦失谐 $f_m = m f_0 \sqrt{1 + B m^2}$ 与 3 峰音板谐振器。
 - [x] **Phase 14（增强模态合成 v3）**：
-  - Magic Circle 零三角函数二阶递归振荡器，单核 CPU ≤ 0.7%；
+  - Magic Circle 零三角函数二阶递归振荡器；8 复音单核 CPU ≤0.7% 保留为 SLA 目标，历史 Debug 结果不构成认证；
   - 动态分音剪枝（20/14/8/6 分音按音高分区）；
   - 双阶段衰减（Two-stage decay）；
   - 同音三弦微失谐干涉拍频（Unison beating）；
@@ -260,7 +260,7 @@
 
 状态：已完成（2026-08-20）。
 
-- [x] **虚拟键盘脏矩形局部重绘（`CustomKeyboard`）**：引入 `repaintKey(k)` 与 `g.getClipBounds()` 相交判断，消灭全量 88 键重绘，UI 渲染耗时降低 70% 以上。
+- [x] **虚拟键盘脏矩形局部重绘（`CustomKeyboard`）**：引入 `repaintKey(k)` 与 `g.getClipBounds()` 相交判断，消灭全量 88 键重绘，显著降低密集播放时的 UI 光栅化开销。
 - [x] **预设导入同名覆盖确认**：`PresetFlowSupport::handleImportPresetFile` 接入 `PresetConfirmDialog` 声明式覆盖确认对话框。
 - [x] **测试与回归**：全量单元测试与 MSVC 编译验证通过。
 
@@ -372,7 +372,7 @@
 状态：已完成（2026-08-29）。
 
 - [x] **JUCE 9.0.1 正式升级**：完成 API 弃用迁移与构建系统适配。
-- [x] **ADR-014 UI 运行时内化**：退役 JIVE 外部子模块，内化至 `source/UI/jive/core/` 并实施 API Freeze。
+- [x] **ADR-014 UI 运行时内化**：退役 JIVE 外部子模块，内化至 `source/UI/jive/core/` 并实施 API Freeze；Phase 39.5 的闭包精简与 v2 部分移植属于该 ADR 下的专项维护，不解除日常业务门面约束。
 
 ---
 
@@ -400,7 +400,7 @@
 状态：已完成（2026-09-13）。
 
 - [x] **6 大古典微律支持**：平均律、纯律、毕达哥拉斯律、1/4 中庸全音律、韦克迈斯特三律与基恩伯格三律。
-- [x] **A4 基准音高微调已实现**：当前滑块与 `TemperamentEngine` 为 410.0 ~ 450.0 Hz；产品契约 400.0 ~ 480.0 Hz 的两端尚未覆盖，见 [`../issues/known-issues.md`](../issues/known-issues.md)。
+- [x] **A4 基准音高微调**：滑块、`TemperamentEngine`、设置、预设、Take 快照与内置导出统一为 400.0 ~ 480.0 Hz（默认 440.0 Hz），越界请求收敛至端点；当前契约与回归见 [`../issues/known-issues.md`](../issues/known-issues.md)。
 - [x] **全栈持久化与预设联动**：SettingsStore 与 PerformancePreset 序列化及离线导出对齐。
 
 ---
@@ -553,6 +553,7 @@
    - VST3 扫描、加载、Editor 打开、弹奏发声与卸载；
    - 录制一段演奏、回放、A-B 循环与时间轴 Seek 跳转、保存为 `.devpiano`、重新打开；
    - 导入标准 `.mid` 并回放；
-   - 导出 WAV，观察 JIVE 进度条与文件生成；
+   - 导出 WAV，观察 JIVE 进度条与文件生成；确认 take 结束音不被自动 All Sound Off 提前截断，并核对默认有限尾音窗口；当前 UI 不提供时长控件；
+   - 调整主窗口尺寸、展开/折叠 QWERTY 与插件面板、打开设置/绑定/长消息弹窗，确认声明式布局与样式状态正常且无残留脏布局；
    - 打开设置窗口，切换音频设备与语言（中英文即时切换无撕裂）；
    - 退出应用无崩溃、无挂起。

@@ -36,6 +36,19 @@ devpiano 使用按 [ADR-014](../../decisions/ADR-014-internalize-ui-infrastructu
 
 `jive_core.h`、`jive_components.h`、`jive_layouts.h`、`jive_style_sheets.h` 仍位于 core 根，作为内部聚合入口；四个目录是维护分组，不是独立 CMake module，也不宣称严格单向依赖分层。跨目录 include 使用从 `source/` 出发的显式路径。
 
+### 1.2 Phase 39.5 维护后的消费者契约
+
+以下行为由 `JiveCoreValues` 与既有 UI 套件保护，属于当前保留闭包的契约，不是可随意替换的上游实现细节：
+
+- **属性与过渡**：替换或移除正在运行的 transition 时，消费者收到最终值通知；progress 回调内销毁 owner 不得留下悬空写入。BoxModel、通用节点、容器/子项与保留控件的正文属性由节点 owner 的单个 `ValueTree::Listener` 分发；`Text` 的继承 `line-spacing` 与样式计算属性仍保留主动监听，不在该路由内。
+- **对象生命周期**：解析构造的嵌套 `jive::Object` 必须具有正确父链；替换、移除或析构时成对解除订阅，删除无外部引用的嵌套对象安全。
+- **样式计算隔离**：每个 `StyleSheet` 的 `calculated-*` 为实例私有状态，不写回共享声明式样式对象；同一 style 对象的 live mutation 保留既有 calculated/transition 状态，样式对象替换或清空时重新绑定。
+- **布局收敛**：解释构建期间只标记失效，结束后由根容器收敛；`constraintsVersion` 覆盖 width/height/min/max/ideal/margin（含动画 tick）。`ViewHost::fitToContent()` 保持按宽度测高与边界校正，`relayoutContainer()` 消费脏状态，不能退化为只重跑子节点布局。
+- **缓存**：Flex/Grid 几何缓存以约束版本、父级方向、文本自然尺寸与 line-spacing 失效；TextLayout 按最大宽度复用，文本/字体/对齐/换行/方向/颜色/行距变化失效。缓存容量是有界实现参数，不写成产品契约。
+- **文本重排**：`word-wrap` 或 `reading-direction` 变化必须触发重排；仅颜色变化不强迫容器重新测量。
+- **Flex gap**：只产生相邻项之间的间距，不追加首尾间距；绑定色板的 220 px 宽度精确容纳 8 个色块、7 个间距与 Clear 按钮。
+- **不引入的上游规则**：不全局执行 `minWidth=width` / `minHeight=height`，不覆盖 controls-panel 与 keyboard-area 的显式 min/max；不恢复动态 DOM、外部样式热重载或声明式事件入口。
+
 ---
 
 ## 2. JIVE 声明式布局体系
@@ -187,6 +200,7 @@ UI 单元测试位于 `source/tests/`。依据 [ADR-016](../../decisions/ADR-016
 | `JiveModalDialogTest` | 生产输入机制 | 使用生产 ViewHost 构建 Notes，注入字符和回车验证多行编辑；诊断 ListEditor 拒绝输入 | [x] 单元测试基线 |
 | Windows 生产窗口消费者 | 真实窗口与生命周期 | 中英及内容缩放矩阵、输入确认／取消、验证拒绝、绑定编辑／按键捕获、真实 WAV 成功及协作取消；用户目录无变化 | [x] 历史直接验证基线 |
 | `StyleCatalogTest` | 动态圆角 | 固定 bounds 连续 radius 0→30→0，角像素立即匹配当前半径，不等待 resize | [x] 单元测试基线 |
+| `JiveCoreValuesTest` | 值、对象、过渡与布局缓存契约 | Length px/%/auto 与单位插值；transition 替换/移除通知与回调自毁；解析对象父链与成对解绑；样式 calculated 隔离；约束版本、方向、margin、文本与 line-spacing 缓存失效；word-wrap 重排；Flex gap 色板几何 | [x] 单元测试基线 |
 | `LayoutGoldenTest` | 16 通道 CSS Grid | 解释后的跟随开关两行对齐、列顺序、行高与网格容器几何，不单独复制布局树声明 | [x] 单元测试基线 |
 | `SettingsLayoutModelTest` | 生产组件解释与输入隔离 | 实际宿主中的设备/调号/显示/声学控件类型；语言刷新保留滚动位置，控件与背景鼠标滚轮隔离 | [x] 单元测试基线 |
 | 生产 Settings 窗口 | 调号与跟随交互 | 实际 transpose 开关关闭时 followKey 禁用、开启时可编辑；不以属性赋值回读当业务证明，见 Phase G/H 消费者证据 | [x] 历史直接验证基线 |
@@ -194,6 +208,6 @@ UI 单元测试位于 `source/tests/`。依据 [ADR-016](../../decisions/ADR-016
 | `StyleCatalogTest` | 语义标题语言联动 | 代表性容器、编辑器、预设与速度控件标题随语言切换变化并恢复，不固定具体译文 | [x] 单元测试基线 |
 | `QwertyViewModelTest`    | 和声色相与对比度 | 验证 12-TET 和声色相间隔、八度同色、三全音互补与文字对比度算法 | [x] 单元测试基线 |
 | `LayoutGoldenTest`       | 主窗口与设置布局几何 | 主窗口／设置解释及 1280x720、1920x1080 几何；980x740 展开与 980x580 折叠态下，88 键键床完整位于横向滚动条可视高度内；弹窗几何由 JiveModalDialogTest 独立验证 | [x] 单元测试基线 |
-| `ViewHostTest` | 宿主生命周期、查找与活组件状态 | 解释加载与清理、强类型/缺失组件查找、enabled/visible 属性传播到真实按钮；尺寸重排由布局几何用例保护 | [x] 单元测试基线 |
+| `ViewHostTest` | 宿主生命周期、查找与活组件状态 | 解释加载与清理、无 `setup-in-progress` 残留、强类型/缺失组件查找、enabled/visible 属性传播到真实按钮、滑块原生值回写布局树，以及重载/移动/宿主销毁后继续变更外部布局树 | [x] 单元测试基线 |
 | `ChordRecognitionTest`   | 和弦实时识别（`DevPiano/Core` 默认门禁） | 验证单音、音程、三和弦、七和弦识别、转位推导与置信度，为 QWERTY HUD 提供数据支撑；确认默认日志实际执行，非单独补跑 | [x] 单元测试基线 |
 | `MetronomeTest`          | 节拍器状态机 | 验证 BPM 节拍计算、强弱拍判断、预备拍调度与生命周期稳定性 | [x] 单元测试基线 |

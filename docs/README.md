@@ -45,9 +45,9 @@
 | **录制与回放** | [`features/recording-playback.md`](reference/features/recording-playback.md) | 暂停捕获配对、0.5x–2.0x 回放、采样域重基准、Take-relative Seek / A-B 状态恢复、完整预备拍与标准 Type 1 MIDI 导出 |
 | **录制与回放** | [`features/performance-persistence.md`](reference/features/performance-persistence.md) | 当前 `.devpiano` v4、最终 MIDI 身份与内嵌快照、事务文件/会话保护 |
 | **录制与回放** | [`features/midi-file-import.md`](reference/features/midi-file-import.md) | 标准 MIDI 文件导入、Type 0/1 全轨并轨、CC64 延音/弯音解析与回放 |
-| **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | 单层与固定 Piano + 单 VST3、采样延迟对齐、一次 Master/Reverb、独立离线实例及失败/取消保护 |
+| **渲染与导出** | [`features/plugin-offline-rendering.md`](reference/features/plugin-offline-rendering.md) | 单层与固定 Piano + 单 VST3、采样延迟对齐、一次 Master/Reverb、独立离线实例、有限尾音窗口、take-end 身份释放及失败/取消保护 |
 | **预设与状态** | [`features/performance-presets.md`](reference/features/performance-presets.md) | 当前 v2 UUID 预设、配置子集、CRUD、F1-F12 与内嵌快照回放；不按历史名称迁移 |
-| **UI 与交互** | [`features/declarative-ui-and-theming.md`](reference/features/declarative-ui-and-theming.md) | 内化的 JIVE 声明式 UI、ViewHost、主窗口节拍器控件与 QWERTY 和弦 HUD、时间轴、设计 Token 与通用弹窗 |
+| **UI 与交互** | [`features/declarative-ui-and-theming.md`](reference/features/declarative-ui-and-theming.md) | 内化的 JIVE 声明式 UI、Phase 39.5 四目录与属性/过渡/缓存契约、ViewHost、主窗口节拍器控件与 QWERTY 和弦 HUD、时间轴、设计 Token 与通用弹窗 |
 | **多语言** | [`features/internationalization.md`](reference/features/internationalization.md) | 运行时中英文双语即时切换（`LocaleManager` + 内嵌 `zh_CN.loc`） |
 | **测试支撑** | [`features/fixture-inventory.md`](reference/features/fixture-inventory.md) | 固定标准 MIDI 样本与隔离临时目录中程序化生成的当前原生演奏输入 |
 

@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39 与 R0–R11 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**已完成（2026-10-23）**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）、39.5-4a/4b/4c/4d（构建守卫与脏标记、Item 缓存失效、TextLayout 缓存、Flex gap 修复）与 39.5-5（目录归位与最终集成）全部完成；用户人工表面验收确认无明显问题，Windows Debug app/tests、默认 CTest 与修复后的增量 clang-tidy 通过；随后独立复审发现 2 个 P1 与 8 个 P2，已按 1.14 修复并重新验证。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务保持独立，不受本阶段影响。
+> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**已完成（2026-10-23）**：39.5-1（基线与未用能力闭包精简）、39.5-2（属性、对象与 Length 安全切换）、39.5-3（集中属性分发与 BoxModel 去污染）、39.5-4a/4b/4c/4d（构建守卫与脏标记、Item 缓存失效、TextLayout 缓存、Flex gap 修复）与 39.5-5（目录归位与最终集成）全部完成；用户人工表面验收确认无明显问题，Windows Debug app/tests、默认 CTest 与修复后的增量 clang-tidy 通过；随后独立复审发现 2 个 P1 与 8 个 P2，已按 1.14 修复并重新验证。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–42 及后续声学能力仍暂缓，恢复须由用户明确决定；E3 有限尾音维护任务已实现并独立记录（见 §4）。
 
 ## 0. 归档入口
 
@@ -14,7 +14,7 @@
 
 ### 1.1 基线、目标与边界
 
-本页是**经源码复审的实施计划，不是实施完成记录**。对照来源为本机 `/root/repos/JIVE`（目录实际为大写；非新增构建依赖）的 `v2` 分支，固定参考提交 [`e25b4d57636ac4e48a30453f1542d29a655c7a83`](https://github.com/ImJimmi/JIVE/commit/e25b4d57636ac4e48a30453f1542d29a655c7a83)。后续不能把浮动的“最新 v2”作为同一份已审查输入。
+本页保留经源码复审的实施计划，并在 1.5 之后记录实际结果与验证证据；完成状态以 [roadmap](roadmap.md) 和本页 1.6–1.14 为准。对照来源为本机 `/root/repos/JIVE`（目录实际为大写；非新增构建依赖）的 `v2` 分支，固定参考提交 [`e25b4d57636ac4e48a30453f1542d29a655c7a83`](https://github.com/ImJimmi/JIVE/commit/e25b4d57636ac4e48a30453f1542d29a655c7a83)。后续不能把浮动的“最新 v2”作为同一份已审查输入。
 
 **目标**：先按产品消费闭包精简，再移植有实际收益的值、属性、布局与文本实现，最后整理目录。业务继续经 `ViewHost` 使用声明式 UI；不恢复外部 JIVE 子模块，不建设通用 UI 框架。Phase 39.5 是 [ADR-014](../decisions/ADR-014-internalize-ui-infrastructure-and-deprecate-jive-submodule.md) 底层封存规则的一次明确专项维护，不永久解除日常业务开发的门面约束。
 
@@ -102,43 +102,19 @@
 
 ### 1.5 Phase 39.5-1 修改前基线(2026-10-23)
 
-在 Windows Debug(MSVC、`./scripts/dev.sh win-build`)上以临时探针 `JiveBaselineProbe` 运行 5 次;探针、`DEVPIANO_JIVE_BASELINE` 宏与 `jive_BaselineProbe.h` 在证据记录后随 39.5-1 一并移除,不进入永久测试。耗时取 5 次中位数并给出最小–最大;结构计数(Property/GuiItem/Remover、通知次数)在各次运行间完全一致,分配次数有少量波动。计时已用 `std::chrono::steady_clock` 与 QPC 对照校准。
-
-| 场景 | 解释 ms | 常驻 Property | Property 构造 | 分配次数 | 分配字节 | GuiItem | Remover | Box/State 监听 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 主窗口 1280x720 | 1.299(1.269–1.366) | 9067 | 41229 | 283,338–283,959 | 12.31–12.34 MB | 511 | 511 | 323 / 83 |
-| 主窗口 1920x1080 | 1.306(1.278–1.321) | 9067 | 41229 | 283,338 | 12.31 MB | 511 | 511 | 323 / 83 |
-| 设置 680x900 | 1.166(1.145–1.225) | 12004 | 44733 | 214,602–214,838 | 11.88–11.90 MB | 720 | 720 | 446 / 134 |
-| 长消息确认弹窗 | 0.057(0.055–0.061) | 654 | 2389 | 17,156–17,169 | 1.26–1.27 MB | 37 | 37 | 23 / 6 |
-| 键位绑定弹窗 | 0.168(0.162–0.184) | 2622 | 9086 | 38,830–38,858 | 2.27–2.28 MB | 154 | 154 | 100 / 28 |
-
-“Box/State 监听”是 `BoxModel::Listener` 与 `state.addListener` 的注册数,与每个 `Property` 自身的监听、每个 GuiItem 的 Remover 分开统计,不是 listener 总量。主窗口一次解释同时发生 30,161 次 `Property::get`、6,909 次 `set`、8,037 次有效通知与 29,311 次 transition 查询。
-
-| 二次布局 / 更新 | ms | 分配 | 临时 Property | 通知 | transition 查询 | 布局次数 | ideal 重测 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 主窗口 `setBounds(1280x720)` | 0.043 | 5,698 | 1,757 | 84 | 1,291 | 29 | 3 |
-| 50 轮文本/高度/启用更新 | 0.152 | 37,054 | 2,536 | 727 | 2,258 | 105 | 54 |
-| `refreshTitles()` | 0.003 | 67 | 1 | 1 | 1 | 0 | 0 |
+在 Windows Debug(MSVC、`./scripts/dev.sh win-build`)上以临时探针 `JiveBaselineProbe` 记录了主窗口、设置、长消息确认弹窗与键位绑定弹窗的解释耗时、常驻 `Property`/`GuiItem`/Remover、监听注册、分配与几何,并记录主窗口二次布局与典型属性更新路径。探针、`DEVPIANO_JIVE_BASELINE` 宏与 `jive_BaselineProbe.h` 在证据记录后随 39.5-1 一并移除,不进入永久测试。计时使用 `std::chrono::steady_clock` 与 QPC 对照校准;这些记录只代表同镜像树、同 Debug 配置下的相对基线,不写成产品性能承诺。
 
 修改前几何(主窗口 1280x720):`main-area` 1280x696@(0,0)、`header` 1248x36@(16,16)、`plugin-panel` 1248x42@(16,62)、`controls-panel` 1248x220@(16,116)、`custom-keyboard` 1248x146@(16,540)、`status-bar` 1280x24@(0,696)。绑定弹窗根 460x282;`custom-colour-palette` 220x24@(224,188),其中 Clear 44x22@(372,189)——Flex gap 当前不生效,Clear 的 4px 左 margin 是唯一间距来源。
 
-未测量:JUCE 内部 listener 容器的真实容量、音频线程行为、物理设备与插件矩阵。上述数字是同一镜像树、同一 Debug 配置下的相对基线,不写成产品性能承诺。
+未测量:JUCE 内部 listener 容器的真实容量、音频线程行为、物理设备与插件矩阵。
 
-**39.5-1 精简后复测(同一探针、同一配置)**:GuiItem 数、全部几何、二次布局计数与 50 轮更新路径完全不变;差异仅来自被删除的未用闭包。
-
-| 场景 | Remover 注册 | 常驻 Property | state 监听 | 解释分配 | 分配字节 | 解释 ms |
-| --- | --- | --- | --- | --- | --- | --- |
-| 主窗口 1280x720 | 511 → 0 | 9067 → 9043 | 83 → 80 | 283,338–283,959 → 282,286–282,900 | 12.31–12.34 → 12.25–12.29 MB | 1.299 → 1.261 |
-| 设置 680x900 | 720 → 0 | 12004 → 11947 | 134 → 115 | 214,602–214,838 → 212,809–213,045 | 11.88–11.90 → 11.80 MB | 1.166 → 1.126 |
-| 键位绑定弹窗 | 154 → 0 | 2622 → 2615 | 28 → 27 | 38,830–38,858 → 38,515–38,543 | 2.27–2.28 → 2.26 MB | 0.168 → 0.165 |
-
-`state` 监听减少量与各布局的 ComboBox 数一致(主窗口 3、设置 19、绑定弹窗 1),即删除的是 `Option/Header/Separator` 重建链;Property 与分配的下降来自 `Event`、View 链和选项属性。二次布局(0.043→0.049 ms)与 50 轮更新(0.152→0.154 ms、分配 37,054 不变)属于运行波动,不记为改进。探针在该复测后删除。
+**39.5-1 精简后复测(同一探针、同一配置)**:GuiItem 数、全部几何、二次布局计数与 50 轮更新路径不变;差异仅来自被删除的未用闭包。Remover 注册降为 0,常驻 Property、state 监听与解释分配同步下降。`state` 监听减少量与各布局的 ComboBox 数一致,即删除的是 `Option/Header/Separator` 重建链;Property 与分配的下降来自 `Event`、View 链和选项属性。二次布局与 50 轮更新的耗时差异属于运行波动,不记为改进。探针在复测后删除。
 
 ### 1.6 Phase 39.5-1 实施结果与验证
 
 - **删除的未用闭包**:`jive_Find.*`、`jive_StringStreams.*`、`jive_Label.*`、`jive_Event.h`、`jive_View.*`、`jive_ReferenceCountedValueTreeWrapper.h`;Fill/Gradient/BorderRadii 的无调用诊断流;Interpreter 的 alias/customDecorator/listenTo/结构回调/`setupItemsRecursive`;GuiItem 的 View 链与 Remover;Button/Slider/ComboBox 的声明式 Event;ComboBox 的 Option/Header/Separator 树模型、选项监听与重建;`Button::updateTriggerEvent` 死声明。
 - **保留**:`ComponentFactory`/`ViewHost::configureComponentFactory`、原生 JUCE 回调、ComboBox 原生条目管理与 `selected` 属性桥接、Button toggle/radio 同步、Slider 值回写、样式与过渡、Text/Block/Flex/Grid 布局。
-- **验证**:Windows Debug app 与 `devpiano_tests` 构建通过;默认 `ctest` 通过(约 40 s);定向 `LayoutGoldenTest` 391、`JiveModalDialog` 417、`StyleCatalog` 176、`JiveRender` 13、`PluginPanelToggle` 34、`ViewHost` 35、`SettingsLayoutModel` 66、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9 项断言全部通过;主窗口/设置/弹窗几何与精简前逐像素一致。`ViewHost` 新增“重载、移动、宿主销毁后继续变更外部布局树”的生命周期回归与“滑块原生值回写布局属性”回归。
+- **验证**:Windows Debug app 与 `devpiano_tests` 构建通过;默认 `ctest` 通过;定向 `LayoutGoldenTest`、`JiveModalDialog`、`StyleCatalog`、`JiveRender`、`PluginPanelToggle`、`ViewHost`、`SettingsLayoutModel`、`JiveTeardownOrder`、`ComboRebuild`、`FilterComboDefault`、`FilterComboVisibilityAdaptation`、`PresetComboRebuild` 全部通过;主窗口/设置/弹窗几何与精简前逐像素一致。`ViewHost` 新增“重载、移动、宿主销毁后继续变更外部布局树”的生命周期回归与“滑块原生值回写布局属性”回归。
 - **测试调整**:删除只构造已淘汰 Option 协议的 `testComboOptionsEnabled`;删除变为恒真的“无 Option 子节点/无 selected”断言;4 处 `expectEquals<juce::Colour>` 改为 `expect(...)`,不再依赖已删除的诊断流。原生下拉重建与二次选中回归保留。
 - **未覆盖**:windows-mcp 真实表面验收、语言切换、绑定色板、真实插件与音频设备;这些仍按 1.4 在后续任务/阶段出口执行。39.5-1 不宣称 listener 总量或性能收益,探针已移除。
 
@@ -150,7 +126,7 @@
 - **Object**:解析构造改为先转换嵌套对象再创建监听器,嵌套对象获得正确父链;InternalListener 记录直接嵌套集合,替换/移除时成对解绑并清除父指针;数组维持递归转换,未扩展任意对象图。
 - **StyleSheet**:每个实例持有私有 `calculatedState` 与克隆的过渡定义;`getBackground()` 等不再把 `calculated-*` 写回共享样式对象。`observeHeldObject()` 随样式对象替换/清空重新绑定。`StyleCatalog` 所有权注释同步更正。
 - **Length**:收敛为 `{ float value; Unit px/% }` 值类型,删除 em/rem 与 `isPixels/isPercent/isEm/isRem`;`Interpolate<Length>` 在单位不同时保持起点至过渡完成;BoxModel、ContainerItemChild、BlockItem、CommonGuiItem、Slider、ComboBox、ProgressBar 全部改为 `Property<Length>`。动画消费仍走 `calculateCurrent()`。
-- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(41.6 s);`JiveCoreValues` 42 项断言覆盖 px/%/auto、单位切换、transition 删除/替换、属性删除通知、Block 坐标互斥、解析父链与成对解绑、共享样式下的 calculated 隔离与替换/清空;既有 `StyleCatalog` 176、`ViewHost` 35、`LayoutGoldenTest` 391、`JiveRender` 13、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过;`JiveCoreValues` 覆盖 px/%/auto、单位切换、transition 删除/替换、属性删除通知、Block 坐标互斥、解析父链与成对解绑、共享样式下的 calculated 隔离与替换/清空;既有 `StyleCatalog`、`ViewHost`、`LayoutGoldenTest`、`JiveRender`、`JiveModalDialog`、`SettingsLayoutModel`、`JiveTeardownOrder`、`ComboRebuild`、`FilterComboDefault`、`PresetComboRebuild`、`PluginPanelToggle` 全部通过。
 - **保留给 39.5-3**:属性仍为主动监听;本阶段只提供 `PassiveProperty`/`handlePropertyChange`/`forwardPropertyChange` 原语,尚未合并监听。真实 windows-mcp 表面验收仍按阶段出口执行。
 
 ### 1.8 Phase 39.5-3 实施结果与验证
@@ -159,8 +135,8 @@
 - **容器继承钩子**:`ContainerItem` 与 `Child` 以 protected 方式继承监听器并提供可覆写转发入口,派生类调用基类转发后再处理自身属性,避免重复继承同一 Listener 造成歧义。
 - **BoxModel 去污染**:删除 `box-model-callback-lock` 树属性,改为实例 `bool`;`getParentBounds()` 直接读取父节点的 `component-width/height`,不再构造两个临时 `Property`;新增 `getConstraintsVersion()`,尺寸/min/max/ideal/margin 变更(包括锁内)都会递增;新增 `getExplicitConstraints()`,未设置 max 时保持无上限,不把 `-1` 哨兵带入矩形交集。
 - **Text 例外**:`line-spacing` 仍依赖祖先继承,保留其主动监听;其余 Text 属性转为被动。`StyleSelectors`、`StyleSheet` 的计算属性不在本任务范围,仍为主动监听。
-- **实测(临时探针,加载完整样式)**:主窗口 1280x720(122 个实际节点)Property 监听注册 9043 → 3957(−56%);设置 680x900(166 个节点)12004 → 3799(−68%)。owner 状态监听为 389/554(约 3.2/节点),BoxModel 监听 122/166(1/节点);不设固定 listener 总数或零开销承诺。探针与计数宏在记录后移除。
-- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(28.0 s);`JiveCoreValues` 64 项断言全部通过,新增 `setProperty` 驱动路径覆盖 enabled/opacity/toggled/width、Text、Slider、ComboBox、ProgressBar;既有 `LayoutGoldenTest` 391、`StyleCatalog` 176、`ViewHost` 35、`JiveRender` 13、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
+- **实测(临时探针,加载完整样式)**:主窗口与设置的 Property 监听注册大幅下降;owner 状态监听与 BoxModel 监听按节点固定路由。不设固定 listener 总数或零开销承诺。探针与计数宏在记录后移除。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过;`JiveCoreValues` 全部通过,新增 `setProperty` 驱动路径覆盖 enabled/opacity/toggled/width、Text、Slider、ComboBox、ProgressBar;既有 `LayoutGoldenTest`、`StyleCatalog`、`ViewHost`、`JiveRender`、`JiveModalDialog`、`SettingsLayoutModel`、`JiveTeardownOrder`、`ComboRebuild`、`FilterComboDefault`、`FilterComboVisibilityAdaptation`、`PresetComboRebuild`、`PluginPanelToggle` 全部通过。
 - **未覆盖**:windows-mcp 真实表面验收、语言切换与绑定色板仍按 1.4 在阶段出口执行;本任务不重测音频/插件矩阵。
 
 ### 1.9 Phase 39.5-4a/4d 实施结果与验证
@@ -169,7 +145,7 @@
 - **脏标记与约束测量**:`ContainerItem` 新增 `idealSizeIsOutOfDate` / `childrenMayBeOutOfDate` / 测量时约束快照与 `idealSizeWasLimitedByConstraints`;`updateIdealSize(informParent, measureChildren)`、`invalidateIdealSize()`、`updateIdealSizeIfOutOfDate()`、`updateChildrensIdealSizesIfOutOfDate()`、`refreshLayout()` 取代旧的 `updateIdealSizeUnrestrained/WithinConstraints`。构建期 `CommonGuiItem::boxModelChanged/childrenChanged`、`Child::componentMovedOrResized` 与 `Text` 的父级重排均按守卫延迟。
 - **门面同步**:`ViewHost::fitToContent()` 按给定宽度设置组件后调用 `updateIdealSizeWithinContentBounds()`,保留 ideal-height 与子节点 bottom/margin、根 padding/border 校正;`relayoutContainer()` 改为经由容器 `refreshLayout()` 消费脏状态,不再只调用 `layOutChildren()`。
 - **Flex gap**:`FlexContainer` 支持 `gap`(半 margin + 布局区扩展);`custom-colour-palette` 的 220px 现在精确容纳 8 个 18px 色块、7 个 4px 间距与 44px Clear,Clear 的最右边界与色板右边界重合;删除 Clear 重复的 4px 左 margin。未做全应用 margin→gap 重写。
-- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(25.9 s);`JiveCoreValues` 71 项(新增色板 gap 几何:首个色块 x=0、第 8 个 x=154、Clear 176..220、单一 4px 间距);`ViewHost` 37 项(新增解释后全树无 `setup-in-progress` 残留);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过;`JiveCoreValues` 新增色板 gap 几何回归:首个色块 x=0、第 8 个 x=154、Clear 176..220、单一 4px 间距;`ViewHost` 新增解释后全树无 `setup-in-progress` 残留;`LayoutGoldenTest`、`JiveModalDialog`、`SettingsLayoutModel`、`StyleCatalog`、`JiveRender`、`JiveTeardownOrder`、`ComboRebuild`、`FilterComboDefault`、`FilterComboVisibilityAdaptation`、`PresetComboRebuild`、`PluginPanelToggle` 全部通过。
 - **后续**:4b 已在 1.10 完成;4c(TextLayout 缓存)仍未启动,真实 windows-mcp 表面证据仍在阶段出口补足。
 
 ### 1.10 Phase 39.5-4b 实施结果与验证
@@ -177,7 +153,7 @@
 - **完整失效键**:`FlexItem` 的几何缓存以盒模型 `constraintsVersion`、父级 `flex-direction` 推导的 `Orientation` 共同判定失效;`GridItem` 以 `constraintsVersion` 判定。版本覆盖 width/height/min/max/ideal/margin 变化(含 margin 过渡 tick),方向变化不再复用旧轴约束。
 - **文本测量**:`FlexItem`/`GridItem` 实现 `idealSizeChanged()` 清空缓存;`Text::updateTextComponent()` 仅在自然尺寸或 line-spacing 真正变化时 `updateIdealSize()`,否则只 `invalidateIdealSize()`,避免无变化重排。`GridItem` 额外监听自身 `ideal-width`,覆盖字体解析后宽度变化但状态未变的路径。
 - **监听与内存**:移除每个 Flex/Grid item 额外的 `BoxModel::Listener` 注册,缓存写入前限制为 8 项,避免连续尺寸变化导致无界增长。
-- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(28.9 s);`JiveCoreValues` 85 项(新增方向、margin、文本换行、line-spacing 失效回归);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`ViewHost` 37、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。负向验证:临时移除方向/版本判定后方向与 margin 断言失败;临时清空 `idealSizeChanged()` 后 line-spacing 断言失败,确认测试能拦截真实回归。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过;`JiveCoreValues` 新增方向、margin、文本换行、line-spacing 失效回归;`LayoutGoldenTest`、`JiveModalDialog`、`SettingsLayoutModel`、`ViewHost`、`StyleCatalog`、`JiveRender`、`JiveTeardownOrder`、`ComboRebuild`、`FilterComboDefault`、`FilterComboVisibilityAdaptation`、`PresetComboRebuild`、`PluginPanelToggle` 全部通过。负向验证:临时移除方向/版本判定后方向与 margin 断言失败;临时清空 `idealSizeChanged()` 后 line-spacing 断言失败,确认测试能拦截真实回归。
 - **后续**:4c 已在 1.11 完成。
 
 ### 1.11 Phase 39.5-4c 实施结果与验证
@@ -185,14 +161,14 @@
 - **测量复用**:`TextComponent::getTextLayout(maxWidth)` 按最大宽度缓存 `juce::TextLayout`;`Text` 的 ideal-height native function 与自然尺寸测量都改为读取该缓存,不再每次重新 shaping。
 - **绘制共享**:Canvas 的 `onPaint` 使用同一 `getTextLayout(当前宽度)`,绘制与测量共享缓存条目。
 - **复用与失效**:布局在 `word-wrap: none`、相同宽度,或换行结果不变(布局宽 ≤ 目标宽 ≤ 创建宽)时复用;文本、字体、对齐、换行、方向、颜色、行距或附录变化都会标记源失效。缓存最多 16 条,最近使用条目提升到末尾,满时淘汰最旧条目。
-- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(26.5 s);`JiveCoreValues` 93 项(新增同宽复用、窄宽复用、文本变化重建、离屏绘制有字迹);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`ViewHost` 37、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34 全部通过。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过;`JiveCoreValues` 新增同宽复用、窄宽复用、文本变化重建、离屏绘制有字迹;`LayoutGoldenTest`、`JiveModalDialog`、`SettingsLayoutModel`、`ViewHost`、`StyleCatalog`、`JiveRender`、`JiveTeardownOrder`、`ComboRebuild`、`FilterComboDefault`、`FilterComboVisibilityAdaptation`、`PresetComboRebuild`、`PluginPanelToggle` 全部通过。
 - **后续**:39.5-5 已在 1.12 完成;真实 windows-mcp 表面验收仍待执行。
 
 ### 1.12 Phase 39.5-5 实施结果与验证
 
-- **目录归位**:101 个 core 文件按职责移入四个子目录:`values/` 23 个、`geometry/` 10 个、`style/` 18 个、`layout/` 46 个;`jive_core.h`、`jive_components.h`、`jive_layouts.h`、`jive_style_sheets.h` 保留在 core 根作为聚合入口。未新增独立 CMake module,未改变任何布局/样式逻辑。
-- **include 与构建**:core 内部与外部消费者统一改为从 `source/` 出发的显式 `UI/jive/core/<group>/...` 路径(内部 190 处、外部 22 处);CMake 的 42 个 core 源文件路径同步更新;保留既有 `source/UI/jive/core` include 根仅用于聚合头,未增加四个裸搜索目录。WSL configure/compile database 已刷新。
-- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过(25.4 s);`LayoutGoldenTest` 391、`JiveModalDialog` 417、`SettingsLayoutModel` 66、`ViewHost` 37、`StyleCatalog` 176、`JiveRender` 13、`JiveTeardownOrder` 24、`ComboRebuild` 7、`FilterComboDefault` 8、`FilterComboVisibilityAdaptation` 14、`PresetComboRebuild` 9、`PluginPanelToggle` 34、`JiveCoreValues` 93 全部通过。
+- **目录归位**:core 源码按职责移入四个子目录:`values/`、`geometry/`、`style/`、`layout/`;`jive_core.h`、`jive_components.h`、`jive_layouts.h`、`jive_style_sheets.h` 保留在 core 根作为聚合入口。未新增独立 CMake module,未改变任何布局/样式逻辑。
+- **include 与构建**:core 内部与外部消费者统一改为从 `source/` 出发的显式 `UI/jive/core/<group>/...` 路径;CMake 的 core 源文件路径同步更新;保留既有 `source/UI/jive/core` include 根仅用于聚合头,未增加四个裸搜索目录。WSL configure/compile database 已刷新。
+- **验证**:Windows Debug app/tests 构建通过;默认 `ctest` 通过;`LayoutGoldenTest`、`JiveModalDialog`、`SettingsLayoutModel`、`ViewHost`、`StyleCatalog`、`JiveRender`、`JiveTeardownOrder`、`ComboRebuild`、`FilterComboDefault`、`FilterComboVisibilityAdaptation`、`PresetComboRebuild`、`PluginPanelToggle`、`JiveCoreValues` 全部通过。
 - **文档**:同步 `docs/reference/features/declarative-ui-and-theming.md` 的四目录职责、ADR-014 维护边界、`THIRD-PARTY-NOTICES.md` 的 v2 部分移植来源与 MIT 声明,以及 `CHANGELOG.md`。
 - **未完成**:真实 windows-mcp 主窗口/设置/弹窗/绑定色板表面验收;按 1.4 完成条件,Phase 39.5 暂不记整体完成。
 
@@ -203,7 +179,7 @@
   - 依赖调用改为 `transition->template calculateCurrent<ValueType>()`。
   - `transitionsChanged()` 在替换前快照旧过渡的当前值/target,并提取 `readTransitions()`;替换后不再解引用旧容器内对象,同时保留“同一过渡不重启动画”的判定。
   - 合并 Text 的 setup/测量未变化分支;删除 BoxModel 的冗余转换。
-- **验证**:按用户要求,修复后未重复全量扫描,只对受影响 TU(`jive_Text.cpp`、`jive_BoxModel.cpp`,覆盖 `jive_Property.h`)执行增量 `tidy`,通过;Windows Debug app/tests 构建通过;默认 CTest 通过(26.9 s);工作区无残留改动。
+- **验证**:按用户要求,修复后未重复全量扫描,只对受影响 TU(`jive_Text.cpp`、`jive_BoxModel.cpp`,覆盖 `jive_Property.h`)执行增量 `tidy`,通过;Windows Debug app/tests 构建通过;默认 CTest 通过;工作区无残留改动。
 - **人工验收**:用户对主窗口收缩、设置语言切换、绑定色板、长消息、折叠与正常关闭等表面完成人工测试,确认无明显问题;本文不虚构逐项截图或硬件/商业插件矩阵结论。
 - **阶段结论**:Phase 39.5 的 39.5-1 至 39.5-5、静态检查修复与用户人工表面验收均已完成,阶段收口;未覆盖项仅为真实硬件设备与商业插件矩阵,不属于本阶段退出条件。
 
@@ -222,7 +198,7 @@
   - `Text` 将 `word-wrap`/`reading-direction` 纳入重排条件;`byWord`→`none` 立即由 `125` 修正为 `18`。
   - `StyleSheet` 仅在同一 style 对象属性变更时保留 calculated/transition 状态;live mutation 由立即 snap 恢复为从旧色过渡。
   - 删除 `FlexItem` 无条件 `fprintf` 调试残留;补齐上游 v2 的 2026 copyright。
-- **回归与验证**:新增 8 项 `JiveCoreValues` 回归(transition 移除通知、回调自毁、嵌套对象删除、动画 margin、padding/shrink 测量、word-wrap 重排、同对象样式过渡);Windows Debug `JiveCoreValues` 通过(118 项),默认 CTest 1/1 通过;真实主窗口启动/关闭冒烟通过,控件树与音频状态栏正常。
+- **回归与验证**:新增覆盖 transition 移除通知、回调自毁、嵌套对象删除、动画 margin、padding/shrink 测量、word-wrap 重排与同对象样式过渡的 `JiveCoreValues` 回归;Windows Debug `JiveCoreValues` 与默认 CTest 通过;真实主窗口启动/关闭冒烟通过,控件树与音频状态栏正常。
 - **阶段结论**:1.13 的收口结论仍成立,但以本节修复后的代码与验证为准;未覆盖项仍为真实硬件设备与商业插件矩阵。
 
 ## 2. 后续候选阶段(暂缓)
@@ -248,8 +224,8 @@
 
 ## 4. 当前维护任务：统一有限导出尾音（E3）
 
-- E1 已完成正常 take-end 释放的客观验证，保留未提交改动；E2 已完成有限窗口测量、方案比较与 E2 证据归档。两者不改变 Phase 40–42 的暂缓状态。
-- E3 实现 `WavExportOptions::tailSeconds`：默认 6.0 秒、闭区间 0–30 秒；内置、插件及双层路径共享该选项；0 表示不追加尾音，文件长度仍由时间线确定性计算。
+- E1 的正常 take-end 释放验证与修复已随 `ba21d06` 提交：内置/插件/双层路径按身份追踪补 NoteOff 与 CC64/66/67 Off，不再自动追加 CC120/CC123 截断尾音；take 内显式 Panic 与层/端点切换仍硬停。E2 已完成有限窗口测量、方案比较与证据归档。两者不改变 Phase 40–42 的暂缓状态。
+- E3 已实现并提交（`9f5034d`）：`WavExportOptions::tailSeconds` 默认 6.0 秒、闭区间 0–30 秒；内置、插件及双层路径共享该选项；0 表示不追加尾音，文件长度仍由时间线确定性计算。`ExportTailDurationTest` 与 `ExportTailEndTest` 已接入 `devpiano_tests` 的 CMake 源列表；2026-10-25 通过 `win-test` 在 Windows Debug 镜像树执行默认 CTest（1/1 通过），定向 `JiveCoreValues` 与 `ViewHost` 也通过。
 - 当前 UI 使用默认值，尚无时长控件；不新增全局设置、持久化字段、Take/Preset 格式、自动检测或淡出。有限窗口仍可能在超窗处截断，不承诺任意音源或插件的自然尾音完整。
 - 验证边界：Windows Debug 定向测试、默认 CTest、格式与 diff 检查；不执行 Release、WSL 全量构建、物理声卡或商业插件矩阵。
-- 与 Phase 39.5 的关系：不人为设置 E3 完成或再次申请并行许可的技术前置；如同轮实施，两者的改动与验证证据分开，尤其核对 WAV 进度内容使用 ViewHost 的生命周期。本次复审不推断 E3 是否已交付。
+- 与 Phase 39.5 的关系：E3 与 UI 基础设施阶段相互独立，两者的改动与验证证据分开；WAV 进度内容继续经 `ViewHost` 管理生命周期。E3 已交付，不再作为 Phase 39.5 的前置或并行许可条件。

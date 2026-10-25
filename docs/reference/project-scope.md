@@ -49,7 +49,7 @@ devpiano 源于对旧版 Windows FreePiano 的现代化重构。所有有价值�
 - `.devpiano` 仅当前 v4 JSON、JUCE 长度前缀二进制消息、内嵌 `RecordedPreset` 快照与最终音符身份；回放/WAV/MIDI 不再变换已保存音符，不迁移旧格式，拒绝不改原文件与会话
 - 标准 MIDI 文件导入：Type 0/1 全轨并轨，解析 CC64 延音 / pitch bend / program change 事件
 - 标准 MIDI 文件导出（Type 1，960 PPQ）
-- WAV 音频离线导出（共享 `RenderPipeline` 管线与 `InstrumentEndpoint` 统一路由，异步非阻塞 `WavExportTask`，支持 VST3 独立离线实例与物理建模钢琴离线渲染，带 JIVE 声明式进度浮层）
+- WAV 音频离线导出（共享 `RenderPipeline` 管线与 `InstrumentEndpoint` 统一路由，异步非阻塞 `WavExportTask`，支持 VST3 独立离线实例与物理建模钢琴离线渲染，带 JIVE 声明式进度浮层；take 结束按身份补 NoteOff/踏板 Off，默认 6.0 秒可配 0–30 秒有限尾音）
 
 ### UI 与体验
 
