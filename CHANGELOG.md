@@ -1,32 +1,42 @@
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-25
+
+### Added
+
+- **Finite Configurable WAV Export Tail** — export now appends a default 6.0-second tail, configurable through `WavExportOptions::tailSeconds` in the closed 0–30 second range for built-in, plugin and dual-layer paths. Zero disables the tail while file length remains deterministic. The current UI uses the default and has no duration control.
+
+- **Windows Mirror Test Entry** — `./scripts/dev.sh win-test` syncs the Windows mirror, configures `BUILD_TESTS=ON`, builds `devpiano_tests` and runs CTest. `--name` / `--category` target suites, and `--` forwards CTest arguments. The Linux/WSL `./scripts/dev.sh test` path is unchanged.
+
 ### Changed
 
-- **Windows Mirror Test Entry** — add `./scripts/dev.sh win-test` (and `build_msvc_from_wsl.sh --tests`) to sync the mirror, configure `BUILD_TESTS=ON`, build `devpiano_tests`, and run CTest on the Windows mirror. Targeted suites use `--name` or `--category`; extra CTest arguments follow `--`. The existing Linux/WSL `./scripts/dev.sh test` behavior is unchanged.
+- **Piano DSP Component Extraction** — move main-string, mechanical-transient, pedal, lid, resonance and note-setup logic into dedicated components while the voice retains note identity, ADSR and overall output ownership. Algorithm, parameters, voice count and tail policy are unchanged.
 
-- **Declarative UI Build Guard and Layout Convergence** — interpretation marks each subtree in progress and defers component sizing and parent re-measurement until one root-level convergence. ContainerItem now tracks ideal-size/children dirtiness and the constraints it was measured against, ViewHost measures content through the container API, and relayoutContainer consumes dirty state instead of only re-running child layout. The old unrestrained/within-constraints measurement entry points are removed.
+- **Piano Register Loudness Rebalance** — raise low-register anchors and make C5/C6 neutral to better match the measured loudness contour; C7/C8 anchors remain unchanged.
 
-- **Flex Gap Support** — flex containers honour the `gap` property by expanding the layout bounds and giving every item half a gap of margin, so spacing appears only between adjacent items. The key-binding palette now lays out eight swatches and the Clear button exactly across its 220px width; the Clear button's duplicated left margin is removed.
+- **JIVE v2 Selective Port and Runtime Pruning** — adopt the retained v2 value/property/object, layout and text behavior; remove unused View, Label, Event and ComboBox option paths; organize core sources into `values/`, `geometry/`, `style/` and `layout/`.
 
-- **Layout Item Cache Invalidation** — flex and grid item geometry caches are invalidated by the box-model constraint version, the parent flex direction and child natural-size changes (including text reflow). Per-item box-model listeners are removed, each cache is bounded to eight entries, and text only reflows its container when its measured size, line spacing, word-wrap or reading direction actually changes.
+- **JIVE Layout Convergence and Caching** — add build-time layout guards, container dirty/constraint tracking, bounded Flex/Grid item caches and TextLayout caching. Flex `gap` now applies only between adjacent items, including the binding palette.
 
-- **Text Layout Caching** — `TextComponent` caches shaped `juce::TextLayout` instances per maximum width and reuses them across painting, ideal-size measurement and line-spacing reflow. The cache is invalidated by text, font, justification, wrap, direction and colour changes, and is bounded to 16 layouts with most-recently-used promotion.
-
-- **JIVE Core Directory Split** — internalized UI sources are organized into `values/`, `geometry/`, `style/` and `layout/` by responsibility, while the aggregate headers remain at the core root. Cross-directory includes, CMake source paths and consumer includes are updated explicitly; no layout or style logic changed.
-
-- **JIVE Static Analysis Fixes** — qualify the dependent transition call for Clang, snapshot previous transition state before replacing the transitions owner, collapse the duplicated text reflow branch and remove redundant float casts found by the full clang-tidy scan.
-
-- **Declarative UI Centralized Property Dispatch** — convert the retained BoxModel, common-item, container/item and widget properties to passive properties routed through one owner listener per node, preserving existing value/transition callbacks. BoxModel replaces the `box-model-callback-lock` tree property with instance state, reads parent sizes directly instead of constructing temporary properties, tracks a constraints version and exposes explicit constraints without feeding the unset-max sentinel into a rectangle. Property listener registrations on the styled main window and settings layouts fall from 9043/12004 to 3957/3799.
-
-- **Declarative UI Value and Object Migration** — turn `jive::Length` into a px/% value type (auto stays a Property-level state), add unit-safe interpolation, and migrate BoxModel, container children, BlockItem, CommonGuiItem, Slider, ComboBox and ProgressBar to `Property<Length>`. Properties now observe replaced held objects, re-read transition definitions, notify on property removal, and keep a strong transition owner; BlockItem only clears the opposite coordinate when the current one still exists. Parsed `jive::Object` graphs initialise parent links and pair nested subscriptions, and each StyleSheet keeps its own calculated values instead of writing `calculated-*` into shared style objects.
-
-- **Declarative UI Unused-Capability Pruning** — remove the internal JIVE paths with no production consumers: View/PassiveView and `makeView`, the Label decorator, declarative `on-click`/`on-change` event dispatch, the ComboBox Option/Header/Separator tree protocol, interpreter aliases/custom decorators/structure listeners, diagnostic string-stream operators, and the per-decorator Remover. Component factories, native JUCE callbacks, style application, ComboBox item management and `selected` bridging are unchanged; main-window, settings and dialog geometry stay identical.
+- **JIVE Static Analysis Fixes** — qualify dependent transition calls, snapshot transition state before owner replacement, collapse duplicated text reflow and remove redundant float casts.
 
 ### Fixed
 
-- **JIVE Review Fixes** — keep the transition container alive while dispatching progress callbacks and detach destroyed nested objects before subscription cleanup, removing two memory-safety regressions (callback self-destruction and nested-object removal without an external owner). Also notify consumers when a running transition is removed, invalidate item caches on animated box-model inputs, normalize padding constraints and remeasure shrunken containers at their allocated content width, reflow text on word-wrap or reading-direction changes, preserve calculated style state during live mutation of the same style object, remove residual flex diagnostics, and restore the upstream v2 2026 copyright notice.
+- **JIVE Review Regressions** — keep transition owners alive during progress callbacks, detach destroyed nested objects, notify consumers when a transition is removed, invalidate caches on animated box-model inputs, normalize padding constraints, remeasure shrunken containers, reflow on word-wrap or reading-direction changes, and preserve style state during live mutation.
 
-- **WAV Take-End Release and Finite Tail** — replace the automatic end-of-take All Sound Off panic in both WAV exporters with identity-tracked NoteOffs and CC64/66/67 pedal release. The export window now defaults to 6.0 seconds and is configurable through `WavExportOptions::tailSeconds` in the closed 0–30 second range for built-in, plugin and dual-layer paths; 0 disables the extra tail and file length remains deterministic. The current UI uses the default and has no duration control. Explicit in-take panic, layer/endpoint hard stops, and over-window truncation remain unchanged.
+- **WAV Take-End Release** — replace the automatic All Sound Off panic with identity-tracked NoteOffs and CC64/66/67 pedal release at the take end. Explicit in-take panic and layer/endpoint hard stops remain unchanged.
+
+- **Whole-Piano Pedal Lifecycle** — keep pedal ownership and rendering valid across whole-piano and double-buffer paths, including perspective and offline rendering.
+
+### Known Issues
+
+- Third-party VST3 plugins run in-process; vendor crashes or permanent `processBlock` hangs are not isolated, and cooperative cancellation can complete only after the call returns.
+
+- Third-party JUCE VST3 hosting retains its framework SpinLock/CriticalSection behavior and 2048-event per-block limit.
+
+- Linux/X11 still cannot reliably lock window size through `setResizable(false)` plus resize limits because the JUCE backend overwrites size hints.
+
+- The 8-voice single-core CPU ≤0.7% figure remains an SLA target; this release does not certify it on all hardware, commercial plugins, or physical audio devices.
 
 ## [1.4.0] - 2026-10-21
 
