@@ -319,6 +319,28 @@ public:
             expect(!isNoteOn(state, 1, 74));
             expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
         }
+
+        beginTest("held muted binding does not report consumption on every poll");
+        {
+            // 静音绑定按住期间没有状态变化，轮询不得持续触发
+            // MainComponent 的 UI/IME 活动通知。
+            bool isAHeld = false;
+            KeyboardMidiMapper mapper;
+            mapper.setKeyStatePredicate(
+                [&](int keyCode) { return keyCode == makeAlphaNumericKeyCode('A') && isAHeld; });
+            mapper.setLayout(makeSingleBindingLayout('A', 72, 1, 0.0f));
+
+            juce::MidiKeyboardState state;
+            isAHeld = true;
+            expect(mapper.handleKeyPressed(juce::KeyPress('A'), state));
+            expectEquals(countNotesOn(state), 0);
+            expect(!mapper.pollPhysicalKeys(state), "holding a muted key must not report consumption");
+            expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
+
+            isAHeld = false;
+            expect(mapper.pollPhysicalKeys(state), "releasing the muted key is consumed");
+            expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
+        }
     }
 };
 

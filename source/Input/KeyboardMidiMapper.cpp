@@ -396,7 +396,9 @@ bool KeyboardMidiMapper::processKeyStateChangedInternal(juce::MidiKeyboardState&
     for (size_t i = 0; i < heldKeys.size(); ++i) {
         const auto& held = heldKeys[i];
         if (held.velocity <= 0.0f) {
-            consumed = true;
+            // 静音绑定仍占用物理键，但只有释放才是需要上报的状态变化；
+            // 否则轮询会把按住期间每个 tick 都当成已消费。
+            consumed = consumed || !isKeyCurrentlyDown(held.physicalKeyCode);
             continue;
         }
         if (held.isMouseHeld) {
