@@ -40,7 +40,8 @@ public:
     /// 该模态循环不向窗口投递 WM_KEYDOWN/WM_KEYUP，必须主动对账：使用
     /// 实时修饰键状态（而非缓存值）并允许新起音与补发 note-off。
     bool pollPhysicalKeys(juce::MidiKeyboardState& keyboardState);
-    bool reconcileReleasedKeys(juce::MidiKeyboardState& keyboardState);
+    /// 释放对账；修饰键由调用方显式提供，模态循环内必须传实时状态。
+    bool reconcileReleasedKeys(const juce::ModifierKeys& modifiers, juce::MidiKeyboardState& keyboardState);
     bool handleModifierKeysChanged(const juce::ModifierKeys& modifiers, juce::MidiKeyboardState& keyboardState);
     void setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept;
     void setSustainPedalCallback(SustainPedalCallback callback) noexcept;

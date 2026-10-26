@@ -289,6 +289,36 @@ public:
             expectEquals(countNotesOn(state), 1);
             expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
         }
+
+        beginTest("reconcileReleasedKeys releases held keys without starting new notes");
+        {
+            bool isAHeld = false;
+            bool isBHeld = false;
+            KeyboardMidiMapper mapper;
+            mapper.setKeyStatePredicate([&](int keyCode) {
+                return (keyCode == makeAlphaNumericKeyCode('A') && isAHeld)
+                    || (keyCode == makeAlphaNumericKeyCode('B') && isBHeld);
+            });
+            mapper.setLayout(makeTwoBindingLayout('A', 72, 'B', 74));
+
+            juce::MidiKeyboardState state;
+            isAHeld = true;
+            expect(mapper.handleKeyPressed(juce::KeyPress('A'), state));
+            expect(isNoteOn(state, 1, 72));
+
+            // B is pressed during the modal loop, but text entry owns the
+            // keyboard: the reconcile may release A but must never start B.
+            isBHeld = true;
+            expect(!mapper.reconcileReleasedKeys(juce::ModifierKeys {}, state),
+                   "no physical release must not report consumption");
+            expect(!isNoteOn(state, 1, 74), "reconcile must never start a note");
+
+            isAHeld = false;
+            expect(mapper.reconcileReleasedKeys(juce::ModifierKeys {}, state), "releasing a held key must be consumed");
+            expect(!isNoteOn(state, 1, 72), "released key must close its note");
+            expect(!isNoteOn(state, 1, 74));
+            expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
+        }
     }
 };
 

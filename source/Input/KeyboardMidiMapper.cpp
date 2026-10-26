@@ -308,8 +308,9 @@ bool KeyboardMidiMapper::pollPhysicalKeys(juce::MidiKeyboardState& keyboardState
     return processKeyStateChangedInternal(keyboardState, true);
 }
 
-bool KeyboardMidiMapper::reconcileReleasedKeys(juce::MidiKeyboardState& keyboardState) {
-    updateModifiersFromJuce(juce::ModifierKeys::getCurrentModifiers());
+bool KeyboardMidiMapper::reconcileReleasedKeys(const juce::ModifierKeys& modifiers,
+                                               juce::MidiKeyboardState& keyboardState) {
+    updateModifiersFromJuce(modifiers);
     return processKeyStateChangedInternal(keyboardState, false);
 }
 

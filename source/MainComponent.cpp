@@ -169,7 +169,8 @@ void MainComponent::parentHierarchyChanged() {
                 juce::ignoreUnused(keyCode);
                 if (weak != nullptr) {
                     if (weak->isKeyboardInputSuppressed()) {
-                        weak->keyboardMidiMapper.reconcileReleasedKeys(weak->audioEngine.getKeyboardState());
+                        weak->keyboardMidiMapper.reconcileReleasedKeys(juce::ModifierKeys::getCurrentModifiers(),
+                                                                       weak->audioEngine.getKeyboardState());
                     } else {
                         weak->keyboardMidiMapper.handleKeyStateChanged(weak->audioEngine.getKeyboardState());
                     }
@@ -182,8 +183,11 @@ void MainComponent::parentHierarchyChanged() {
                 }
                 if (weak->isKeyboardInputSuppressed()) {
                     // Text entry owns the keyboard: never start notes, but a
-                    // key held before the drag must still be released.
-                    if (weak->keyboardMidiMapper.reconcileReleasedKeys(weak->audioEngine.getKeyboardState())) {
+                    // key held before the drag must still be released. The
+                    // modal loop freezes the cached modifiers, so read them
+                    // from the OS like pollPhysicalKeys does.
+                    if (weak->keyboardMidiMapper.reconcileReleasedKeys(
+                            juce::ComponentPeer::getCurrentModifiersRealtime(), weak->audioEngine.getKeyboardState())) {
                         weak->updateQwertyVisualizer();
                     }
                     return;

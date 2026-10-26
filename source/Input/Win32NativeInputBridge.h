@@ -124,9 +124,14 @@ public:
         // native move/size modal loop, which delivers no WM_KEYDOWN to refresh
         // the cache. With NumLock off, VK_NUMPADx overlaps the navigation keys
         // (VK_INSERT, ...), so keep the WM_KEYDOWN cache there to avoid
-        // treating a navigation key as numpad input.
+        // treating a navigation key as numpad input. The alternate VK still
+        // keeps a latched key alive if NumLock changes between the OS key
+        // event and this query; a real release clears both virtual keys.
         if (keyCode == devpiano::core::kCapsLockKeyCode || (GetKeyState(VK_NUMLOCK) & 1) != 0) {
-            physicalKeysDown[slot] = (GetAsyncKeyState(virtualKeys[slot]) & 0x8000) != 0;
+            const bool primaryDown = (GetAsyncKeyState(virtualKeys[slot]) & 0x8000) != 0;
+            const bool alternateDown
+                = alternateVirtualKeys[slot] != 0 && (GetAsyncKeyState(alternateVirtualKeys[slot]) & 0x8000) != 0;
+            physicalKeysDown[slot] = primaryDown || (physicalKeysDown[slot] && alternateDown);
             return physicalKeysDown[slot];
         }
         if (physicalKeysDown[slot] && (GetAsyncKeyState(virtualKeys[slot]) & 0x8000) == 0
