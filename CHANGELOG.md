@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Changed
+
+- **JUCE 9.0.4 Upgrade** — pin the JUCE submodule to the 9.0.4 patch release. It brings Windows MIDI disconnection fixes, WASAPI and MessageManager/Timer corrections, VST3 hosting fixes, high-DPI window placement fixes, and the malformed String security patch. The MP3, Opus, and WebP codecs that JUCE enables by default from 9.0.2/9.0.3 are disabled because Devpiano only exports WAV and ships no WebP assets.
+
 ## [1.5.0] - 2026-10-25
 
 ### Added
