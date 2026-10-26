@@ -120,8 +120,8 @@ AudioEngine::liveMidiQueue（有界 SPSC）──► [音频回调线程]
 拖动窗口边缘缩放或拖动标题栏移动时，Windows 进入原生模态循环（`WM_ENTERSIZEMOVE` … `WM_EXITSIZEMOVE`）。该循环只向窗口派发 `WM_TIMER`、`WM_PAINT`、`WM_SIZE` 等消息，**不派发 `WM_KEYDOWN` / `WM_KEYUP`**，因此 JUCE 的 `keyPressed` / `keyStateChanged` 在此期间不会触发。`Win32NativeInputBridge` 在 `WM_ENTERSIZEMOVE` 时启动 16 ms 的窗口定时器，`WM_TIMER` 中回调 `MainComponent`，由 `KeyboardMidiMapper::pollPhysicalKeys()` 以实时按键状态双向对账：
 
 - 拖动中按下的新键正常起音（与普通击键共用同一 `triggerBinding` 身份锁定路径）；
-- 拖动中松开的键立即补发 note-off；模态循环退出时（`WM_EXITSIZEMOVE` / 捕获丢失 / `WM_NCDESTROY`）再执行一次收尾对账，覆盖最后一次 tick 与循环结束之间的空档；
-- 修饰键（Shift/Alt/Ctrl）改用 `ComponentPeer::getCurrentModifiersRealtime()` 读取实时状态，避免读取消息线程缓存的过期修饰键；
+- 拖动中松开的键立即补发 note-off；模态循环退出时（`WM_EXITSIZEMOVE` / 捕获丢失）再执行一次收尾对账，覆盖最后一次 tick 与循环结束之间的空档。窗口销毁路径（`WM_NCDESTROY`）只取消定时器、不回调，避免在 owner 析构期间访问 UI；
+- 轮询路径统一用 `ComponentPeer::getCurrentModifiersRealtime()` 读取实时修饰键（Shift/Alt/Ctrl），文本编辑焦点下只做释放对账的分支同样由调用方传入实时状态，避免读取消息线程缓存的过期修饰键；
 - 只在模态循环期间轮询，不使用高频全局定时器；文本编辑焦点存在时（`isKeyboardInputSuppressed()`）不新起音，仅做释放对账；
 - 已通过正常 `WM_KEYDOWN` 按住的键不会被轮询重复起音：`physicalKeysDownState` 快照是两条入口共用的单一事实源。
 
