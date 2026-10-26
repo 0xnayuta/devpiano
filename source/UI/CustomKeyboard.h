@@ -69,8 +69,11 @@ public:
     void releaseHeldMouseNote();
 
     // ---- Inspection & Testing (Phase 26-C) ---------------------------------
-    [[nodiscard]] const std::vector<devpiano::ui::KeyRenderState>& getKeys() const noexcept {
+    [[nodiscard]] const std::vector<devpiano::ui::KeyGeometry>& getKeyGeometries() const noexcept {
         return keys;
+    }
+    [[nodiscard]] const devpiano::ui::KeyVisualState& getKeyVisual(int midiNote) const noexcept {
+        return keyVisuals[static_cast<std::size_t>(juce::jlimit(0, 127, midiNote))];
     }
     [[nodiscard]] uint8_t getPerKeyChannel(int midiNote) const noexcept {
         if (midiNote >= 0 && midiNote < 128) {
@@ -108,7 +111,7 @@ private:
     void paintWhiteKeys(juce::Graphics& g);
     void paintBlackKeys(juce::Graphics& g);
     void paintKeyLabels(juce::Graphics& g);
-    void repaintKey(const devpiano::ui::KeyRenderState& k);
+    void repaintKey(const devpiano::ui::KeyGeometry& k);
     [[nodiscard]] std::size_t customizationIndex(int midiNote) const noexcept;
 
     // Fade animation
@@ -119,7 +122,8 @@ private:
 
     // State
     devpiano::ui::KeyboardSettings settings;
-    std::vector<devpiano::ui::KeyRenderState> keys;
+    std::vector<devpiano::ui::KeyGeometry> keys;
+    std::array<devpiano::ui::KeyVisualState, 128> keyVisuals {};
     std::array<devpiano::core::PianoKeyVisualState, 128> pianoMapping;
 
     int rangeLow = 21;

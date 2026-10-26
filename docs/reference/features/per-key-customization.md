@@ -36,7 +36,7 @@
 | **带调号偏移唱名（Fixed-Do）** | `fixedDo` | 按 `(noteIndex + keySignature) % 12` 计算并规范化到 `[0,11]`，八度偏移仍来自原 MIDI 音符；例如 MIDI 60、`keySignature=+2` 显示 `2+0`。不将枚举名称解释成“当前调主音必定标为 1”的乐理承诺。 |
 | **科学音高名（Note Name）** | `noteName` | 使用代码中的升号音名表，如 `C4`、`F#5`；不随调号改变，也不自动改为降号异名。 |
 
-绑定提示由 `QwertyViewModel::pianoKeys` 按最终输出音高提供，而不是钢琴组件自行反查原始布局。提示保留在映射投影中，setLayout→setSettings、resize 或视口更新后重新消费，不因重建 `KeyRenderState` 丢失。
+绑定提示由 `QwertyViewModel::pianoKeys` 按最终输出音高提供，而不是钢琴组件自行反查原始布局。提示保留在映射投影中，setLayout→setSettings、resize 或视口更新后重新消费，不因重建 `KeyGeometry` 丢失；按压与余晖状态独立保存在 `KeyVisualState` 中，几何重建不会重置它们。
 
 ### 2.3 平滑余晖消隐动画
 

@@ -52,7 +52,7 @@ int countWhiteKeysInRange(int rangeLow, int rangeHigh) {
     return count;
 }
 
-void layoutWhiteKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeLow, int rangeHigh, float keybedOffsetX,
+void layoutWhiteKeys(std::vector<devpiano::ui::KeyGeometry>& keys, int rangeLow, int rangeHigh, float keybedOffsetX,
                      float keybedOffsetY, float whiteKeyWidth, float whiteKeyHeight) {
     int whiteIdx = 0;
     for (int n = rangeLow; n <= rangeHigh; ++n) {
@@ -60,10 +60,9 @@ void layoutWhiteKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeL
             continue;
         }
 
-        devpiano::ui::KeyRenderState k;
+        devpiano::ui::KeyGeometry k;
         k.midiNote = n;
         k.isWhite = true;
-        k.fade = 0.0f;
         k.bounds = { keybedOffsetX + whiteKeyWidth * static_cast<float>(whiteIdx), keybedOffsetY, whiteKeyWidth,
                      whiteKeyHeight };
         keys.push_back(k);
@@ -71,7 +70,7 @@ void layoutWhiteKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeL
     }
 }
 
-void layoutBlackKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeLow, int rangeHigh, float blackKeyWidth,
+void layoutBlackKeys(std::vector<devpiano::ui::KeyGeometry>& keys, int rangeLow, int rangeHigh, float blackKeyWidth,
                      float blackKeyHeight, float keybedOffsetY) {
     for (int n = rangeLow; n <= rangeHigh; ++n) {
         if (devpiano::ui::isWhiteKey(n) || n <= 0 || n > 127) {
@@ -100,23 +99,31 @@ void layoutBlackKeys(std::vector<devpiano::ui::KeyRenderState>& keys, int rangeL
             const auto leftWidth = keys[idx].bounds.getWidth();
             const auto centreX = leftX + leftWidth;
 
-            devpiano::ui::KeyRenderState k;
+            devpiano::ui::KeyGeometry k;
             k.midiNote = n;
             k.isWhite = false;
-            k.fade = 0.0f;
             k.bounds = { centreX - blackKeyWidth * 0.5f, keybedOffsetY, blackKeyWidth, blackKeyHeight };
             keys.push_back(k);
         }
     }
 }
 
-void drawWhiteKeyLabel(juce::Graphics& g, const devpiano::ui::KeyRenderState& k, const juce::String& customLabel,
-                       const devpiano::ui::KeyboardSettings& settings) {
+devpiano::ui::KeyGeometry* findKeyGeometry(std::vector<devpiano::ui::KeyGeometry>& keys, int midiNote) {
+    for (auto& key : keys) {
+        if (key.midiNote == midiNote) {
+            return &key;
+        }
+    }
+    return nullptr;
+}
+
+void drawWhiteKeyLabel(juce::Graphics& g, const devpiano::ui::KeyGeometry& k, float fade,
+                       const juce::String& customLabel, const devpiano::ui::KeyboardSettings& settings) {
     const auto fontH = static_cast<float>(juce::jlimit(9, 13, static_cast<int>(settings.keyWidth * 0.42f)));
     g.setFont(devpiano::jive::DesignTokens::getUnifiedUiFont(fontH));
 
     // Adaptive text color for high contrast against cyan glow
-    const auto labelColor = (k.fade > 0.45f) ? juce::Colour(0xFF0C2B38) : juce::Colour(0xFF606674);
+    const auto labelColor = (fade > 0.45f) ? juce::Colour(0xFF0C2B38) : juce::Colour(0xFF606674);
     g.setColour(labelColor);
 
     if (customLabel.isNotEmpty()) {
@@ -147,7 +154,7 @@ void drawWhiteKeyLabel(juce::Graphics& g, const devpiano::ui::KeyRenderState& k,
     }
 }
 
-void drawBlackKeyLabel(juce::Graphics& g, const devpiano::ui::KeyRenderState& k, const juce::String& customLabel,
+void drawBlackKeyLabel(juce::Graphics& g, const devpiano::ui::KeyGeometry& k, const juce::String& customLabel,
                        const devpiano::ui::KeyboardSettings& settings) {
     if (customLabel.isEmpty() && k.keyLabel.isEmpty()) {
         return;
@@ -245,6 +252,14 @@ const devpiano::ui::KeyboardSettings& CustomKeyboard::getKeyboardSettings() cons
 void CustomKeyboard::setAvailableRange(int low, int high) {
     rangeLow = juce::jlimit(0, 127, low);
     rangeHigh = juce::jlimit(0, 127, high);
+    // Keys outside the new range are no longer drawn. Drop the animation state
+    // of released keys so a later range expansion cannot resurrect a frozen
+    // mid-decay glow; genuinely held notes keep their state.
+    for (int note = 0; note < 128; ++note) {
+        if ((note < rangeLow || note > rangeHigh) && !isNoteHeldOnAnyChannel(keyboardState, note)) {
+            keyVisuals[static_cast<std::size_t>(note)] = {};
+        }
+    }
     recalculateKeyBounds();
     repaint();
 }
@@ -269,21 +284,6 @@ void CustomKeyboard::setKeyboardLayout(const devpiano::core::QwertyViewModel& vi
 // ============================================================================
 
 void CustomKeyboard::recalculateKeyBounds() {
-    // Preserve per-key animation state across geometry rebuilds. A resize
-    // rebuilds `keys`, but held or decaying keys must keep their fade and
-    // colour or the pressed glow disappears until the next timer tick.
-    std::array<float, 128> previousFade {};
-    std::array<juce::Colour, 128> previousColour {};
-    std::array<bool, 128> previousValid {};
-    for (const auto& key : keys) {
-        if (key.midiNote >= 0 && key.midiNote < 128) {
-            const auto index = static_cast<std::size_t>(key.midiNote);
-            previousFade[index] = key.fade;
-            previousColour[index] = key.colour1;
-            previousValid[index] = true;
-        }
-    }
-
     keys.clear();
 
     const auto viewportHeight = static_cast<float>(lastVisibleHeight > 0 ? lastVisibleHeight : getHeight());
@@ -311,20 +311,6 @@ void CustomKeyboard::recalculateKeyBounds() {
 
     std::ranges::sort(keys, [](const auto& a, const auto& b) { return a.midiNote < b.midiNote; });
     for (auto& key : keys) {
-        if (key.midiNote >= 0 && key.midiNote < 128) {
-            const auto index = static_cast<std::size_t>(key.midiNote);
-            if (previousValid[index]) {
-                key.fade = previousFade[index];
-                key.colour1 = previousColour[index];
-            }
-            // Held notes must be visible on the first frame after a rebuild,
-            // even when the rebuild happens before the next timer tick.
-            if (isNoteHeldOnAnyChannel(keyboardState, key.midiNote)) {
-                key.fade = 1.0f;
-                key.colour1 = computeKeyActiveColour(key.midiNote, customizationIndex(key.midiNote), 1.0f, settings,
-                                                     perKeyChannel, perKeyVelocity);
-            }
-        }
         key.keyLabel = pianoMapping[static_cast<std::size_t>(key.midiNote)].keyLabel;
     }
 
@@ -371,6 +357,7 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
         if (!clip.intersects(k.bounds.toNearestInt().expanded(2))) {
             continue;
         }
+        const auto& visual = keyVisuals[static_cast<std::size_t>(k.midiNote)];
         const auto& b = k.bounds;
         juce::Path keyPath;
         keyPath.addRoundedRectangle(b.getX(), b.getY(), b.getWidth(), b.getHeight(), 2.5f, 2.5f, false, false, true,
@@ -389,15 +376,16 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
         }
 
         // Neon Cyan Glow bloom on key press
-        if (k.fade > fadeEpsilon) {
+        if (visual.fade > fadeEpsilon) {
             float vel = perKeyVelocity[static_cast<std::size_t>(k.midiNote)].get();
             if (vel <= 0.001f) {
                 vel = 0.8f;
             }
             const auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
                 ? devpiano::jive::DesignTokens::get().primary()
-                : k.colour1;
-            auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.45f).withAlpha(k.fade * 0.85f);
+                : visual.colour1;
+            auto glowColour
+                = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.45f).withAlpha(visual.fade * 0.85f);
 
             // Soft bloom from bottom upward
             juce::ColourGradient glowGrad(glowColour, b.getCentreX(), b.getBottom() - 10.0f,
@@ -406,9 +394,9 @@ void CustomKeyboard::paintWhiteKeys(juce::Graphics& g) {
             g.fillPath(keyPath);
 
             // Pressed key top sink shadow (simulating physical mechanical dip)
-            if (k.fade > 0.3f) {
+            if (visual.fade > 0.3f) {
                 const float shadowH = juce::jmin(14.0f, b.getHeight() * 0.18f);
-                juce::ColourGradient sinkGrad(juce::Colours::black.withAlpha(0.32f * k.fade), b.getX(), b.getY(),
+                juce::ColourGradient sinkGrad(juce::Colours::black.withAlpha(0.32f * visual.fade), b.getX(), b.getY(),
                                               juce::Colours::black.withAlpha(0.0f), b.getX(), b.getY() + shadowH,
                                               false);
                 g.setGradientFill(sinkGrad);
@@ -431,10 +419,11 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
         if (!clip.intersects(k.bounds.toNearestInt().expanded(4))) {
             continue;
         }
+        const auto& visual = keyVisuals[static_cast<std::size_t>(k.midiNote)];
         const auto& b = k.bounds;
 
         // Gradual shrink proportional to fade (0→2px)
-        auto keyRect = b.withHeight(b.getHeight() - k.fade * 2.0f);
+        auto keyRect = b.withHeight(b.getHeight() - visual.fade * 2.0f);
 
         // Shadow: two soft layers beneath the key (sides + bottom)
         for (int layer = 0; layer < 2; ++layer) {
@@ -466,15 +455,16 @@ void CustomKeyboard::paintBlackKeys(juce::Graphics& g) {
         }
 
         // Glow on key press
-        if (k.fade > fadeEpsilon) {
+        if (visual.fade > fadeEpsilon) {
             float vel = perKeyVelocity[static_cast<std::size_t>(k.midiNote)].get();
             if (vel <= 0.001f) {
                 vel = 0.8f;
             }
             const auto baseGlow = (settings.colourMode == devpiano::ui::KeyColourMode::classic)
                 ? devpiano::jive::DesignTokens::get().primary()
-                : k.colour1;
-            auto glowColour = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.4f).withAlpha(k.fade * 0.75f);
+                : visual.colour1;
+            auto glowColour
+                = baseGlow.interpolatedWith(juce::Colours::white, vel * 0.4f).withAlpha(visual.fade * 0.75f);
 
             juce::ColourGradient fadeGrad(glowColour, keyRect.getCentreX(), keyRect.getBottom() - 6.0f,
                                           glowColour.withAlpha(0.0f), keyRect.getCentreX(), keyRect.getY(), false);
@@ -497,9 +487,10 @@ void CustomKeyboard::paintKeyLabels(juce::Graphics& g) {
         if (!clip.intersects(k.bounds.toNearestInt().expanded(2))) {
             continue;
         }
+        const auto& visual = keyVisuals[static_cast<std::size_t>(k.midiNote)];
         const auto& customLabel = settings.customKeyLabels[customizationIndex(k.midiNote)];
         if (k.isWhite) {
-            drawWhiteKeyLabel(g, k, customLabel, settings);
+            drawWhiteKeyLabel(g, k, visual.fade, customLabel, settings);
         } else {
             drawBlackKeyLabel(g, k, customLabel, settings);
         }
@@ -541,13 +532,11 @@ void CustomKeyboard::mouseDown(const juce::MouseEvent& e) {
     lastMouseDownNote = note;
 
     // Immediately visualise the press
-    for (auto& k : keys) {
-        if (k.midiNote == note) {
-            k.fade = 1.0f;
-            k.colour1 = classicColourTop(1.0f);
-            repaintKey(k);
-            break;
-        }
+    if (auto* key = findKeyGeometry(keys, note)) {
+        auto& visual = keyVisuals[static_cast<std::size_t>(note)];
+        visual.fade = 1.0f;
+        visual.colour1 = classicColourTop(1.0f);
+        repaintKey(*key);
     }
     const auto& input = pianoMapping[static_cast<std::size_t>(note)];
     lastMouseDownPhysicalKeyCode = input.physicalKeyCode;
@@ -608,13 +597,11 @@ void CustomKeyboard::mouseDrag(const juce::MouseEvent& e) {
 
     // Press the new note
     lastMouseDownNote = note;
-    for (auto& k : keys) {
-        if (k.midiNote == note) {
-            k.fade = 1.0f;
-            k.colour1 = classicColourTop(1.0f);
-            repaintKey(k);
-            break;
-        }
+    if (auto* key = findKeyGeometry(keys, note)) {
+        auto& visual = keyVisuals[static_cast<std::size_t>(note)];
+        visual.fade = 1.0f;
+        visual.colour1 = classicColourTop(1.0f);
+        repaintKey(*key);
     }
     const auto& input = pianoMapping[static_cast<std::size_t>(note)];
     lastMouseDownPhysicalKeyCode = input.physicalKeyCode;
@@ -635,7 +622,7 @@ void CustomKeyboard::mouseDrag(const juce::MouseEvent& e) {
 // Fade animation
 // ============================================================================
 
-void CustomKeyboard::repaintKey(const devpiano::ui::KeyRenderState& k) {
+void CustomKeyboard::repaintKey(const devpiano::ui::KeyGeometry& k) {
     const auto extra = k.isWhite ? 2 : 4;
     repaint(k.bounds.toNearestInt().expanded(extra));
 }
@@ -643,28 +630,29 @@ void CustomKeyboard::repaintKey(const devpiano::ui::KeyRenderState& k) {
 void CustomKeyboard::timerCallback() {
     jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
     bool anyActive = false;
-    for (auto& k : keys) {
-        const auto before = k.fade;
+    for (const auto& k : keys) {
+        auto& visual = keyVisuals[static_cast<std::size_t>(k.midiNote)];
+        const auto before = visual.fade;
         const bool noteHeld = isNoteHeldOnAnyChannel(keyboardState, k.midiNote);
 
         if (noteHeld) {
-            k.fade = 1.0f;
+            visual.fade = 1.0f;
         } else {
-            k.fade = settings.previewAlpha + settings.fadeSpeed * (k.fade - settings.previewAlpha);
+            visual.fade = settings.previewAlpha + settings.fadeSpeed * (visual.fade - settings.previewAlpha);
         }
 
         const auto target = noteHeld ? 1.0f : settings.previewAlpha;
-        if (std::abs(k.fade - target) <= fadeEpsilon) {
-            k.fade = target;
+        if (std::abs(visual.fade - target) <= fadeEpsilon) {
+            visual.fade = target;
         }
-        if (noteHeld || std::abs(k.fade - target) > fadeEpsilon) {
+        if (noteHeld || std::abs(visual.fade - target) > fadeEpsilon) {
             anyActive = true;
         }
-        const bool changed = std::abs(k.fade - before) > fadeEpsilon;
+        const bool changed = std::abs(visual.fade - before) > fadeEpsilon;
 
-        if (k.fade > fadeEpsilon) {
-            k.colour1 = computeKeyActiveColour(k.midiNote, customizationIndex(k.midiNote), k.fade, settings,
-                                               perKeyChannel, perKeyVelocity);
+        if (visual.fade > fadeEpsilon) {
+            visual.colour1 = computeKeyActiveColour(k.midiNote, customizationIndex(k.midiNote), visual.fade, settings,
+                                                    perKeyChannel, perKeyVelocity);
         }
 
         if (changed) {

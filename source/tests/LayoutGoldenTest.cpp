@@ -270,7 +270,7 @@ public:
             }
             const auto& keyboard = keyboardViewport->getCustomKeyboard();
             auto keybedBottom = 0.0f;
-            for (const auto& key : keyboard.getKeys()) {
+            for (const auto& key : keyboard.getKeyGeometries()) {
                 if (key.isWhite) {
                     keybedBottom = juce::jmax(keybedBottom, key.bounds.getBottom());
                 }
@@ -338,7 +338,7 @@ public:
 
             auto top = std::numeric_limits<float>::max();
             auto bottom = -std::numeric_limits<float>::max();
-            for (const auto& key : keyboard.getKeys()) {
+            for (const auto& key : keyboard.getKeyGeometries()) {
                 if (key.isWhite) {
                     top = juce::jmin(top, key.bounds.getY());
                     bottom = juce::jmax(bottom, key.bounds.getBottom());
@@ -464,7 +464,7 @@ public:
         };
 
         // Locate coordinates for two keys (e.g. C4 = 60 and D4 = 62)
-        const auto& keys = keyboard.getKeys();
+        const auto& keys = keyboard.getKeyGeometries();
         expect(!keys.empty());
 
         juce::Point<int> pos60 { -1, -1 };

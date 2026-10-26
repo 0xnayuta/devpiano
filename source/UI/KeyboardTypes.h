@@ -30,14 +30,20 @@ enum class KeyColourMode : uint8_t {
     velocity = 2, // green-red velocity gradient
     harmony = 3, // 12-TET pitch-class chromatic harmony palette
 };
-// Per-key rendering state (recalculated every frame, not persisted)
-struct KeyRenderState {
+// Per-key geometry rebuilt from the keyboard layout. It carries no animation
+// state, so rebuilding it on resize cannot reset a pressed key.
+struct KeyGeometry {
     int midiNote = -1;
-    float fade = 0.0f; // [0, 1], decays when key not pressed
-    juce::Colour colour1 { 0x00000000 };
     juce::Rectangle<float> bounds;
     juce::String keyLabel; // computer-key binding label ("A", "S", …)
     bool isWhite = false;
+};
+
+// Per-key animation state, indexed by MIDI note. Kept separate from geometry
+// so layout rebuilds never touch the press/fade animation.
+struct KeyVisualState {
+    float fade = 0.0f; // [0, 1], decays when key not pressed
+    juce::Colour colour1 { 0x00000000 };
 };
 
 // Keyboard display settings (persisted via SettingsModel)

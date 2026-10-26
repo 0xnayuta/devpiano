@@ -32,8 +32,8 @@ int countWhiteKeys(int rangeLow, int n) {
     return count;
 }
 
-const devpiano::ui::KeyRenderState* keyForNote(const CustomKeyboard& keyboard, int note) {
-    for (const auto& key : keyboard.getKeys()) {
+const devpiano::ui::KeyGeometry* keyForNote(const CustomKeyboard& keyboard, int note) {
+    for (const auto& key : keyboard.getKeyGeometries()) {
         if (key.midiNote == note) {
             return &key;
         }
@@ -69,6 +69,7 @@ public:
         testMessageThreadListenerAndTimerBehavior();
         testResizePreservesHeldKeyVisuals();
         testResizePreservesDecayingKeyVisuals();
+        testAvailableRangeClearsRetiredVisuals();
         testFadeEndpointsTerminate();
         testProjectedCustomizationColours();
     }
@@ -368,19 +369,20 @@ private:
             bool found60 = false;
             bool found64 = false;
             bool found67 = false;
-            for (const auto& k : kb.getKeys()) {
+            for (const auto& k : kb.getKeyGeometries()) {
+                const auto& visual = kb.getKeyVisual(k.midiNote);
                 if (k.midiNote == 60) {
-                    c60 = k.colour1;
+                    c60 = visual.colour1;
                     found60 = true;
-                    expectEquals(k.fade, 1.0f);
+                    expectEquals(visual.fade, 1.0f);
                 } else if (k.midiNote == 64) {
-                    c64 = k.colour1;
+                    c64 = visual.colour1;
                     found64 = true;
-                    expectEquals(k.fade, 1.0f);
+                    expectEquals(visual.fade, 1.0f);
                 } else if (k.midiNote == 67) {
-                    c67 = k.colour1;
+                    c67 = visual.colour1;
                     found67 = true;
-                    expectEquals(k.fade, 1.0f);
+                    expectEquals(visual.fade, 1.0f);
                 }
             }
 
@@ -393,11 +395,12 @@ private:
             ks.noteOff(1, 60, 0.0f);
             kb.triggerTimerCallbackForTest();
 
-            for (const auto& k : kb.getKeys()) {
+            for (const auto& k : kb.getKeyGeometries()) {
+                const auto& visual = kb.getKeyVisual(k.midiNote);
                 if (k.midiNote == 60) {
-                    expectLessThan(k.fade, 1.0f);
+                    expectLessThan(visual.fade, 1.0f);
                 } else if (k.midiNote == 64 || k.midiNote == 67) {
-                    expectEquals(k.fade, 1.0f);
+                    expectEquals(visual.fade, 1.0f);
                 }
             }
         });
@@ -464,8 +467,9 @@ private:
             if (before == nullptr) {
                 return;
             }
-            expectEquals(before->fade, 1.0f);
-            const auto colourBefore = before->colour1;
+            const auto& beforeVisual = keyboard.getKeyVisual(60);
+            expectEquals(beforeVisual.fade, 1.0f);
+            const auto colourBefore = beforeVisual.colour1;
 
             keyboard.updateViewportBounds(1600, 180);
 
@@ -474,8 +478,9 @@ private:
             if (after == nullptr) {
                 return;
             }
-            expectEquals(after->fade, 1.0f);
-            expect(after->colour1 == colourBefore, "held key keeps its active colour across resize");
+            const auto& afterVisual = keyboard.getKeyVisual(60);
+            expectEquals(afterVisual.fade, 1.0f);
+            expect(afterVisual.colour1 == colourBefore, "held key keeps its active colour across resize");
         });
     }
 
@@ -499,8 +504,8 @@ private:
             if (before == nullptr) {
                 return;
             }
-            expect(before->fade > 0.0f && before->fade < 1.0f);
-            const auto fadeBefore = before->fade;
+            const auto fadeBefore = keyboard.getKeyVisual(60).fade;
+            expect(fadeBefore > 0.0f && fadeBefore < 1.0f);
 
             keyboard.updateViewportBounds(1400, 160);
 
@@ -509,7 +514,28 @@ private:
             if (after == nullptr) {
                 return;
             }
-            expectWithinAbsoluteError(after->fade, fadeBefore, 0.00001f);
+            expectWithinAbsoluteError(keyboard.getKeyVisual(60).fade, fadeBefore, 0.00001f);
+        });
+    }
+
+    void testAvailableRangeClearsRetiredVisuals() {
+        testCase("retiring a decaying key does not resurrect its glow on re-expansion", [&] {
+            juce::MidiKeyboardState state;
+            CustomKeyboard keyboard(state);
+            keyboard.setSize(1248, 120);
+
+            state.noteOn(1, 24, 0.8f);
+            keyboard.triggerTimerCallbackForTest();
+            state.noteOff(1, 24, 0.0f);
+            keyboard.triggerTimerCallbackForTest();
+            expect(keyboard.getKeyVisual(24).fade > 0.0f && keyboard.getKeyVisual(24).fade < 1.0f);
+
+            keyboard.setAvailableRange(48, 96);
+            expectEquals(keyboard.getKeyVisual(24).fade, 0.0f);
+
+            keyboard.setAvailableRange(21, 108);
+            expectEquals(keyboard.getKeyVisual(24).fade, 0.0f,
+                         "re-expanding the range must not resurrect a retired glow");
         });
     }
 
@@ -560,13 +586,14 @@ private:
                 state.noteOff(1, 60, 1.0f);
                 for (int frame = 0; frame < 1200 && keyboard.isTimerRunningForTest(); ++frame) {
                     keyboard.triggerTimerCallbackForTest();
-                    for (const auto& key : keyboard.getKeys()) {
-                        expect(key.fade >= 0.0f && key.fade <= 1.0f);
+                    for (const auto& key : keyboard.getKeyGeometries()) {
+                        const auto fade = keyboard.getKeyVisual(key.midiNote).fade;
+                        expect(fade >= 0.0f && fade <= 1.0f);
                     }
                 }
                 expect(!keyboard.isTimerRunningForTest());
-                for (const auto& key : keyboard.getKeys()) {
-                    expectWithinAbsoluteError(key.fade, 0.2f, 0.00001f);
+                for (const auto& key : keyboard.getKeyGeometries()) {
+                    expectWithinAbsoluteError(keyboard.getKeyVisual(key.midiNote).fade, 0.2f, 0.00001f);
                 }
             }
         });

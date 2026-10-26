@@ -315,7 +315,7 @@ private:
     }
 
     static juce::Point<int> pianoPosition(const CustomKeyboard& piano, int note) {
-        for (const auto& key : piano.getKeys()) {
+        for (const auto& key : piano.getKeyGeometries()) {
             if (key.midiNote == note) {
                 return { juce::roundToInt(key.bounds.getCentreX()), juce::roundToInt(key.bounds.getBottom() - 3.0f) };
             }
@@ -374,7 +374,7 @@ private:
                 piano.setKeyboardSettings(display);
                 piano.setSize(1100, 220);
                 piano.updateViewportBounds(1200, 180);
-                for (const auto& key : piano.getKeys()) {
+                for (const auto& key : piano.getKeyGeometries()) {
                     if (key.midiNote == scenario.note) {
                         expectEquals(key.keyLabel, juce::String("A"));
                     }
