@@ -67,6 +67,8 @@ public:
         testMouseDragGlissando();
         testMouseReleaseUsesMappedIdentityAfterMapperChange();
         testMessageThreadListenerAndTimerBehavior();
+        testResizePreservesHeldKeyVisuals();
+        testResizePreservesDecayingKeyVisuals();
         testFadeEndpointsTerminate();
         testProjectedCustomizationColours();
     }
@@ -448,6 +450,69 @@ private:
             expectEquals(offCallbackCount, 0, "releaseHeldMouseNote without held note is clean no-op");
         });
     }
+    void testResizePreservesHeldKeyVisuals() {
+        testCase("resize preserves held key fade and colour", [&] {
+            juce::MidiKeyboardState state;
+            CustomKeyboard keyboard(state);
+            keyboard.setSize(1248, 120);
+
+            state.noteOn(1, 60, 0.8f);
+            keyboard.triggerTimerCallbackForTest();
+
+            const auto* before = keyForNote(keyboard, 60);
+            expect(before != nullptr);
+            if (before == nullptr) {
+                return;
+            }
+            expectEquals(before->fade, 1.0f);
+            const auto colourBefore = before->colour1;
+
+            keyboard.updateViewportBounds(1600, 180);
+
+            const auto* after = keyForNote(keyboard, 60);
+            expect(after != nullptr);
+            if (after == nullptr) {
+                return;
+            }
+            expectEquals(after->fade, 1.0f);
+            expect(after->colour1 == colourBefore, "held key keeps its active colour across resize");
+        });
+    }
+
+    void testResizePreservesDecayingKeyVisuals() {
+        testCase("resize preserves an in-flight release fade", [&] {
+            juce::MidiKeyboardState state;
+            CustomKeyboard keyboard(state);
+            auto settings = keyboard.getKeyboardSettings();
+            settings.fadeSpeed = 0.9f;
+            settings.previewAlpha = 0.0f;
+            keyboard.setKeyboardSettings(settings);
+            keyboard.setSize(1248, 120);
+
+            state.noteOn(1, 60, 0.8f);
+            keyboard.triggerTimerCallbackForTest();
+            state.noteOff(1, 60, 0.0f);
+            keyboard.triggerTimerCallbackForTest();
+
+            const auto* before = keyForNote(keyboard, 60);
+            expect(before != nullptr);
+            if (before == nullptr) {
+                return;
+            }
+            expect(before->fade > 0.0f && before->fade < 1.0f);
+            const auto fadeBefore = before->fade;
+
+            keyboard.updateViewportBounds(1400, 160);
+
+            const auto* after = keyForNote(keyboard, 60);
+            expect(after != nullptr);
+            if (after == nullptr) {
+                return;
+            }
+            expectWithinAbsoluteError(after->fade, fadeBefore, 0.00001f);
+        });
+    }
+
     void testProjectedCustomizationColours() {
         testCase("configured white and black key colours follow the final mapping projection", [&] {
             devpiano::midi::ChannelMatrix matrix;

@@ -269,6 +269,21 @@ void CustomKeyboard::setKeyboardLayout(const devpiano::core::QwertyViewModel& vi
 // ============================================================================
 
 void CustomKeyboard::recalculateKeyBounds() {
+    // Preserve per-key animation state across geometry rebuilds. A resize
+    // rebuilds `keys`, but held or decaying keys must keep their fade and
+    // colour or the pressed glow disappears until the next timer tick.
+    std::array<float, 128> previousFade {};
+    std::array<juce::Colour, 128> previousColour {};
+    std::array<bool, 128> previousValid {};
+    for (const auto& key : keys) {
+        if (key.midiNote >= 0 && key.midiNote < 128) {
+            const auto index = static_cast<std::size_t>(key.midiNote);
+            previousFade[index] = key.fade;
+            previousColour[index] = key.colour1;
+            previousValid[index] = true;
+        }
+    }
+
     keys.clear();
 
     const auto viewportHeight = static_cast<float>(lastVisibleHeight > 0 ? lastVisibleHeight : getHeight());
@@ -296,6 +311,20 @@ void CustomKeyboard::recalculateKeyBounds() {
 
     std::ranges::sort(keys, [](const auto& a, const auto& b) { return a.midiNote < b.midiNote; });
     for (auto& key : keys) {
+        if (key.midiNote >= 0 && key.midiNote < 128) {
+            const auto index = static_cast<std::size_t>(key.midiNote);
+            if (previousValid[index]) {
+                key.fade = previousFade[index];
+                key.colour1 = previousColour[index];
+            }
+            // Held notes must be visible on the first frame after a rebuild,
+            // even when the rebuild happens before the next timer tick.
+            if (isNoteHeldOnAnyChannel(keyboardState, key.midiNote)) {
+                key.fade = 1.0f;
+                key.colour1 = computeKeyActiveColour(key.midiNote, customizationIndex(key.midiNote), 1.0f, settings,
+                                                     perKeyChannel, perKeyVelocity);
+            }
+        }
         key.keyLabel = pianoMapping[static_cast<std::size_t>(key.midiNote)].keyLabel;
     }
 
