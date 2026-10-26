@@ -70,7 +70,7 @@
     ├── 4. keyCode 规范化: normalisePhysicalKeyCode(key.getKeyCode())
     │
     ▼
-KeyboardMidiMapper::handleKeyPressed() / handleKeyStateChanged()
+KeyboardMidiMapper::handleKeyPressed() / handleKeyStateChanged() / pollPhysicalKeys()
     │
     ├── 5. 查表匹配当前 KeyboardLayout 绑定
     ├── 6. 按完整物理码确定区域，先应用区域音乐参数，再应用全局 KeyGroup
@@ -114,6 +114,18 @@ AudioEngine::liveMidiQueue（有界 SPSC）──► [音频回调线程]
 为了杜绝自动化测试受桌面运行环境（如执行用例期间操作系统有物理按键按住）的非确定性干扰，`KeyboardMidiMapper` 引入了可注入的键状态谓词 `KeyStatePredicate`（`std::function<bool(int keyCode)>`，见 `source/tests/KeyboardMidiMapperTest.cpp`）：
 - **生产默认**：未设置时安全回退至系统底层 `juce::KeyPress::isKeyCurrentlyDown()`；
 - **测试隔离**：单元测试通过 `setKeyStatePredicate()` 注入确定性状态。注入时自动清空历史物理按键快照并重新评估，彻底实现纯内存无头环境下的状态机隔离测试，保障发音身份与释放生命周期确定性。
+
+### 3.3 原生移动/缩放模态循环期间的按键对账（Windows）
+
+拖动窗口边缘缩放或拖动标题栏移动时，Windows 进入原生模态循环（`WM_ENTERSIZEMOVE` … `WM_EXITSIZEMOVE`）。该循环只向窗口派发 `WM_TIMER`、`WM_PAINT`、`WM_SIZE` 等消息，**不派发 `WM_KEYDOWN` / `WM_KEYUP`**，因此 JUCE 的 `keyPressed` / `keyStateChanged` 在此期间不会触发。`Win32NativeInputBridge` 在 `WM_ENTERSIZEMOVE` 时启动 16 ms 的窗口定时器，`WM_TIMER` 中回调 `MainComponent`，由 `KeyboardMidiMapper::pollPhysicalKeys()` 以实时按键状态双向对账：
+
+- 拖动中按下的新键正常起音（与普通击键共用同一 `triggerBinding` 身份锁定路径）；
+- 拖动中松开的键立即补发 note-off；模态循环退出时（`WM_EXITSIZEMOVE` / 捕获丢失 / `WM_NCDESTROY`）再执行一次收尾对账，覆盖最后一次 tick 与循环结束之间的空档；
+- 修饰键（Shift/Alt/Ctrl）改用 `ComponentPeer::getCurrentModifiersRealtime()` 读取实时状态，避免读取消息线程缓存的过期修饰键；
+- 只在模态循环期间轮询，不使用高频全局定时器；文本编辑焦点存在时（`isKeyboardInputSuppressed()`）不新起音，仅做释放对账；
+- 已通过正常 `WM_KEYDOWN` 按住的键不会被轮询重复起音：`physicalKeysDownState` 快照是两条入口共用的单一事实源。
+
+小键盘在全键状态上依赖 NumLock：NumLock 开启时直接读取 `VK_NUMPADx` 的实时状态，关闭时继续使用 `WM_KEYDOWN` 缓存，避免导航键被误判为小键盘音（`VK_NUMPADx` 与 `VK_INSERT` 等共用虚拟键码）。
 
 ## 4. QWERTY 演奏看板与和声色彩投影
 
@@ -161,3 +173,4 @@ devpiano 在主界面嵌入基于内生声明式 UI 驱动的 5 行 ANSI 物理�
 | **KBD-019** | 鼠标路由不受输出反馈污染 | Ch1→Ch2、Ch2→Ch3 下同键重复点击仍从配置输入路由；Ch11 回放后再次点击保持原路由 | [x] 历史捕获验证基线 |
 | **KBD-020** | 静音绑定优先级 | 零力度绑定加 Shift，并将矩阵固定力度设为 127；物理、钢琴鼠标及 QWERTY 点击最终捕获均无 NoteOn | [x] 历史捕获验证基线 |
 | **KBD-021** | 最低 MIDI 八度 | MIDI 0/1/11/12 的卡片音名、唱名偏移和单音 HUD 使用同一正确八度边界 | [x] 历史捕获验证基线 |
+| **KBD-022** | 窗口缩放期间的键盘演奏 | 按住 `A` 发声后拖动窗口边缘改变大小：按住的键持续发声且高亮不闪烁；拖动中松开 `A` 声音立即停止、高亮余晖正常淡出；拖动中按下 `S` 正常起音，松开后立即停音。移动窗口（拖动标题栏）同此 | [ ] 待实机手工验证 |

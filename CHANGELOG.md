@@ -4,6 +4,10 @@
 
 - **JUCE 9.0.4 Upgrade** — pin the JUCE submodule to the 9.0.4 patch release. It brings Windows MIDI disconnection fixes, WASAPI and MessageManager/Timer corrections, VST3 hosting fixes, high-DPI window placement fixes, and the malformed String security patch. The MP3, Opus, and WebP codecs that JUCE enables by default from 9.0.2/9.0.3 are disabled because Devpiano only exports WAV and ships no WebP assets.
 
+### Fixed
+
+- **Keyboard Playback During Window Move/Resize** — poll physical key state from a dedicated 16 ms timer while the Windows native move/size modal loop is active. Windows dispatches no `WM_KEYDOWN`/`WM_KEYUP` inside that loop, so notes started during a drag were lost and keys released during a drag stayed held. The sizing poll uses the same identity-locked binding path, also covers the pedals and real-time modifier keys, reconciles once more when the loop ends, and works for both edge resizing and title-bar moving.
+
 ## [1.5.0] - 2026-10-25
 
 ### Added
