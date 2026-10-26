@@ -300,6 +300,14 @@ bool KeyboardMidiMapper::handleKeyStateChanged(juce::MidiKeyboardState& keyboard
     return processKeyStateChangedInternal(keyboardState, true);
 }
 
+bool KeyboardMidiMapper::pollPhysicalKeys(juce::MidiKeyboardState& keyboardState) {
+    // During the native move/size modal loop Windows does not deliver key
+    // messages, so ModifierKeys::currentModifiers is also stale. Read the
+    // live OS state instead of the message-thread cache.
+    updateModifiersFromJuce(juce::ComponentPeer::getCurrentModifiersRealtime());
+    return processKeyStateChangedInternal(keyboardState, true);
+}
+
 bool KeyboardMidiMapper::reconcileReleasedKeys(juce::MidiKeyboardState& keyboardState) {
     updateModifiersFromJuce(juce::ModifierKeys::getCurrentModifiers());
     return processKeyStateChangedInternal(keyboardState, false);

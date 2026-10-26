@@ -36,6 +36,10 @@ public:
 
     bool handleKeyPressed(const juce::KeyPress& key, juce::MidiKeyboardState& keyboardState);
     bool handleKeyStateChanged(juce::MidiKeyboardState& keyboardState);
+    /// 原生窗口移动/缩放模态循环期间轮询物理键状态（Windows）。
+    /// 该模态循环不向窗口投递 WM_KEYDOWN/WM_KEYUP，必须主动对账：使用
+    /// 实时修饰键状态（而非缓存值）并允许新起音与补发 note-off。
+    bool pollPhysicalKeys(juce::MidiKeyboardState& keyboardState);
     bool reconcileReleasedKeys(juce::MidiKeyboardState& keyboardState);
     bool handleModifierKeysChanged(const juce::ModifierKeys& modifiers, juce::MidiKeyboardState& keyboardState);
     void setChannelMapper(devpiano::midi::MidiChannelMapper* mapper) noexcept;

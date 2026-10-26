@@ -22,6 +22,10 @@ class Win32NativeInputBridge {
 public:
     using KeyDownCallback = std::function<bool(int keyCode, const juce::ModifierKeys& mods)>;
     using KeyUpCallback = std::function<void(int keyCode)>;
+    // Called periodically while the native Windows move/size modal loop is
+    // active. Windows does not deliver WM_KEYDOWN/WM_KEYUP to the window
+    // during that loop, so the app reconciles physical key state from here.
+    using SizingPollCallback = std::function<void()>;
 
     [[nodiscard]] static int normalizeWin32KeyEvent(int wParam, int lParam) noexcept {
         const bool isExtended = (lParam & (1 << 24)) != 0;
@@ -115,6 +119,16 @@ public:
             return std::nullopt;
         }
         const auto slot = static_cast<std::size_t>(index);
+        // With NumLock on, numpad keys map one-to-one to VK_NUMPADx, so the
+        // live OS state is unambiguous. Reading it directly also covers the
+        // native move/size modal loop, which delivers no WM_KEYDOWN to refresh
+        // the cache. With NumLock off, VK_NUMPADx overlaps the navigation keys
+        // (VK_INSERT, ...), so keep the WM_KEYDOWN cache there to avoid
+        // treating a navigation key as numpad input.
+        if (keyCode == devpiano::core::kCapsLockKeyCode || (GetKeyState(VK_NUMLOCK) & 1) != 0) {
+            physicalKeysDown[slot] = (GetAsyncKeyState(virtualKeys[slot]) & 0x8000) != 0;
+            return physicalKeysDown[slot];
+        }
         if (physicalKeysDown[slot] && (GetAsyncKeyState(virtualKeys[slot]) & 0x8000) == 0
             && (alternateVirtualKeys[slot] == 0 || (GetAsyncKeyState(alternateVirtualKeys[slot]) & 0x8000) == 0)) {
             physicalKeysDown[slot] = false;
@@ -127,7 +141,8 @@ public:
     }
 
 #if JUCE_WINDOWS
-    static void attach(juce::Component& component, KeyDownCallback onKeyDown, KeyUpCallback onKeyUp) {
+    static void attach(juce::Component& component, KeyDownCallback onKeyDown, KeyUpCallback onKeyUp,
+                       SizingPollCallback onSizingPoll = {}) {
         auto* peer = component.getPeer();
         if (peer == nullptr) {
             return;
@@ -143,19 +158,22 @@ public:
             state->owner = &component;
             state->onKeyDown = std::move(onKeyDown);
             state->onKeyUp = std::move(onKeyUp);
+            state->onSizingPoll = std::move(onSizingPoll);
             return;
         }
         auto state = std::make_unique<SubclassState>();
         state->owner = &component;
         state->onKeyDown = std::move(onKeyDown);
         state->onKeyUp = std::move(onKeyUp);
+        state->onSizingPoll = std::move(onSizingPoll);
         if (SetWindowSubclass(hwnd, subclassProc, kSubclassId, reinterpret_cast<DWORD_PTR>(state.get()))) {
             static_cast<void>(state.release());
         }
     }
 #else
-    static void attach(juce::Component& component, const KeyDownCallback& onKeyDown, const KeyUpCallback& onKeyUp) {
-        juce::ignoreUnused(component, onKeyDown, onKeyUp);
+    static void attach(juce::Component& component, const KeyDownCallback& onKeyDown, const KeyUpCallback& onKeyUp,
+                       const SizingPollCallback& onSizingPoll = {}) {
+        juce::ignoreUnused(component, onKeyDown, onKeyUp, onSizingPoll);
     }
 #endif
 
@@ -174,6 +192,7 @@ public:
         if (GetWindowSubclass(hwnd, subclassProc, kSubclassId, &reference)) {
             auto* state = reinterpret_cast<SubclassState*>(reference);
             if (state->owner == &component && RemoveWindowSubclass(hwnd, subclassProc, kSubclassId)) {
+                cancelSizingPoll(hwnd, *state);
                 delete state;
             }
         }
@@ -185,6 +204,10 @@ public:
 private:
 #if JUCE_WINDOWS
     static constexpr UINT_PTR kSubclassId = 0xDE701A10;
+    // Dedicated timer for the move/size modal loop. WM_TIMER keeps being
+    // dispatched inside that loop, unlike WM_KEYDOWN/WM_KEYUP.
+    static constexpr UINT_PTR kSizingPollTimerId = 0xDE701A11;
+    static constexpr UINT kSizingPollIntervalMs = 16;
     inline static const std::array<int, 16> physicalKeys {
         juce::KeyPress::numberPad0,        juce::KeyPress::numberPad1,      juce::KeyPress::numberPad2,
         juce::KeyPress::numberPad3,        juce::KeyPress::numberPad4,      juce::KeyPress::numberPad5,
@@ -216,9 +239,40 @@ private:
         juce::Component::SafePointer<juce::Component> owner;
         KeyDownCallback onKeyDown;
         KeyUpCallback onKeyUp;
+        SizingPollCallback onSizingPoll;
         std::array<std::uint16_t, 16> pendingCharacters {};
         bool suppressAltComposition = false;
+        bool sizingLoopActive = false;
     };
+
+    static void startSizingPoll(HWND hwnd, SubclassState& state) noexcept {
+        if (state.sizingLoopActive || !state.onSizingPoll) {
+            return;
+        }
+        state.sizingLoopActive = true;
+        SetTimer(hwnd, kSizingPollTimerId, kSizingPollIntervalMs, nullptr);
+        state.onSizingPoll();
+    }
+
+    static void stopSizingPoll(HWND hwnd, SubclassState& state) noexcept {
+        if (!state.sizingLoopActive) {
+            return;
+        }
+        state.sizingLoopActive = false;
+        KillTimer(hwnd, kSizingPollTimerId);
+        // Final reconcile: a key released between the last tick and the end
+        // of the modal loop must still produce its note-off.
+        if (state.onSizingPoll) {
+            state.onSizingPoll();
+        }
+    }
+
+    // Teardown variant: never invokes the callback while the owner is being
+    // destroyed or the HWND is going away.
+    static void cancelSizingPoll(HWND hwnd, SubclassState& state) noexcept {
+        state.sizingLoopActive = false;
+        KillTimer(hwnd, kSizingPollTimerId);
+    }
 
     static juce::ModifierKeys getCurrentWin32Modifiers() noexcept {
         int flags = 0;
@@ -239,13 +293,35 @@ private:
         auto* state = reinterpret_cast<SubclassState*>(dwRefData);
 
         if (uMsg == WM_NCDESTROY) {
+            if (state != nullptr) {
+                cancelSizingPoll(hwnd, *state);
+            }
             RemoveWindowSubclass(hwnd, subclassProc, uIdSubclass);
             delete state;
             return DefSubclassProc(hwnd, uMsg, wParam, lParam);
         }
 
         if (state != nullptr && state->owner != nullptr) {
-            if (uMsg == WM_CHAR || uMsg == WM_SYSCHAR || uMsg == WM_DEADCHAR || uMsg == WM_SYSDEADCHAR) {
+            if (uMsg == WM_ENTERSIZEMOVE) {
+                startSizingPoll(hwnd, *state);
+            } else if (uMsg == WM_EXITSIZEMOVE) {
+                stopSizingPoll(hwnd, *state);
+            } else if (uMsg == WM_CAPTURECHANGED) {
+                // Safety net: if the mouse capture is lost without a matching
+                // WM_EXITSIZEMOVE, stop the poll timer instead of leaving it
+                // running forever.
+                if (GetCapture() != hwnd) {
+                    stopSizingPoll(hwnd, *state);
+                }
+            } else if (uMsg == WM_TIMER && wParam == kSizingPollTimerId) {
+                // The native modal loop dispatches WM_TIMER but swallows key
+                // messages; poll physical key state so notes still start and
+                // stop while the user drags a window edge.
+                if (state->sizingLoopActive && state->onSizingPoll) {
+                    state->onSizingPoll();
+                }
+                return 0;
+            } else if (uMsg == WM_CHAR || uMsg == WM_SYSCHAR || uMsg == WM_DEADCHAR || uMsg == WM_SYSDEADCHAR) {
                 const auto code = normalizeWin32KeyEvent(0, static_cast<int>(lParam));
                 const auto index = physicalKeyIndex(code);
                 if (index >= 0) {

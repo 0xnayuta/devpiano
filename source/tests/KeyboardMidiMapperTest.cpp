@@ -242,6 +242,53 @@ public:
             expect(!isNoteOn(state, 1, 72), "physical release must close the locked identity");
             expectEquals(countNotesOn(state), 0);
         }
+
+        beginTest("pollPhysicalKeys starts and stops notes without key events");
+        {
+            // Native move/size modal loops deliver neither WM_KEYDOWN nor
+            // WM_KEYUP, so the sizing poll must reconcile both directions.
+            bool isAHeld = false;
+            KeyboardMidiMapper mapper;
+            mapper.setKeyStatePredicate(
+                [&](int keyCode) { return keyCode == makeAlphaNumericKeyCode('A') && isAHeld; });
+            mapper.setLayout(makeSingleBindingLayout('A', 72));
+
+            juce::MidiKeyboardState state;
+            expect(!mapper.pollPhysicalKeys(state), "no physical change must not be consumed");
+            expectEquals(countNotesOn(state), 0);
+
+            isAHeld = true;
+            expect(mapper.pollPhysicalKeys(state), "poll must start the note for a newly pressed key");
+            expect(isNoteOn(state, 1, 72));
+            expectEquals(countNotesOn(state), 1);
+
+            expect(!mapper.pollPhysicalKeys(state), "holding the key must not retrigger on later polls");
+            expectEquals(countNotesOn(state), 1);
+
+            isAHeld = false;
+            expect(mapper.pollPhysicalKeys(state), "poll must release a key released during the modal loop");
+            expect(!isNoteOn(state, 1, 72));
+            expectEquals(countNotesOn(state), 0);
+            expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 0);
+        }
+
+        beginTest("pollPhysicalKeys does not retrigger a key already held by a key event");
+        {
+            bool isAHeld = false;
+            KeyboardMidiMapper mapper;
+            mapper.setKeyStatePredicate(
+                [&](int keyCode) { return keyCode == makeAlphaNumericKeyCode('A') && isAHeld; });
+            mapper.setLayout(makeSingleBindingLayout('A', 72));
+
+            juce::MidiKeyboardState state;
+            isAHeld = true;
+            expect(mapper.handleKeyPressed(juce::KeyPress('A'), state));
+            expect(isNoteOn(state, 1, 72));
+
+            expect(!mapper.pollPhysicalKeys(state), "the same physical key must not start a second note");
+            expectEquals(countNotesOn(state), 1);
+            expectEquals(static_cast<int>(mapper.getNumHeldKeys()), 1);
+        }
     }
 };
 

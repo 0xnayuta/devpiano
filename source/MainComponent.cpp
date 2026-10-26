@@ -175,6 +175,29 @@ void MainComponent::parentHierarchyChanged() {
                     }
                     weak->updateQwertyVisualizer();
                 }
+            },
+            [weak = juce::Component::SafePointer<MainComponent>(this)] {
+                if (weak == nullptr) {
+                    return;
+                }
+                if (weak->isKeyboardInputSuppressed()) {
+                    // Text entry owns the keyboard: never start notes, but a
+                    // key held before the drag must still be released.
+                    if (weak->keyboardMidiMapper.reconcileReleasedKeys(weak->audioEngine.getKeyboardState())) {
+                        weak->updateQwertyVisualizer();
+                    }
+                    return;
+                }
+                // Native move/size modal loop: no WM_KEYDOWN/WM_KEYUP arrives,
+                // so reconcile both directions from live OS key state.
+                if (weak->keyboardMidiMapper.pollPhysicalKeys(weak->audioEngine.getKeyboardState())) {
+                    weak->updateQwertyVisualizer();
+                    if (weak->customKeyboardRef != nullptr) {
+                        weak->customKeyboardRef->notifyNoteActivity();
+                    }
+                    weak->notifyMidiActivity();
+                    weak->suppressTextInputMethods();
+                }
             });
     }
 }
