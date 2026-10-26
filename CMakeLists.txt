@@ -389,6 +389,11 @@ target_compile_definitions(devpiano PRIVATE
     # 禁用一些不需要的沉重组件以加快编译
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
+    # JUCE 9.0.2/9.0.3 默认启用 MP3/Opus/WebP；本项目仅导出 WAV，
+    # 无音频文件导入与 WebP 资源，关闭以控制编译时间与二进制体积
+    JUCE_USE_MP3AUDIOFORMAT=0
+    JUCE_USE_OPUS=0
+    JUCE_USE_WEBP=0
     JUCE_VST3_CAN_REPLACE_VST2=0
     NOMINMAX=1
     WIN32_LEAN_AND_MEAN=1
@@ -661,6 +666,9 @@ if (BUILD_TESTS)
         JUCE_PLUGINHOST_VST3=1
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
+        JUCE_USE_MP3AUDIOFORMAT=0
+        JUCE_USE_OPUS=0
+        JUCE_USE_WEBP=0
         NOMINMAX=1
         WIN32_LEAN_AND_MEAN=1
         JUCE_UNIT_TESTS=1
