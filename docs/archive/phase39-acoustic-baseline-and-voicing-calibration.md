@@ -272,7 +272,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - 首次验证会话（n60-44100-rep0，用于缺陷发现，未产出正式单元）暴露 `pilot-rpc.ps1` 缺陷：`loadFile(FXP)` 返回 `result:null` 仅表示请求被接受，参数应用存在异步窗口——prepare 在返回后 5 ms 采样到中间态（`unison`=1.00、`equalizer_switch`=On 未恢复），而 500 ms 后采样已完全恢复（消融实验：`setParameters` 写入扰动后重载，≥500 ms 稳定）；092853 认证会话在加载后 8.1 s 才读参数，从未落入该窗口。
 - 据此修订 v2.1：全部 loadFile/loadMidiFile 之后「稳定等待」（连续两次 215 项快照 digest 一致）再落盘权威快照；prepare 内置 215 项全量基线硬断言与 restore counterexample（4 项反例值按写入前读数自动选择，规避 Pianoteq text 格式化显示差异导致的假失败）；unit-before/after 内置 pre==基线、post==pre 断言；FXP 身份（SHA-256/字节数）随 prepare 落盘；runbook 处置树新增 P8/P9 并细化 P2。
 - 修订实测（同一会话）：正向 prepare 全链 2.7 s（反例写入→加载→215 项全量恢复，settled 1024 ms / 2 polls / drift 0）；负向（故意篡改期望值的基线）必触发 plateau 报错并落盘失败证据；close 正常 quit、进程退出 exit 0。会话在注册窗口 900 s 到点后按 notice-only 纪律收尾（`deadline-exceeded.json`），未导出 WAV、无残留进程。
-- 证据：`G:\tmp\devpiano-task39-2-pilot-v2-20261012-205125\sessions\s01-n60-44100-rep0`（diag/ 消融与 verify/ 正负例）；脚本与编排文档修订留工作区未提交。
+- 证据：修订实测会话 `sessions/s01-n60-44100-rep0`（diag/ 消融与 verify/ 正负例）；脚本与编排文档修订留工作区未提交。
 - 下一推进条件：修订版套件经用户确认后，按 runbook v2.1 启动正式 36 单元 Pilot（从新 s01 开始）并复核首会话耗时分解；在此之前 `B`/拉伸不变、封闭验证集不打开、默认 `B` 锚点准入数仍为 0。
 
 #### Task 39-2 实施记录：批 0 正式会话（s01）与执行脚本两处修复（2026-10-12）
@@ -280,7 +280,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - 按 runbook 启动首个正式受控会话 `s01-n60-44100-rep0`（note 60 / 44100 Hz / rep0，3 力度导出）：受控启动器散列与私有隔离核验通过，GUI 准备（Welcome / 音频设备 DirectSound 44.1 kHz 2560 spl / Standard 切换）后 RPC prepare 2.7 s（215 项零漂移、4/4 反例恢复），三单元连续导出全部通过 `pilot-verify unit` 核验（accepted 3/3）。
 - 三个 WAV 均为 1,430,120 字节、2ch / 44100 Hz / 24-bit / 5.404 s，SHA-256 互不相同；每单元 pre == post == 认证基线（215 项 drift 0），证明导出流程不改变认证参数状态。会话 17.5 min 后经 RPC quit 正常退出（exit 0，无残留进程/窗口）；稳态单元周期实测 48–50 s（含 GUI 导出），据此维持 3 导出/会话。
 - 首次正式会话暴露并修复执行脚本两处缺陷：unit-before 落盘 `pre-parameters.json` 为 RPC receipt 结构，而 `Load-BaselineItems` 仅接受 items 数组，导致 unit-after 以 “got 1” 误报失败；`Wait-ParameterSettle` 对项数不足的采样立即断言中止。现 `Load-BaselineItems` 同时接受两种结构，未就绪采样改为留证（`*-incomplete-NNN.json`）并继续轮询，仅“连续两次完整且一致”判 settled。修订已同步至权威脚本（SHA-256 `fbcce4a8…`）并经语法与实跑验证。
-- 证据留于批次根 `G:\tmp\devpiano-task39-2-pilot-v2-20261012-211747`：会话目录含 lifecycle/context/deadline 凭据、逐单元 pre/post/acceptance/wav-receipt、`mcp/gui-actions.json` 全 GUI 动作记录、`session-summary.json` 与 `s01-review-report.md`（耗时分解与风险反馈）。按证据管理惯例待批 0 整体复核后归档，大体积 WAV 与商业二进制只登记不复制。
+- 证据归档于 `G:\source\projects\devpiano-evidence\phase39\task39-2\pilot-v2-20261012-211747`：会话目录含 lifecycle/context/deadline 凭据、逐单元 pre/post/acceptance/wav-receipt、`mcp/gui-actions.json` 全 GUI 动作记录、`session-summary.json` 与 `s01-review-report.md`（耗时分解与风险反馈）；大体积 WAV 与商业二进制只登记不复制。
 - 下一推进条件：批 0 复核确认后授权批 1–12（会话序：60/48k/rep0 → 48/44.1k/rep0 → …，rep1 在同 note rep0 完成后跨冷启动展开）；`B`/拉伸不变、封闭验证集未打开、默认 `B` 锚点准入数仍为 0。
 
 #### Task 39-2 实施记录：正式 v2 Pilot 36 单元完成与归档（2026-10-12）
@@ -362,7 +362,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - 构建与回归：win-build 与全量 CTest 通过、零失败；两处测试按新物理重标定（inharmonicity 测试改用 20 分音：7 分音偏移在新 B 下仅 0.56 Hz 低于 DFT 分辨率；duplex 临界 A4 随 f8 下移重标定为 468/470 与 430/432，断言意图不变）。
 - 全键渲染回归（88 键 × 44.1/48 kHz，离线分音分析）：**锚点键 B 回收 ±0.11%**（非拍频子集；21/24 最大 +0.108%）、**f1 ±0.033 cents**；双率回收差 ≤0.04%；44 键回收 8.2985e-5（-0.006%，43/45 平滑）；**4:2/2:1 = −0.0012/+0.0014 cents**（中心线匹配）；拉伸复核 **max −9.08 cents @104**（预登记观察点确认）；Nyquist/coherent band 26 例（93+，设计剪除）。
 - 登记观察项：拍频区（n≤6 多弦）观测峰偏 −detune 侧（48 键 −3.0 cents；根因 Phase 19-C 同音弦微失谐设计常量，非 B 校准误差）；93+ 键超离线分析工具上限。
-- 证据：`G:\tmp\devpiano-task39-2-calibration-impl-20261013-190010`（验收报告 + 全键回收 JSON）。
+- 证据归档于 `G:\source\projects\devpiano-evidence\phase39\task39-2\calibration-impl-20261013-190010`（验收报告 + 全键回收 JSON）。
 
 #### Task 39-2 实施记录：封闭验证集执行与一次性评估（2026-10-13，holdout 已消耗）
 
@@ -370,7 +370,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - 执行：48/48 单元形式验收、16/16 会话 exit 0、16/16 受保护比对 **373 项零变更**、48/48 WAV SHA 复核一致；D1 路径修正 16/16 首单元；验证基线 vs 认证基线唯一差异 `diapason 440.0 → 442.0`。
 - **一次性评估**（两侧同口径分析；归一化分音比 f(n)/f(1) 消去调律基础差异）：**12/28 可分析单元通过**（判据 RMS ≤1 / max ≤3 cents）。分层：**63（D#4）最佳**（B −0.12%、RMS 0.80 cents）；39/50/77 边缘（0.75–1.6）；**86（D6）失败**（B +26.6%、RMS 18.8 cents——84→96 插值增长陡于参考实测，**无 C6 以上实测的 model-upper 段预期风险**）；98/104 分音不足不可分析；26 因 f1<40 Hz 工具下限仅 B 口径（+9…17%）。
 - **处置（按预登记 `unavailable_controlled_reference`）**：**保留当前常量、不放宽判据、不在验证集上调参**；**holdout 已消耗**（下一迭代需注册新验证数据）；高音区与低音区插值复核需新参考测量（登记不实施）。
-- 证据：`G:\tmp\devpiano-task39-2-validation-20261013-185755`（16 会话全量 + `validation-evaluation-report.md` + 两口径评估 JSON）。
+- 证据归档于 `G:\source\projects\devpiano-evidence\phase39\task39-2\validation-20261013-185755`（16 会话全量 + `validation-evaluation-report.md` + 两口径评估 JSON）。
 
 #### Task 39-2 实施记录：证据收口、方法修订与全域重评（2026-10-13）
 
@@ -404,7 +404,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - **GUI 路径实测固化**：UIA 无法激活自绘导出菜单项（`ui_click` 被判 disabled，与历史记录一致），且下拉菜单打开后的首次坐标点击不生效；实际可行路径 = UIA 打开 File 菜单 → 菜单项屏幕坐标点击（(912,602)，每单元至多一次记录重试）。RPC 探测 7 个候选导出方法全部 `function not found`（导出只能走 GUI）。每会话 prefs 种子预置 Target 目录（免除对话框内 D1 修正）。
 - **参考侧分析**（`pilot-partial-analysis.py --preset midfill`，amendment-1/2 判据）：**17/18 族通过**；唯一失败 **n27-v98**（参考族质量：留出误差 +3.9→−8.7 cents 单调漂移，f1 38.800 vs 兄弟单元 38.890/38.891）登记**不可准入**——不放宽判据、不调参。
 - **边界**：85–108 高音区仍为文献外推（treble96 因参考环境限制关闭）；midfill 结果不认证高音区。跨生产者（devpiano vs 参考）对照评估另行执行。
-- **证据**：`G:\tmp\devpiano-task39-2-midfill-20261014-001725`（6 会话全量、中断现场 `interrupted/`、MCP 动作记录与截图、`analysis/` 输出）→ 归档 `devpiano-evidence\phase39\task39-2\midfill-20261014-001725`（940 文件 / 85.3 MB 逐文件 SHA-256）。
+- **证据**：归档 `G:\source\projects\devpiano-evidence\phase39\task39-2\midfill-20261014-001725`（6 会话全量、中断现场 `interrupted/`、MCP 动作记录与截图、`analysis/` 输出；940 文件 / 85.3 MB 逐文件 SHA-256）。
 
 #### Task 39-2 实施记录：跨生产者对照评估（2026-10-14）
 
@@ -467,7 +467,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - **失败签名诊断（读数记录，不调参）**：n27-v107 在 44.1 kHz 通过（RMS 0.502 / max 0.967）而 48 kHz 失败；逐分音误差对比显示**除 n11/n12 外两采样率差异 <0.02 cents**。参考侧同一刺激在 44.1 kHz/48 kHz 的 n11 估计为 429.670 / 427.822 Hz（差 7.2 cents）、n12 为 469.076 / 467.600 Hz（差 5.5 cents），相邻 n10/n13 两率一致；devpiano 侧 24 个渲染对双率唯一确定。指向参考侧稀疏高次分音的采样率相关估计离散，而非 devpiano 非确定性。
 - **结论**：按预登记 `no_relaxation` 与 one-shot 纪律，**本验证集未全通过（46/48）并已消耗**；不以本集回调 B 表、判据、选峰或选种子；**Task 39-2 第一条直接验收（留出声音的分音误差达事先指标）仍不勾选**；下一迭代须登记新的验证数据。是否在下一代协议修订参考侧分音估计/样本稳健性属新的预登记决策，不在本批执行。
 - **重复一致性（诊断，非判据）**：同条件两独立冷会话逐位一致 7/24 组（44100 1/12、48000 6/12），与 interp-training 同类现象（未追因）。
-- **证据**：批次根 `G:\tmp\devpiano-task39-2-validation-interp-20261014-105959`（16 会话全量、`verdict-report.md`、`analysis/interp-validation-eval.json`、`tool-corrections/`、`dev-render-sha256.txt`、`meta.json`、`batch-summary.json`）→ 归档 `devpiano-evidence\phase39\task39-2\validation-interp-20261014-105959`（**1,597 文件 / 193,400,866 字节**逐文件 SHA-256 零差异；manifest `160b0ec66057e9a15c7ff97b11318924532ae811ca227cb67ef74fff36b54e07`）；devpiano 侧渲染输入补充归档 `…\validation-interp-devrender-20261014-105959`（25 文件 / 34,487,127 字节，manifest `7b8579fe26effe985392e5973854ed5d7a55de70af642fa49dbc802aeb6b0c4e`）；工作树改动未提交。
+- **证据**：归档 `G:\source\projects\devpiano-evidence\phase39\task39-2\validation-interp-20261014-105959`（16 会话全量、`verdict-report.md`、`analysis/interp-validation-eval.json`、`tool-corrections/`、`dev-render-sha256.txt`、`meta.json`、`batch-summary.json`；**1,597 文件 / 193,400,866 字节**逐文件 SHA-256 零差异；manifest `160b0ec66057e9a15c7ff97b11318924532ae811ca227cb67ef74fff36b54e07`）；devpiano 侧渲染输入补充归档 `…\validation-interp-devrender-20261014-105959`（25 文件 / 34,487,127 字节，manifest `7b8579fe26effe985392e5973854ed5d7a55de70af642fa49dbc802aeb6b0c4e`）；工作树改动未提交。
 
 #### Task 39-2 方法核验：参考侧峰估计稳健性（2026-10-14，伪影确认）
 
@@ -476,7 +476,7 @@ Reference 的 70→98 HF 功率占比增加约 12.49 dB，devpiano 为 2.98 dB�
 - **影响面审计**：精化轮被采用比例 interpval 34/48（24 单元 ≥0.5 c，最大 9.82 c）、sealed 19/48（10 单元 ≥0.5 c，最大 9.08 c）、midfill 15/18（6 单元）、interp-training 20/36（最大 16.90 c @ n26 n62）。
 - **锚点值敏感度（只登记）**：按准入政策复算，n26 = `6.868533e-5`（开，= 已实施值）/ `6.846790e-5`（关），差 **+0.318%**；n52 差 +0.0197%；n57 差 0。n26 差异源自参考侧**双弦分裂双峰**的选择歧义（两候选均 70+ dB 真峰、间距 ≈1.8 cents），非伪峰污染。
 - **保持不动**：validation-interp 判决 46/48（集已消耗）、sealed 12/28、n26-v98 与 n27-v98 的不可准入登记、现行 B 表（含 26/52/57 值）全部不改；任何匹配策略修订只能经新预登记生效，且不得用已消耗集重判。
-- **证据**：批次 `G:\tmp\devpiano-task39-2-peak-robustness-20261014`（`method-robustness-report.md`、独立核验 JSON、管道探针、消融输出、影响面审计、锚点复算、四个只读核验工具）→ 归档 `…\peak-robustness-20261014`（21 文件 / 371,427 字节，manifest `4b2b71b93d287ac1d5a5ceacb268101007680f0a366927fbae009538e63109e5`）；研究仓库新增 `pilot/tools/partial-peak-robustness.py`、`partial-refinement-audit.py`、`interp-validation-refinement-ablation.py`、`sealed-refinement-ablation.py`（工作区未提交）。
+- **证据**：归档 `G:\source\projects\devpiano-evidence\phase39\task39-2\peak-robustness-20261014`（`method-robustness-report.md`、独立核验 JSON、管道探针、消融输出、影响面审计、锚点复算、四个只读核验工具；21 文件 / 371,427 字节，manifest `4b2b71b93d287ac1d5a5ceacb268101007680f0a366927fbae009538e63109e5`）；研究仓库新增 `pilot/tools/partial-peak-robustness.py`、`partial-refinement-audit.py`、`interp-validation-refinement-ablation.py`、`sealed-refinement-ablation.py`（工作区未提交）。
 
 #### Task 39-2 方法修订 5：候选强度守卫（amendment-5，2026-10-14，已登记并验证）
 
@@ -959,7 +959,7 @@ C4 基线（note-on 相对窗口）：
 - **成本与稳定性**：两次独占 Debug 样本中，8 复音起音校准为 `3.930–4.206 ms/块`、零偏移为 `3.956–3.977 ms/块`，差异方向相反，单次计时方差大于锚点采样成本，因此不宣称新增锚点有可测增量；参数边界 `4.146 ms`、密集实时输入 `4.261 ms`（最坏块 `7.864 ms`）、偷声部 `3.897 ms`、Panic 后重用 `0.516 ms`、44.1 kHz `0.261 ms`、96 kHz `0.521 ms`、Take 预设边界 `0.137 ms`；12000 事件密集回放 `5.433 ms/块`（最坏块 `71.7 ms`，Debug 未优化），长时 6000 块 `3.99 s` / 16 s 音频（`0.249×` 实时）。这些是 Debug 单次观察，不是 Release CPU SLA 或物理声卡 deadline 认证。
 - **长时与生命周期**：6000 块混合运行（周期性 NoteOn/NoteOff、每 500 块切换整音与亮度、每 1500 块 Panic）peak `0.348`、全部有限、无自激；结束时 Panic 后 64 块 peak `0.0`，证明旧声部完整结束；Panic 后新 NoteOn 正常发声。
 - **门禁**：Windows Debug app/tests 构建、默认 CTest 与直接运行测试通过、零失败；`format --check` 通过；`tidy --all` 在该轮迭代边界执行并通过。首次失败因 `compile_commands.json` 仍引用已删除的临时 `TempMidfillRenderTest.cpp`，刷新 WSL configure 后全量复跑 exit 0；原失败日志保留。
-- **用户副作用**：测试 Take 打开后已正常关闭应用；`recentFiles` 从备份恢复，用户原有条目保留；测试未写入用户 Presets，也未改变现有声学设置。测试 WAV/Take 已归档至 `G:\source\projects\devpiano-evidence\phase39\task39-5\listening-and-callback-20261019\listening\`，G:\tmp 中的重复副本待人工清理。
+- **用户副作用**：测试 Take 打开后已正常关闭应用；`recentFiles` 从备份恢复，用户原有条目保留；测试未写入用户 Presets，也未改变现有声学设置。测试 WAV/Take 已归档至 `G:\source\projects\devpiano-evidence\phase39\task39-5\listening-and-callback-20261019\listening\`；重复副本已清理。
 - **边界**：未做人工主观偏好判定（本记录只提供可复核 WAV 与数值）；未认证物理声卡 deadline、Release 单核 CPU ≤0.7% SLA、商业厂商/真琴等价或第三方 VST3 内部实时安全。
 - **证据入口**：`G:\source\projects\devpiano-evidence\phase39\task39-5\listening-and-callback-20261019\`；`listening\README.md`、`analysis.json`、`listening-index.csv`，`callback\callback-summary.json`、`probe-run.log`、`ctest-last.log`、`tidy-all.log`、`gates.json`，`ui\ui-validation.json` 与 `ui-*.png`；根目录 `evidence-manifest.json` 含 33 个文件的 SHA-256。
 

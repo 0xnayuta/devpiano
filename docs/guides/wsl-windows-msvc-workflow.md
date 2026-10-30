@@ -210,7 +210,7 @@ bash scripts/tests/win_clean_guard_test.sh
 | 问题 | 约定 |
 |---|---|
 | 新的 Windows 构建产物放哪 | 镜像树 `build-win-msvc`（Debug）/ `build-win-msvc-release`（Release）；可随时重建，不对其做长期保证 |
-| 临时 GUI 测试结果放哪 | 任务临时根（`G:\tmp\...` 或构建目录内的 `phaseNN-*` 工作目录）；验收后归档，随后可清理 |
+| 临时 GUI 测试结果放哪 | 构建目录内的 `phaseNN-*` 工作目录或其他临时目录；验收后归档到 `G:\source\projects\devpiano-evidence`，随后可清理 |
 | 哪类数据必须正式归档 | 原始参考 WAV/MIDI、真实 GUI 截图、实验输入与复算结果、运行日志、receipt/manifest、配置与版本证据、受控参考输出 |
 | 什么时候需要独立备份 | 需要介质故障隔离时（异盘/异介质）。归档到 `G:\source\projects\devpiano-evidence` 与原件同盘，只解决"证据散落在构建目录与磁盘根"的问题，**不提供故障隔离** |
 | 每次验收记录什么 | 源 commit、构建预设、工具链版本、生产/参考样本逐文件 SHA-256、批次时间戳；缺项显式标记 unknown |
