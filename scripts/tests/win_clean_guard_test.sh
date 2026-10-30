@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 测试 scripts/win_clean_guard.sh 的 fail-closed 行为。
 #
-# 全部用例都在可抛弃的隔离目录中运行（默认 /mnt/g/tmp 下的一次性目录），
+# 全部用例都在可抛弃的隔离目录中运行（默认可写的 Windows 盘挂载下的一次性目录），
 # 不触碰真实的 Windows 镜像构建目录，也不执行任何删除。
 #
 # 运行：bash scripts/tests/win_clean_guard_test.sh
