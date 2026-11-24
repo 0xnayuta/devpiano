@@ -63,7 +63,7 @@
 
 ### 5. 历史档案（`archive/`）
 
-- [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表，含 Phase 35/36、[Phase 37/38 完成记录](archive/phase37-38-piano-calibration-and-keyboard-performance.md)、[Phase 39 历史归档](archive/phase39-acoustic-baseline-and-voicing-calibration.md) 与 [R0–R11 结构整理归档](archive/r0-r11-physical-piano-source-refactor.md)；原任务、直接证据和修复归属不再占用当前迭代入口。
+- [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表，含 Phase 35/36、[Phase 37/38 完成记录](archive/phase37-38-piano-calibration-and-keyboard-performance.md)、[Phase 39 历史归档](archive/phase39-acoustic-baseline-and-voicing-calibration.md)、[Phase 39.5 历史归档](archive/phase39-5-jive-core-pruning-and-v2-selective-port.md) 与 [R0–R11 结构整理归档](archive/r0-r11-physical-piano-source-refactor.md)；原任务、直接证据和修复归属不再占用当前迭代入口。
 
 ---
 

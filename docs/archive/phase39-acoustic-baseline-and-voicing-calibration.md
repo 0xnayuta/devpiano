@@ -4,7 +4,7 @@
 > 归档日期：2026-10-23。来源：`refactor/physical-piano-components` 分支归档前的 `docs/roadmap/current-iteration.md`（归档基线提交 `1182836`）。
 > 归档范围：Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失败候选、直接验收、依赖排期、证据边界，以及 Phase 38/39 证据治理记录。
 > 历史边界：以下保留原记录中的日期、结论、失败和未验证范围，不因归档改写。Task 39-2 的外部参考直接验收缺口、已消费的资格/采集/判决和“不注入 B 表”的收尾结论仍然有效；Phase 39 不因音色与状态闭环签收而自动通过。
-> 替代关系：项目状态与长期阶段顺序见 [roadmap](../roadmap/roadmap.md)；Phase 40–42 的候选描述与恢复条件见 [当前迭代](../roadmap/current-iteration.md)；现行声学行为见 [内置音源](../reference/features/builtin-piano-synthesis.md)。本页不维护未来任务。
+> 替代关系：项目状态与长期阶段顺序见 [roadmap](../roadmap/roadmap.md)；Phase 40–44 的规划与启动条件见 [当前迭代](../roadmap/current-iteration.md)；现行声学行为见 [内置音源](../reference/features/builtin-piano-synthesis.md)。本页不维护未来任务。
 
 ---
 
@@ -998,7 +998,7 @@ C4 基线（note-on 相对窗口）：
 | D | Task 39-4 | DSP 语义稳定后同轮迁移当前消费者和读写方，完成保存、实时/离线及真实 UI |
 | E | Task 39-5 | 集成 A–D 的声音、身份、文件与实时路径；全部直接验收完成才交付 Phase 39（音色验收已于 2026-10-19 关闭，最终门禁见本节记录；Task 39-2 外部参考缺失仍不豁免） |
 
-频率校准与整音研究可以独立准备，不制造算法硬依赖；生产集成按表中顺序固定共同基线，避免同时改变多套声学机制而无法归因。后继 Phase 40–42 的目标、进入条件及暂缓范围只在 [roadmap](../roadmap/roadmap.md) 维护，本页不预铺后继阶段的实现勾选。
+频率校准与整音研究可以独立准备，不制造算法硬依赖；生产集成按表中顺序固定共同基线，避免同时改变多套声学机制而无法归因。后继 Phase 40–44 的目标、进入条件及启动条件只在 [roadmap](../roadmap/roadmap.md) 维护，本页不预铺后继阶段的实现勾选。
 
 ## 4. 验证纪律与文档维护
 
