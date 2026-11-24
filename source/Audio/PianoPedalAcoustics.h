@@ -66,6 +66,9 @@ struct PianoPedalAcoustics {
         lidPosition = position;
         if (sampleRate > 0.0) {
             lid.setPosition(lidPosition, sampleRate);
+            if (tailDrainSamples > 0) {
+                tailDrainSamples = std::max(tailDrainSamples, lid.tailDrainSamples());
+            }
         }
     }
 
@@ -92,7 +95,7 @@ struct PianoPedalAcoustics {
         }
 
         if (mechanical.isActive() || shockTail.isShockActive()) {
-            const auto lidDrain = static_cast<int>(LidAcoustics::delaySize);
+            const auto lidDrain = lid.tailDrainSamples();
             const auto perspectiveDrain = perspective.tailDrainSamples();
             tailDrainSamples = std::max(lidDrain, perspectiveDrain);
         }

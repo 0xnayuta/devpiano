@@ -6,6 +6,8 @@
 
 - **Piano Same-Partial Phase and String-Count Scale** — start all strings of a partial in phase while keeping cross-partial phase dispersion, retire the 80–100 phase taper and `unisonScale`, and use a fixed `1/N` average string-count scale selected from the 35/36 and 47/48 boundary audit. The 42-1b baseline narrows the full-key v70 K-weighted range from 11.95 dB to 8.07 dB, removes the C3/C4 late/early bloom, and attributes the 96–108 adjacent-semitone zigzag to the fixed three-tap lid.
 
+- **Piano Lid Allpass Diffusion** — replace the fixed three-tap feedforward lid comb with a two-stage series Schroeder allpass diffuser (141/48000 and 507/48000 s) plus a 10% unitary stereo scatter. Full-open remains magnitude-flat; half-stick and closed keep 6.5/2.6 kHz low-pass and higher feedback. The 96–108 maximum adjacent K-weighted step drops from 2.52 dB to 0.12 dB, the full-key v70 range narrows from 8.07 dB to 7.00 dB, and the bounded pedal lid drain now follows the allpass tail.
+
 ### Fixed
 
 - **Keyboard Playback During Window Move/Resize** — poll physical key state from a dedicated 16 ms timer while the Windows native move/size modal loop is active. Windows dispatches no `WM_KEYDOWN`/`WM_KEYUP` inside that loop, so notes started during a drag were lost and keys released during a drag stayed held. The sizing poll uses the same identity-locked binding path, also covers the pedals and real-time modifier keys, reconciles once more when the loop ends, and works for both edge resizing and title-bar moving.

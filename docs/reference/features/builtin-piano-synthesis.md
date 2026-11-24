@@ -180,7 +180,9 @@ flowchart TD
 
 2. **琴盖开合度声学传递函数（Lid Position Acoustics）**：
    - 支持 3 种琴盖物理状态：全开（Full Open）、半开（Half Stick）、闭盖（Closed Lid）。
-   - 反射抽头按 48 kHz 时间常量（`141/48000`、`344/48000`、`507/48000` 秒）换算到当前采样率并取整；48 kHz 精确落回 `141/344/507`，44.1/96/192 kHz 保持相同物理延迟。2048 采样延迟线上界覆盖 192 kHz，`PianoPedalAcoustics` 的尾音排空同步使用该上界。
+   - 使用 2 级串联 Schroeder 全通扩散器（`141/48000`、`507/48000` 秒）替代固定三抽头前馈梳状滤波；全通级在 $|H|=1$ 下只提供相位群延迟，避免 96–108 高音区的周期性幅频凹陷；10% 正交微交叉散射保持总功率并增加近场宽度。
+   - `fullOpen` 不施加低通，反馈为 `0.72/0.45`；`halfStick` 使用 6.5 kHz 一阶低通与 `0.78/0.55` 反馈；`closed` 使用 2.6 kHz 一阶低通与 `0.86/0.65` 反馈，三档输出增益为 `1.00/0.94/0.88`。较短反馈尾音避免 0.1–0.2 s 窗口出现 95/96 电平跳变，并让声部结束时的尾音截断保持有界。
+   - 延迟长度按时间常量换算到当前采样率并取整；48 kHz 精确落回 `141/507`，44.1/96/192 kHz 保持相同物理延迟。2048 采样延迟线上界覆盖 192 kHz。`PianoPedalAcoustics` 使用 `lid.tailDrainSamples()`（最慢反馈衰减到 -60 dB 的保守预算，<1.5 s）排空尾音；播放中切换开合度只延长、不缩短当前尾音预算。
 
 3. **制音器落木闷击与琴键释放机械瞬态（Damper Release & Key Thump）**：
    - 琴键释放时，制音器机械臂带动羊毛毡压回琴弦：
@@ -338,7 +340,7 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 | **PianoTuningAndDuplexTest** | 实际 A4 中心峰、保留/剪枝边界的生产频谱、Duplex 尾音与分段不变性、原通道所有权、mono 尾音及低率越界旁路；默认整音下 C4 上方分音平衡与 95/96 三力度连续性 | [x] 已通过 |
 | **PianoSnapshotWavParityTest** | 非零混响、同采样快照/NoteOn、原身份释放及 mono 琴盖/视角/Room 的实时/内置 WAV 对照；误差限于 16-bit 量化 | [x] 已通过 |
 | **DamperReleaseTest** | 快离键木质落弦闷击、慢离键羊毛毡摩擦延展、高音无制音区自然衰减与快速离键/硬停边界、动态ADSR释放速度缩放、ADSR基准跨音符无泄漏 | [x] 已通过 |
-| **LidAcousticsInteractionTest** | 琴盖三态直达/反射响应、播放中切换无爆音、设置/预设往返、44.1/48/96/192 kHz 反射抽头按时间常量归一化 | [x] 已通过 |
+| **LidAcousticsInteractionTest** | 琴盖三态全通扩散响应、fullOpen 平幅频能量、半开/闭盖高频差异、播放中切换无爆音、设置/预设往返、44.1/48/96/192 kHz 扩散延迟归一化与有界尾音排空 | [x] 已通过 |
 | **PedalAcousticsTest** | CC64 共鸣/机械动作；CC66 捕获边沿、重复高值、声部抢占、CC64/66 释放顺序与同采样逐通道隔离；跨区域 Sync Pedal 原目标释放 | [x] 已通过 |
 | **FeltAgeingTest** | 逐键扰动确定性与范围、老化前后的实际音频差异、引擎老化参数限幅；不以 getter 或测试侧公式重算证明音高行为 | [x] 已通过 |
 | **PerspectiveProcessorTest** | 演奏者/听众立体声像反转镜像、距离高频滚降、声像能量分布与无下溢数值收敛 | [x] 已通过 |

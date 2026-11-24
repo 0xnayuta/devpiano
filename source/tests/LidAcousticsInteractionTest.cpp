@@ -26,7 +26,10 @@ public:
         testDynamicLidSwitchDuringPlayback();
         testSettingsModelAndStorePersistence();
         testPerformancePresetAcousticRoundTrip();
-        testSampleRateNormalizedTaps();
+        testSampleRateNormalizedDiffusionDelays();
+        testFullOpenAllpassFlatMagnitude();
+        testLidModeSpectralDifference();
+        testTailDrainBound();
     }
 
 private:
@@ -73,46 +76,113 @@ private:
         expect(rmsHalf > 0.001f);
         expect(rmsClosed > 0.001f);
 
-        // 数值物理不变量：前 120 采样内直达声比例严格遵循 fullOpen(0.82) > halfStick(0.75) > closed(0.68)
-        expect(peakOpen > peakHalf);
-        expect(peakHalf > peakClosed);
+        // 全通扩散器不再用固定 0.82/0.75/0.68 直达抽头；
+        // 开合度由低通与反馈差异体现，整块 RMS 必须保持 fullOpen > half > closed。
+        expect(peakOpen > 0.0f);
+        expect(peakHalf > 0.0f);
+        expect(peakClosed > 0.0f);
+        expect(rmsOpen > rmsHalf);
+        expect(rmsHalf > rmsClosed);
     }
 
-    void testSampleRateNormalizedTaps() {
-        beginTest("PianoLidAcoustics: reflection taps follow time constants across sample rates");
+    void testSampleRateNormalizedDiffusionDelays() {
+        beginTest("PianoLidAcoustics: allpass diffusion delays follow time constants across sample rates");
 
-        struct TapCase {
+        struct DelayCase {
             double sampleRate = 48000.0;
-            std::size_t tap1 = 141;
-            std::size_t tap2 = 344;
-            std::size_t tap3 = 507;
+            std::size_t delay1 = 141;
+            std::size_t delay2 = 507;
         };
-        const std::array<TapCase, 4> cases { {
-            { 44100.0, 130, 316, 466 },
-            { 48000.0, 141, 344, 507 },
-            { 96000.0, 282, 688, 1014 },
-            { 192000.0, 564, 1376, 2028 },
+        const std::array<DelayCase, 4> cases { {
+            { 44100.0, 130, 466 },
+            { 48000.0, 141, 507 },
+            { 96000.0, 282, 1014 },
+            { 192000.0, 564, 2028 },
         } };
 
         for (const auto& c : cases) {
             devpiano::audio::LidAcoustics lid;
             lid.setPosition(devpiano::audio::LidPosition::fullOpen, c.sampleRate);
-            const auto count = c.tap3 + 2;
-            std::vector<float> left(count, 0.0f);
-            std::vector<float> right(count, 0.0f);
-            for (std::size_t sample = 0; sample < count; ++sample) {
-                auto l = sample == 0 ? 1.0f : 0.0f;
-                auto r = 0.0f;
-                lid.processStereo(l, r);
-                left[sample] = l;
-                right[sample] = r;
+            expectEquals(lid.delay1, c.delay1, "first allpass delay follows 141/48000 s");
+            expectEquals(lid.delay2, c.delay2, "second allpass delay follows 507/48000 s");
+            expect(lid.tailDrainSamples() > static_cast<int>(c.delay2),
+                   "tail drain must cover at least the longest diffusion delay");
+        }
+    }
+
+    void testFullOpenAllpassFlatMagnitude() {
+        beginTest("PianoLidAcoustics: fullOpen allpass keeps broadband energy flat");
+
+        constexpr double sampleRate = 48000.0;
+        constexpr int totalSamples = 32768;
+        constexpr int measureFrom = 24576;
+        for (const auto frequency : { 1000.0, 3000.0, 6000.0, 10000.0 }) {
+            devpiano::audio::LidAcoustics lid;
+            lid.setPosition(devpiano::audio::LidPosition::fullOpen, sampleRate);
+            lid.reset();
+
+            double inputEnergy = 0.0;
+            double outputEnergy = 0.0;
+            for (auto sample = 0; sample < totalSamples; ++sample) {
+                const auto phase = juce::MathConstants<double>::twoPi * frequency * sample / sampleRate;
+                const auto input = static_cast<float>(std::sin(phase));
+                auto left = input;
+                auto right = input;
+                lid.processStereo(left, right);
+                if (sample >= measureFrom) {
+                    inputEnergy += 2.0 * static_cast<double>(input) * static_cast<double>(input);
+                    outputEnergy += static_cast<double>(left) * left + static_cast<double>(right) * right;
+                }
             }
 
-            expectWithinAbsoluteError(left[0], 0.82f, 1e-6f, "direct left gain at sample 0");
-            expectWithinAbsoluteError(right[0], 0.0f, 1e-6f, "direct right gain at sample 0");
-            expectWithinAbsoluteError(left[c.tap1], 0.10f, 1e-6f, "tap 1 follows 141/48000 s");
-            expectWithinAbsoluteError(right[c.tap2], 0.06f, 1e-6f, "tap 2 follows 344/48000 s");
-            expectWithinAbsoluteError(left[c.tap3], 0.04f, 1e-6f, "tap 3 follows 507/48000 s");
+            const auto ratio = outputEnergy / inputEnergy;
+            expectWithinAbsoluteError(ratio, 1.0, 0.01,
+                                      "fullOpen allpass must not create frequency-dependent comb notches");
+        }
+    }
+
+    void testLidModeSpectralDifference() {
+        beginTest("PianoLidAcoustics: lid modes retain distinct high-frequency energy");
+
+        constexpr double sampleRate = 48000.0;
+        constexpr int totalSamples = 32768;
+        constexpr int measureFrom = 24576;
+        constexpr double frequency = 8000.0;
+        const auto renderEnergy = [&](devpiano::audio::LidPosition position) {
+            devpiano::audio::LidAcoustics lid;
+            lid.setPosition(position, sampleRate);
+            lid.reset();
+            double outputEnergy = 0.0;
+            for (auto sample = 0; sample < totalSamples; ++sample) {
+                const auto phase = juce::MathConstants<double>::twoPi * frequency * sample / sampleRate;
+                const auto input = static_cast<float>(std::sin(phase));
+                auto left = input;
+                auto right = input;
+                lid.processStereo(left, right);
+                if (sample >= measureFrom) {
+                    outputEnergy += static_cast<double>(left) * left + static_cast<double>(right) * right;
+                }
+            }
+            return outputEnergy;
+        };
+
+        const auto openEnergy = renderEnergy(devpiano::audio::LidPosition::fullOpen);
+        const auto halfEnergy = renderEnergy(devpiano::audio::LidPosition::halfStick);
+        const auto closedEnergy = renderEnergy(devpiano::audio::LidPosition::closed);
+        expect(openEnergy > halfEnergy * 1.2, "fullOpen must preserve more 8 kHz energy than halfStick");
+        expect(halfEnergy > closedEnergy * 1.5, "halfStick must preserve more 8 kHz energy than closed");
+    }
+
+    void testTailDrainBound() {
+        beginTest("PianoLidAcoustics: tail drain is bounded and covers the allpass decay");
+
+        for (const auto sampleRate : { 44100.0, 48000.0, 96000.0, 192000.0 }) {
+            devpiano::audio::LidAcoustics lid;
+            lid.setPosition(devpiano::audio::LidPosition::closed, sampleRate);
+            const auto drain = lid.tailDrainSamples();
+            const auto longestDelay = static_cast<int>(lid.delay2);
+            expect(drain > longestDelay, "tail drain covers the longest delay");
+            expect(drain < static_cast<int>(sampleRate * 1.5), "tail drain stays bounded below 1.5 s");
         }
     }
 
