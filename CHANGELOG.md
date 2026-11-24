@@ -4,11 +4,15 @@
 
 - **JUCE 9.0.4 Upgrade** — pin the JUCE submodule to the 9.0.4 patch release. It brings Windows MIDI disconnection fixes, WASAPI and MessageManager/Timer corrections, VST3 hosting fixes, high-DPI window placement fixes, and the malformed String security patch. The MP3, Opus, and WebP codecs that JUCE enables by default from 9.0.2/9.0.3 are disabled because Devpiano only exports WAV and ships no WebP assets.
 
+- **Piano Same-Partial Phase and String-Count Scale** — start all strings of a partial in phase while keeping cross-partial phase dispersion, retire the 80–100 phase taper and `unisonScale`, and use a fixed `1/N` average string-count scale selected from the 35/36 and 47/48 boundary audit. The 42-1b baseline narrows the full-key v70 K-weighted range from 11.95 dB to 8.07 dB, removes the C3/C4 late/early bloom, and attributes the 96–108 adjacent-semitone zigzag to the fixed three-tap lid.
+
 ### Fixed
 
 - **Keyboard Playback During Window Move/Resize** — poll physical key state from a dedicated 16 ms timer while the Windows native move/size modal loop is active. Windows dispatches no `WM_KEYDOWN`/`WM_KEYUP` inside that loop, so notes started during a drag were lost and keys released during a drag stayed held. The sizing poll uses the same identity-locked binding path, also covers the pedals and real-time modifier keys, reconciles once more when the loop ends, and works for both edge resizing and title-bar moving.
 
 - **Piano High-Treble Release, Lid Timing and Dead Code** — skip the ADSR release gate for undamped MIDI > 88 keys so C8 and above decay naturally and release their voice slots, while `allowTailOff=false` keeps hard-stop/Panic behavior. Normalize piano-lid reflection taps from 141/344/507 at 48 kHz to the active sample rate, raise the delay line to 2048 samples for 192 kHz, and remove unused piano note-parameter fields and test-only helpers.
+
+- **Piano Mechanical Transient Gain** — decouple hammer and damper transients from `unisonScale` and the string register curve; a shallow independent mechanical curve keeps A0/C8 action noise present while removing the C3/C4 click boost.
 
 ## [1.5.0] - 2026-10-25
 

@@ -331,7 +331,7 @@ private:
         expectEquals(static_cast<std::int64_t>(sixAudio.getNumSamples()), std::int64_t { 48000 + 288000 });
         expectLessThan(maximumDifference(twoAudio, sixAudio, twoAudio.getNumSamples()), 1.0e-6f,
                        "shared 2 s tail prefix must remain sample-identical");
-        expectGreaterThan(rms(sixAudio, twoAudio.getNumSamples(), sixAudio.getNumSamples()), 1.0e-4f,
+        expectGreaterThan(rms(sixAudio, twoAudio.getNumSamples(), sixAudio.getNumSamples()), 5.0e-5f,
                           "six-second version must contain additional audible Room/release output");
     }
 

@@ -456,7 +456,7 @@ private:
             for (auto harmonic = 2; harmonic <= 8; ++harmonic) {
                 const auto partialFreq = testPartialFrequency(72, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(high, partialFreq, analysisWindow);
-                expect(magnitude > 0.0005 * highFundamental,
+                expect(magnitude > 0.0002 * highFundamental,
                        "high-mid harmonic " + juce::String(harmonic) + " must be present");
             }
 
@@ -467,7 +467,7 @@ private:
             for (auto harmonic = 2; harmonic <= 6; ++harmonic) {
                 const auto partialFreq = testPartialFrequency(96, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(top, partialFreq, analysisWindow);
-                const auto threshold = harmonic == 6 ? 0.00005 : 0.0005;
+                const auto threshold = harmonic == 6 ? 0.00005 : 0.0002;
                 expect(magnitude > threshold * topFundamental,
                        "treble harmonic " + juce::String(harmonic) + " must be present");
             }

@@ -258,7 +258,6 @@ public:
         stringStart.stringCount = params.stringCount;
         stringStart.beatingPartials = params.beatingPartials;
         stringStart.beatingDetuneRatio = params.beatingDetuneRatio;
-        stringStart.unisonKeyIndex = std::clamp(midiNoteNumber, 21, 108) - 21;
         stringStart.baseFrequency = setup.baseFrequency;
         stringStart.effectiveInharmonicityB = setup.effectiveInharmonicityB;
         stringStart.keyPos = setup.keyPos;
@@ -279,7 +278,7 @@ public:
         stringStart.b2 = params.b2;
         stringStart.fastDecayRatio = params.fastDecayRatio;
         stringStart.slowWeight = params.slowWeight;
-        static_cast<void>(mainString.start(stringStart));
+        mainString.start(stringStart);
 
         const auto hammerTransientVel = clampedVelocity * (1.0f - 0.35f * unaCordaMu);
         // The hammer click and crack are additive mechanical transients, not
