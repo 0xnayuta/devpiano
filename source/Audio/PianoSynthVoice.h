@@ -229,6 +229,11 @@ public:
 
         currentPlayingMidiNote = midiNoteNumber;
         noteOutputGain = devpiano::audio::pianoRegisterLoudnessGain(midiNoteNumber);
+        // Mechanical action noise has its own shallow register curve. It is
+        // pre-scaled before the shared string output gain so its net level is
+        // mechanicalOutputGain rather than the string register curve.
+        mechanicalOutputGain = mechanicalRegisterGain(midiNoteNumber);
+        mechanicalPreGain = mechanicalOutputGain / juce::jmax(1e-6f, noteOutputGain);
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto triggerSequence = ++triggerCounter;
         const auto setup = devpiano::audio::computePianoNoteSetup(
@@ -274,11 +279,15 @@ public:
         stringStart.b2 = params.b2;
         stringStart.fastDecayRatio = params.fastDecayRatio;
         stringStart.slowWeight = params.slowWeight;
-        const auto unisonScale = mainString.start(stringStart);
+        static_cast<void>(mainString.start(stringStart));
 
         const auto hammerTransientVel = clampedVelocity * (1.0f - 0.35f * unaCordaMu);
+        // The hammer click and crack are additive mechanical transients, not
+        // part of the coherent string sum. Do not inherit the string unison
+        // phase-compensation gain; the mechanical register curve is applied
+        // to the full transient in renderNextBlock.
         hammerTransient.trigger(sampleRate, midiNoteNumber, hammerTransientVel, hammerHardness, params.stringLength,
-                                unisonScale);
+                                1.0f);
         hammerContactEngine.trigger(sampleRate, effectiveTc);
         mainString.triggerSpatialDiffusion();
         damperTransient.reset();
@@ -415,8 +424,10 @@ public:
                 continue;
             }
 
-            const auto click = hammerTransient.getNextSample();
-            const auto damperThump = damperTransient.getNextSample();
+            // Pre-scale mechanical transients so the later shared string output
+            // gain leaves their net level at mechanicalOutputGain.
+            const auto click = hammerTransient.getNextSample() * mechanicalPreGain;
+            const auto damperThump = damperTransient.getNextSample() * mechanicalPreGain;
             const auto stringSample = mainString.nextSample();
             const auto valueLeft = stringSample.left;
             const auto valueRight = stringSample.right;
@@ -501,6 +512,11 @@ public:
     }
 
 private:
+    [[nodiscard]] static float mechanicalRegisterGain(int midiNoteNumber) noexcept {
+        const auto keyPos = std::clamp((static_cast<float>(midiNoteNumber) - 21.0f) / 87.0f, 0.0f, 1.0f);
+        return 0.95f + 0.05f * keyPos;
+    }
+
     [[nodiscard]] static float softSaturate(float x) noexcept {
         const auto x2 = std::clamp(x * x, 0.0f, 1.0f);
         return x * (1.0f - 0.12f * x2);
@@ -547,6 +563,8 @@ private:
     float directLeftGain = 0.7071f;
     float directRightGain = 0.7071f;
     float noteOutputGain = 1.0f;
+    float mechanicalOutputGain = 1.0f;
+    float mechanicalPreGain = 1.0f;
 
     // 琴槌接触微阻尼与脱离物理释放引擎 (Phase 24-B, Hammer Contact-Release Dynamics)
     struct HammerContactEngine {
