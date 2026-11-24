@@ -9,6 +9,14 @@
 
 namespace {
 
+double testPartialFrequency(int midiNoteNumber, int partialIndex,
+                            devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal,
+                            double referencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch,
+                            bool stretchTuningEnabled = true) noexcept {
+    return devpiano::audio::pianoPartialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4,
+                                                  stretchTuningEnabled);
+}
+
 struct PianoFixture {
     devpiano::audio::BuiltinSynthesiser synth;
     PianoSynthVoice* voice = nullptr;
@@ -145,10 +153,10 @@ public:
             fixture.synth.noteOn(1, 60, 70.0f / 127.0f);
             juce::AudioBuffer<float> buffer(2, 38400);
             fixture.render(buffer);
-            const auto fundamental = stereoPartialBandEnergy(buffer, rate, PianoSynthVoice::partialFrequency(60, 0));
+            const auto fundamental = stereoPartialBandEnergy(buffer, rate, testPartialFrequency(60, 0));
             auto upperPartials = 0.0;
             for (auto partial = 1; partial < 8; ++partial) {
-                upperPartials += stereoPartialBandEnergy(buffer, rate, PianoSynthVoice::partialFrequency(60, partial));
+                upperPartials += stereoPartialBandEnergy(buffer, rate, testPartialFrequency(60, partial));
             }
             // The user-selected historical WAV has about -9 dB in this window.
             // A 2 dB allowance rejects the roughly 5 dB shared-phase collapse.
@@ -304,9 +312,8 @@ public:
                     }
                     rendered += count;
                 }
-                const auto target
-                    = PianoSynthVoice::partialFrequency(band.note, band.partial - 1, fixture.voice->getTemperament(),
-                                                        fixture.voice->getReferencePitchA4(), true);
+                const auto target = testPartialFrequency(band.note, band.partial - 1, fixture.voice->getTemperament(),
+                                                         fixture.voice->getReferencePitchA4(), true);
                 const auto windowStart = static_cast<int>(0.05 * rate);
                 const auto windowCount = juce::jmin(16384, totalSamples - windowStart);
                 auto windowEnergy = [&](double frequency) {

@@ -77,7 +77,6 @@ public:
     using HammerVoicing = devpiano::audio::HammerVoicing;
     using LidPosition = devpiano::audio::LidPosition;
     static constexpr auto numResonators = 16;
-    static constexpr auto bodyWetRatio = 0.26f;
 
     PianoSynthVoice() {
         static_cast<void>(devpiano::audio::getPianoStretchRatios());
@@ -310,6 +309,14 @@ public:
             const auto sampleRate = getSampleRate();
             const auto relVel = velocity > 0.0f ? velocity : 0.6f;
 
+            // 高音无制音器区：松键不进入 ADSR 释放门控，让弦自然衰减至
+            // allPartialsSilent() 后释放声部。木质回弹仍由 DamperTransient
+            // 提供；allowTailOff=false 的 Panic/硬停/偷声部路径保持立即重置。
+            if (currentPlayingMidiNote > 88) {
+                damperTransient.trigger(sampleRate, currentPlayingMidiNote, relVel);
+                return;
+            }
+
             // 离键速度动态调节琴弦 ADSR 释放时间 (Phase 32-B, Dynamic Key Release Damping):
             // 慢离键毛毡缓冲贴弦缓慢，保留微弱余音延展；快离键瞬间强力消音
             if (sampleRate > 0.0) {
@@ -499,85 +506,6 @@ private:
         return x * (1.0f - 0.12f * x2);
     }
 
-    [[nodiscard]] static int partialCountForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).partialCount;
-    }
-    [[nodiscard]] static float decaySecondsForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).decaySeconds;
-    }
-    [[nodiscard]] static float decayDampingCForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).decayDampingC;
-    }
-    [[nodiscard]] static double inharmonicityBForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).inharmonicityB;
-    }
-    [[nodiscard]] static float fastDecayRatioForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).fastDecayRatio;
-    }
-    [[nodiscard]] static float slowWeightForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).slowWeight;
-    }
-
-    [[nodiscard]] static double
-    partialDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f, float resonance = 0.5f,
-                        Temperament temperament = Temperament::equal,
-                        double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch) noexcept {
-        const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
-        const auto decayScale = 1.0f + (juce::jlimit(0.0f, 1.0f, resonance) - 0.5f) * 0.6f;
-        const auto baseDecay = static_cast<double>(params.decaySeconds * decayScale);
-        const auto f0 = devpiano::audio::pianoFirstPartialFrequency(midiNoteNumber, temperament, referencePitchA4)
-            / std::sqrt(1.0 + params.inharmonicityB);
-        const auto fn = partialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4);
-        const auto piOverL = juce::MathConstants<double>::pi / static_cast<double>(params.stringLength);
-        const auto k1 = piOverL * piOverL;
-        const auto alpha1 = static_cast<double>(params.b1) + static_cast<double>(params.b2) * k1;
-        const auto m = static_cast<double>(partialIndex + 1);
-        const auto kn = m * m * k1;
-        const auto airTerm = std::sqrt(f0 / std::max(fn, 20.0));
-        const auto alpha_n
-            = static_cast<double>(params.b1) * (0.80 + 0.20 * airTerm) + static_cast<double>(params.b2) * kn;
-        const auto dampingEffect
-            = (alpha_n / juce::jmax(1e-9, alpha1)) * static_cast<double>(1.5f - juce::jlimit(0.0f, 1.0f, brightness));
-        return baseDecay / dampingEffect;
-    }
-
-    [[nodiscard]] static double partialFastDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f,
-                                                        float resonance = 0.5f) noexcept {
-        const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
-        return partialDecaySeconds(midiNoteNumber, partialIndex, brightness, resonance)
-            * static_cast<double>(params.fastDecayRatio);
-    }
-    [[nodiscard]] static float bodyWet(float resonance = 0.5f) noexcept {
-        return 0.18f + juce::jlimit(0.0f, 1.0f, resonance) * 0.16f;
-    }
-    [[nodiscard]] static double partialFrequency(int midiNoteNumber, int partialIndex,
-                                                 Temperament temperament = Temperament::equal,
-                                                 double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch,
-                                                 bool stretchTuningEnabled = true) noexcept {
-        return devpiano::audio::pianoPartialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4,
-                                                      stretchTuningEnabled);
-    }
-    [[nodiscard]] static float beatingDetuneRatioForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).beatingDetuneRatio;
-    }
-    [[nodiscard]] static int beatingPartialCountForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).beatingPartials;
-    }
-    [[nodiscard]] static double
-    beatingFrequency(int midiNoteNumber, int partialIndex, Temperament temperament = Temperament::equal,
-                     double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch) noexcept {
-        const auto f = partialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4);
-        const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
-        const auto isBassFundamental = (midiNoteNumber < 48 && partialIndex == 0);
-        if (!isBassFundamental && partialIndex < params.beatingPartials && params.beatingDetuneRatio > 0.0f) {
-            return f * (1.0 + static_cast<double>(params.beatingDetuneRatio));
-        }
-        return f;
-    }
-
-    [[nodiscard]] static constexpr int resonatorCount() noexcept {
-        return numResonators;
-    }
     struct ResonatorSpec {
         float frequency;
         float q;
@@ -595,15 +523,6 @@ private:
         };
         const auto clamped = std::clamp(index, 0, numResonators - 1);
         return specs[clamped];
-    }
-
-    using VoiceRegion = devpiano::audio::PianoNoteParams;
-
-    [[nodiscard]] static const VoiceRegion& regionForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber);
-    }
-    [[nodiscard]] static float strikingPositionRatioForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).strikePosRatio;
     }
 
     [[nodiscard]] bool allPartialsSilent() const noexcept {

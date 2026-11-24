@@ -8,6 +8,8 @@
 
 - **Keyboard Playback During Window Move/Resize** — poll physical key state from a dedicated 16 ms timer while the Windows native move/size modal loop is active. Windows dispatches no `WM_KEYDOWN`/`WM_KEYUP` inside that loop, so notes started during a drag were lost and keys released during a drag stayed held. The sizing poll uses the same identity-locked binding path, also covers the pedals and real-time modifier keys, reconciles once more when the loop ends, and works for both edge resizing and title-bar moving.
 
+- **Piano High-Treble Release, Lid Timing and Dead Code** — skip the ADSR release gate for undamped MIDI > 88 keys so C8 and above decay naturally and release their voice slots, while `allowTailOff=false` keeps hard-stop/Panic behavior. Normalize piano-lid reflection taps from 141/344/507 at 48 kHz to the active sample rate, raise the delay line to 2048 samples for 192 kHz, and remove unused piano note-parameter fields and test-only helpers.
+
 ## [1.5.0] - 2026-10-25
 
 ### Added

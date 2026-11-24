@@ -49,7 +49,6 @@ public:
 
     void prepare(double sampleRate) noexcept {
         if (sampleRate > 0.0) {
-            sr = sampleRate;
             smoothCoeff = std::exp(-1.0f / (kSmoothTimeSeconds * static_cast<float>(sampleRate)));
 
             // Air absorption cutoff: ~8.5 kHz in audience mode (clamped to safe Nyquist)
@@ -205,7 +204,6 @@ private:
 
     SoundPerspective perspective = SoundPerspective::player;
 
-    double sr = 44100.0;
     float smoothCoeff = 0.999f;
     float airFilterAlpha = 0.5f;
 

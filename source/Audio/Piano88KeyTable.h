@@ -12,16 +12,13 @@ namespace devpiano::audio {
 struct PianoNoteParams {
     int partialCount; ///< 激活分音数 (低音 20 -> 极高音 6)
     int stringCount; ///< 琴弦数: 1 (MIDI 21~35), 2 (MIDI 36~47), 3 (MIDI 48~108)
-    bool isBassBridge; ///< 是否属于低音长琴桥 (MIDI 21~43=true, MIDI 44~108=false)
     float stringLength; ///< 振动弦长 L (米, 1.92m -> 0.09m)
     float b1; ///< 频率无关阻尼常数 (0.25 -> 9.17 s^-1)
     float b2; ///< 内部摩擦高阶损耗 (7.5e-5 -> 2.1e-3 s)
     double inharmonicityB;
     float strikePosRatio; ///< 击弦比 d/L (低音 0.125 -> 极高音 0.0625)
     float tcBase; ///< 基础接触时间 (3.0ms -> 0.6ms)
-    float detuneCents; ///< 同音弦微失谐量 (0.0 -> 0.4 cents)
     float decaySeconds; ///< τ_slow 基础慢衰减时间常数 (低音 4.8s -> 极高音 0.8s)
-    float decayDampingC; ///< 模态阻尼斜率 (低音 0.38 -> 高音 0.15)
     float fastDecayRatio; ///< 快衰减比率 τ_fast / τ_slow (0.12 -> 0.18)
     float slowWeight; ///< 慢分量初始权重 (0.14 -> 0.22)
     float beatingDetuneRatio; ///< 同音拍频相对频偏
@@ -100,9 +97,7 @@ inline PianoNoteParams computePianoNoteParams(int midiNoteNumber) noexcept {
 
     PianoNoteParams p {};
 
-    // 1. 琴桥归属与琴弦数配置 (Phase 22-C: G2/MIDI 43 为低音长琴桥末端，G#2/MIDI 44 为主琴桥开端)
-    p.isBassBridge = (midiNoteNumber <= 43);
-
+    // 1. 琴弦数配置
     if (midiNoteNumber < 36) {
         p.stringCount = 1; // 单缠弦 Monochord
     } else if (midiNoteNumber < 48) {
@@ -169,18 +164,15 @@ inline PianoNoteParams computePianoNoteParams(int midiNoteNumber) noexcept {
     constexpr float beatMidi[4] = { 36.0f, 60.0f, 80.0f, 100.0f };
     constexpr float beatRatios[4] = { 0.0020f, 0.0015f, 0.0010f, 0.0f };
     p.beatingDetuneRatio = pieceWiseInterp(midi, beatMidi, beatRatios, 4);
-    p.detuneCents = p.beatingDetuneRatio * 1200.0f;
     p.beatingPartials = std::min(p.partialCount, 6);
 
     // 8. 双阶段衰减常数 (τ_slow 与 τ_fast 比率)
     constexpr float decayMidi[6] = { 21.0f, 36.0f, 60.0f, 80.0f, 100.0f, 108.0f };
     constexpr float decayVals[6] = { 4.8f, 4.5f, 2.8f, 1.6f, 0.9f, 0.8f };
-    constexpr float dampVals[6] = { 0.38f, 0.38f, 0.28f, 0.20f, 0.15f, 0.12f };
     constexpr float fastVals[6] = { 0.12f, 0.12f, 0.15f, 0.18f, 0.15f, 0.15f };
     constexpr float slowVals[6] = { 0.20f, 0.20f, 0.18f, 0.15f, 0.12f, 0.12f };
 
     p.decaySeconds = pieceWiseInterp(midi, decayMidi, decayVals, 6);
-    p.decayDampingC = pieceWiseInterp(midi, decayMidi, dampVals, 6);
     p.fastDecayRatio = pieceWiseInterp(midi, decayMidi, fastVals, 6);
     p.slowWeight = pieceWiseInterp(midi, decayMidi, slowVals, 6);
     return p;

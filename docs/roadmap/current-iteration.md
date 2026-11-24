@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39、Phase 39.5 与 R0–R11 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**已完成（2026-10-23）并归档**；完整任务、tidy 收口与独立复审修复记录见 [Phase 39.5 归档](../archive/phase39-5-jive-core-pruning-and-v2-selective-port.md)。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40–44 已按 2026-11-24 复审重新规划，尚未启动，启动须由用户明确决定；E3 有限尾音维护任务已实现并独立记录（见 §3）。
+> 当前状态：Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）**已完成（2026-10-23）并归档**；完整任务、tidy 收口与独立复审修复记录见 [Phase 39.5 归档](../archive/phase39-5-jive-core-pruning-and-v2-selective-port.md)。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；R0–R11 已完成并归档；Phase 40 证据已采集（待审阅），Phase 41 已完成；Phase 42–44 尚未启动，启动须由用户明确决定；E3 有限尾音维护任务已实现并独立记录（见 §3）。
 
 ## 0. 归档入口
 
@@ -11,21 +11,21 @@
 - R0–R11 内置钢琴音源结构整理：[历史归档](../archive/r0-r11-physical-piano-source-refactor.md)。R5/R6 踏板所有权迁移与 R7 新声部 sustain 初始化是已批准行为变化；R1/R2/R3/R9/R10 为组件提取与封装。
 - Phase 37/38 历史任务、声音基线和后续修复：[完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md)。
 
-## 1. 后续阶段路线（Phase 40–44，尚未启动）
+## 1. 后续阶段路线（Phase 40–44）
 
-Phase 40–44 是 2026-11-24 复审后的当前规划，替代旧 Phase 40–42 的同音弦耦合、音板频变阻抗与能量驱动张力非线性候选。Phase 40 是当前候选阶段（尚未启动），Phase 41–44 为后续阶段。五阶段按“先证据、后低风险修复、再频谱/响度重标定、再整琴总线、最后空间/参考音色”排序；全部尚未启动，启动须用户明确决定。
+Phase 40–44 是 2026-11-24 复审后的当前规划，替代旧 Phase 40–42 的同音弦耦合、音板频变阻抗与能量驱动张力非线性候选。Phase 40 证据已采集并等待审阅，Phase 41 已完成，Phase 42–44 尚未启动。五阶段按“先证据、后低风险修复、再频谱/响度重标定、再整琴总线、最后空间/参考音色”排序；Phase 42 的启动须用户明确决定。
 
 ### Phase 40：全键感知响度与频谱证据基线
 
-用当前 HEAD 的生产渲染路径建立 88 键（或每三半音 30 键）× v41/70/98 的 K 计权短期响度、0–50 ms 起音峰值、0.1–0.3 s RMS、1.1–1.3 s / 0.1–0.3 s RMS 比值、True Peak、HF/centroid 与交界差表，并测量 8 复音 CPU/偷声部余量。用一次性诊断钩子读取生产路径的 `unisonScale`、`feltFilter(f1)`、`noteOutputGain` 与 `hammerTransient` 增益，重点确认 C2–C6 的 `unisonScale` 全音域放大（C3/C4 约 +18.45/+14.56 dB）与起音/后窗失衡。本阶段不改 DSP；一次性探针在证据归档后移除。
+用当前 HEAD 的生产渲染路径建立 88 键（或每三半音 30 键）× v41/70/98 的 K 计权短期响度、0–50 ms 起音峰值、0.1–0.3 s RMS、1.1–1.3 s / 0.1–0.3 s RMS 比值、True Peak、HF/centroid 与交界差表，并测量 8 复音 CPU/偷声部余量。用一次性诊断钩子读取生产路径的 `unisonScale`、`feltFilter(f1)`、`noteOutputGain` 与 `hammerTransient` 增益，重点确认 C2–C6 的 `unisonScale` 全音域放大（C3/C4 约 +18.45/+14.56 dB）与起音/后窗失衡。本阶段不改 DSP；一次性探针在证据归档后移除。**状态（2026-11-24）**：证据已采集，待审阅；120 例与 8 复音数据在仓库外 `phase40-baseline-20261124-run1`。
 
 ### Phase 41：低风险声学缺陷修复与清理
 
-修复 MIDI > 88 的 `stopNote` ADSR 截断（保留木质回弹与交感释放）；把琴盖 141/344/507 抽头改为毫秒 × sampleRate；删除 `isBassBridge`/`decayDampingC`/`detuneCents` 与无消费者辅助函数。除预期路径外 48 kHz 声音不变；不改 L1/L2、不调音区锚点、不启动共享总线。
+修复 MIDI > 88 的 `stopNote` ADSR 截断（保留木质回弹与交感释放）；把琴盖 141/344/507 抽头改为毫秒 × sampleRate；删除 `isBassBridge`/`decayDampingC`/`detuneCents` 与无消费者辅助函数。除预期路径外 48 kHz 声音不变；不改 L1/L2、不调音区锚点、不启动共享总线。**状态（2026-11-24）**：已完成；Windows Debug app/tests、默认 CTest 通过，48 kHz 21–88 键 held-note WAV 与 Phase 40 基线 SHA-256 逐文件一致。
 
 ### Phase 42：低/高音频谱重塑与音区响度重标定
 
-在 Phase 40 基线上修低音频谱贫困、高音音板/基频被压、峰值校准造成的微笑曲线、`unisonScale` 全音域放大（C3/C4 约 +18.45/+14.56 dB）与声像翘曲；用 K 计权响度 + True Peak 重标定 `PianoRegisterVoicing`。先做 1a 瞬态解耦（hammer/damper 脱离 `unisonScale` 与 `noteOutputGain`，改用独立机械音区包络），再做 1b 同分音同相并退役 `unisonScale`/80–100 收敛补丁；随后 2 低音、3 高音、4 归一化与声像、5 音区曲线。目标全音域平滑、相邻半音 ≤1.5 dB、无 C3 凹坑/C6 热点、limiter 不抽吸。每项单独 A/B，不引入隐藏 EQ/逐键补偿表。
+在 Phase 40 基线上修低音频谱贫困、高音音板/基频被压、峰值校准造成的微笑曲线、`unisonScale` 全音域放大（C3/C4 约 +18.45/+14.56 dB）与声像翘曲；用 K 计权响度 + True Peak 重标定 `PianoRegisterVoicing`。先做 1a 瞬态解耦（hammer/damper 脱离 `unisonScale` 与 `noteOutputGain`，改用独立机械音区包络），再做 1b 同分音同相并退役 `unisonScale`/80–100 收敛补丁；随后 2 低音、3 高音、4 归一化与声像、5 音区曲线。目标全音域平滑、相邻半音 ≤1.5 dB、无 C3 凹坑/C6 热点、limiter 不抽吸。每项单独 A/B，不引入隐藏 EQ/逐键补偿表。**状态（2026-11-24）**：Phase 41 已完成；Phase 42 参数待 Phase 40 数据审阅后确定，尚未启动。
 
 ### Phase 43：整琴共享声学总线收敛
 
@@ -37,7 +37,7 @@ Phase 40–44 是 2026-11-24 复审后的当前规划，替代旧 Phase 40–42 
 
 ## 2. 恢复规则
 
-- Phase 40–44 及“近期不排期”内容全部保留为候选；启动须用户明确决定，不因 Phase 39.5、R0–R11 归档、构建通过或时间推移自动启动。
+- Phase 42–44 及“近期不排期”内容保留为候选；启动须用户明确决定，不因 Phase 39.5、R0–R11 归档、构建通过或时间推移自动启动。Phase 40 证据已采集、Phase 41 已完成，不自动启动 Phase 42。
 - 实施顺序：Phase 40 是证据门禁；Phase 41 在 Phase 40 记录 before 基线后可并行；Phase 42 依赖 Phase 40/41；Phase 43 依赖 Phase 42 的声音目标；Phase 44 依赖 Phase 42/43。不得跳过 Phase 40 直接改音区曲线或总线。
 - 测试按风险驱动：Phase 41/43 的生命周期、尾音、实时/离线一致性和偷声部边界保留必要回归；Phase 42/44 的声音目标以离线测量 + Windows Debug 实机试听为主，不把文案、默认值回读或单次更响当测试目的；一次性探针在证据归档后移除。
 - 旧 Phase 40–42 的同音弦能量耦合、音板频变阻抗、能量驱动张力非线性不再作为当前阶段入口，转入“近期不排期”研究候选；若后续有独立证据与需求，再单独立项。

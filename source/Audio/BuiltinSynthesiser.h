@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <memory>
 
 namespace devpiano::audio {
 
@@ -147,7 +148,11 @@ private:
     std::array<SoftPedalState, 17> softPedalByChannel {};
     std::array<bool, 17> sustainPedalByChannel {};
     std::array<bool, 17> sostenutoPedalByChannel {};
-    PianoPedalAcoustics pedalAcoustics;
+    // The lid delay line supports 192 kHz and is therefore kept off the
+    // AudioEngine inline footprint; the reference preserves all existing
+    // call sites and the owner lifetime matches this synthesiser.
+    std::unique_ptr<PianoPedalAcoustics> pedalAcousticsStorage;
+    PianoPedalAcoustics& pedalAcoustics;
 };
 
 } // namespace devpiano::audio

@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-**近期状态：内置钢琴音源结构整理（R0–R11）已完成并归档** [2026-10-23]；Phase 39 已冻结并归档（Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过）；**Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）已完成**（用户人工表面验收无明显问题，Windows Debug 构建、默认 CTest 与增量 clang-tidy 通过）；**最近维护任务 E3 已完成**：WAV 导出在 take 结束按身份补 NoteOff 与踏板 Off，不再自动 All Sound Off 截断；默认尾音 6.0 秒、可由 `WavExportOptions::tailSeconds` 配 0–30 秒，内置/插件/双层共享，当前 UI 使用默认值。Phase 40–44 已按 2026-11-24 复审重新规划为“证据基线 → 低风险修复 → 频谱/响度重标定 → 整琴总线 → 空间/参考音色”五阶段，尚未启动；启动须由用户明确决定。R0–R11 历史见 [结构整理归档](../archive/r0-r11-physical-piano-source-refactor.md)，Phase 39 历史见 [声学基线归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)；Phase 39.5 的任务拆分、实施与验证记录见 [Phase 39.5 归档](../archive/phase39-5-jive-core-pruning-and-v2-selective-port.md)。
+**近期状态：内置钢琴音源结构整理（R0–R11）已完成并归档** [2026-10-23]；Phase 39 已冻结并归档（Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过）；**Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）已完成**（用户人工表面验收无明显问题，Windows Debug 构建、默认 CTest 与增量 clang-tidy 通过）；**最近维护任务 E3 已完成**：WAV 导出在 take 结束按身份补 NoteOff 与踏板 Off，不再自动 All Sound Off 截断；默认尾音 6.0 秒、可由 `WavExportOptions::tailSeconds` 配 0–30 秒，内置/插件/双层共享，当前 UI 使用默认值。Phase 40 证据已采集（待审阅），Phase 41 已完成；Phase 42–44 尚未启动，启动须由用户明确决定。R0–R11 历史见 [结构整理归档](../archive/r0-r11-physical-piano-source-refactor.md)，Phase 39 历史见 [声学基线归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)；Phase 39.5 的任务拆分、实施与验证记录见 [Phase 39.5 归档](../archive/phase39-5-jive-core-pruning-and-v2-selective-port.md)。
 
 **最近软件交付：Phase 38 电脑键盘分区、三踏板与固定双层** [软件交付完成，2026-10-10]；Phase 37 [已完成，2026-10-08]。原任务、直接消费者、失败记录和后续修复归属见 [Phase 37/38 完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md)。CPU SLA 与商业厂商/物理硬件补验不由 Debug 门禁或本次归档认证；Phase 36 归档与 AUDIT-004 实机边界保持独立。
 
@@ -384,7 +384,7 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失败候选、直接验收、依赖排期与证据边界已归档到 [Phase 39 历史归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)。结论保持：Task 39-2 的外部参考直接验收仍为 **inconclusive**，Phase 39 不记为通过；已消费的资格、采集和判决不重放、不补批或放宽。后续外部参考校准须另立任务，现行行为以 [内置音源](../reference/features/builtin-piano-synthesis.md) 为准。
 
-> **规划复审（2026-11-24）**：Phase 40–44 已按当前 HEAD 的代码事实、R0–R11 结构整理结果和用户对音区响度/低高音真实感的反馈重新规划。旧 Phase 40–42 的同音弦耦合、音板频变阻抗、能量驱动张力非线性研究性方向不再作为当前阶段入口，转入“近期不排期”。Phase 40–44 尚未启动，启动须由用户明确决定；不得因 Phase 39.5、R0–R11 归档、构建通过或时间推移自动启动。
+> **规划复审（2026-11-24）**：Phase 40–44 已按当前 HEAD 的代码事实、R0–R11 结构整理结果和用户对音区响度/低高音真实感的反馈重新规划。旧 Phase 40–42 的同音弦耦合、音板频变阻抗、能量驱动张力非线性研究性方向不再作为当前阶段入口，转入“近期不排期”。Phase 40 已采集证据，Phase 41 已完成；Phase 42–44 尚未启动，启动须由用户明确决定；不得因 Phase 39.5、R0–R11 归档、构建通过或时间推移自动启动。
 
 ### Phase 39.5:JIVE 内核精简与 JIVE v2 精准移植 [已完成 2026-10-23]
 
@@ -400,7 +400,7 @@ Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失
 
 **状态与验收**：已完成。39.5-1 至 39.5-5 全部交付：构建守卫与容器脏标记/约束测量、Item 缓存完整失效、TextLayout 测量/绘制共享缓存、Flex gap 与绑定色板修复、core 目录归入 `values/`、`geometry/`、`style/`、`layout/` 且聚合头保留在根。全量 clang-tidy 首轮发现的问题已修复，修复后对受影响 TU 增量检查通过；Windows Debug app/tests 与默认 CTest 通过。用户已完成主窗口、设置、绑定色板、长消息、折叠与关闭等人工表面验收，确认无明显问题。随后独立复审确认 2 个 P1 与 8 个 P2，已全部修复并新增 `JiveCoreValues` 回归，默认 CTest 与主窗口冒烟通过；详见 [Phase 39.5 归档 1.14](../archive/phase39-5-jive-core-pruning-and-v2-selective-port.md#114-phase-395-独立复审修复2026-10-23)。未声明硬件/商业插件矩阵结论，也未把缓存收益写成未经量测的零开销承诺。
 
-### Phase 40：全键感知响度与频谱证据基线 [尚未启动；启动须用户明确决定]
+### Phase 40：全键感知响度与频谱证据基线 [证据已采集 2026-11-24；待审阅]
 
 目标：在修改任何 DSP 前，用当前 HEAD 的生产渲染路径建立 88 键（或每三半音 30 键）在 v41/70/98 的感知响度、真峰值与频谱基线，定位音区断层、C6 热点、低/高音频谱缺陷和复音/CPU 余量。本阶段只产出证据，不改 DSP、参数默认值、文件格式或 UI。
 
@@ -411,7 +411,9 @@ Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失
 
 进入条件：Phase 39.5 完成，当前 HEAD 可在 Windows Debug 构建；用户批准启动。出口：可复核的全键响度/频谱表、交界差表、热点定位与 CPU/复音数据；明确当前问题的主次顺序；一次性探针在证据归档后移除，不新增永久测试。边界：不改 DSP；若确认必须修改，进入 Phase 41/42。
 
-### Phase 41：低风险声学缺陷修复与清理 [尚未启动；启动须用户明确决定]
+**状态（2026-11-24）**：证据已采集，待用户审阅。120 个 48 kHz/24-bit 案例（88 键 v70 + 16 代表键 v41/v98）及 8 复音密集序列归档于仓库外 `G:\source\projects\devpiano-evidence\phase40-baseline-20261124-run1`。生产诊断确认 C3/C4 `unisonScale` 为 `8.359/5.348`，后窗/前窗 RMS 为 `+3.80/+1.16 dB`；v70 全键 K 计权响度最大在 C2 `-24.48 LUFS`，最小在 MIDI 81 `-36.43 LUFS`，C5/C6 约 `-34 dB`；单音 v41/70/98 未触及 `softSaturate` 或 Master Limiter。Phase 42 参数待审阅后确定。
+
+### Phase 41：低风险声学缺陷修复与清理 [已完成 2026-11-24]
 
 目标：修复与高音真实感、音区一致性直接相关且不改变整体声学拓扑的低风险缺陷；除预期路径外，48 kHz 既有声音保持不变。
 
@@ -419,7 +421,9 @@ Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失
 2. **琴盖采样率归一化**：把 141/344/507 采样抽头改为约 2.94/7.17/10.56 ms × sampleRate；48 kHz 行为不变，补 44.1/96 kHz 断言；不改变琴盖位置语义。
 3. **死代码清理**：删除 `isBassBridge`、`decayDampingC`、`detuneCents` 与无生产消费者的旧辅助函数；清理 `RoomReverbEngine::sr`、`PerspectiveProcessor::sr`；测试改用行为断言，不重新钉住内部值。
 
-进入条件：Phase 40 已记录当前 HEAD 的 before 基线；用户批准。出口：高音快速离键不再被 ADSR 截断；琴盖在 44.1/48/96 kHz 时间一致；清理后构建/测试通过；除预期修复外无音色变化；不保留兼容分支。边界：不改 L1/L2、不调音区锚点、不启动共享总线。
+进入条件：Phase 40 已记录当前 HEAD 的 before 基线；用户批准。出口：高音快速离键不再被 ADSR 截断；琴盖在 44.1/48/96/192 kHz 时间一致；清理后构建/测试通过；除预期修复外无音色变化；不保留兼容分支。边界：不改 L1/L2、不调音区锚点、不启动共享总线。
+
+**状态（2026-11-24）**：已完成。`MIDI > 88` 松键跳过 ADSR release，保留木质回弹并自然衰减至 `allPartialsSilent()`；`allowTailOff=false` 保持立即重置。琴盖抽头按 48 kHz 时间常量换算，48 kHz 精确落回 `141/344/507`，延迟线上限 2048 覆盖 192 kHz；`PianoPedalAcoustics` 改为堆持有以保持 `AudioEngine` 内联占位稳定。删除死字段/无消费者辅助函数并迁移测试。Windows Debug app/tests、默认 CTest 通过；抽头测试覆盖 44.1/48/96/192 kHz；48 kHz 21–88 键 held-note WAV 与 Phase 40 基线 SHA-256 逐文件一致。
 
 ### Phase 42：低/高音频谱重塑与音区响度重标定 [尚未启动；启动须用户明确决定]
 

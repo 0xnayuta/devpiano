@@ -15,13 +15,16 @@ enum class LidPosition : std::uint8_t {
     closed = 2,
 };
 
-// The existing PianoSynthVoice lid stage, extracted without changing its
-// fixed taps, coefficients or processing formula.
+// The PianoSynthVoice lid stage. Reflection taps are defined by the original
+// 48 kHz sample positions and normalized to the active sample rate.
 struct LidAcoustics {
-    static constexpr std::size_t delaySize = 1024;
+    static constexpr std::size_t delaySize = 2048;
     std::array<float, delaySize> leftBuffer {};
     std::array<float, delaySize> rightBuffer {};
     std::size_t writePos = 0;
+    std::size_t tap1 = 141;
+    std::size_t tap2 = 344;
+    std::size_t tap3 = 507;
     LidPosition position = LidPosition::fullOpen;
     float lpLeft = 0.0f;
     float lpRight = 0.0f;
@@ -32,6 +35,15 @@ struct LidAcoustics {
             return;
         }
         const auto sr = static_cast<float>(sampleRate);
+        const auto toSamples = [sampleRate](double seconds) {
+            const auto raw = std::lround(seconds * sampleRate);
+            return static_cast<std::size_t>(
+                std::clamp<std::int64_t>(static_cast<std::int64_t>(raw), 1, static_cast<std::int64_t>(delaySize - 1)));
+        };
+        tap1 = toSamples(141.0 / 48000.0);
+        tap2 = toSamples(344.0 / 48000.0);
+        tap3 = toSamples(507.0 / 48000.0);
+
         const auto safeNyquist = sr * 0.480f;
         if (position == LidPosition::fullOpen) {
             lpCoeff = 0.0f;
@@ -70,9 +82,9 @@ struct LidAcoustics {
         leftBuffer[writePos] = left;
         rightBuffer[writePos] = right;
 
-        const auto tap1Pos = (writePos + delaySize - 141) % delaySize;
-        const auto tap2Pos = (writePos + delaySize - 344) % delaySize;
-        const auto tap3Pos = (writePos + delaySize - 507) % delaySize;
+        const auto tap1Pos = (writePos + delaySize - tap1) % delaySize;
+        const auto tap2Pos = (writePos + delaySize - tap2) % delaySize;
+        const auto tap3Pos = (writePos + delaySize - tap3) % delaySize;
 
         float gDirect = 0.82f;
         float g1 = 0.10f;

@@ -5,7 +5,9 @@
 
 namespace devpiano::audio {
 
-BuiltinSynthesiser::BuiltinSynthesiser() {
+BuiltinSynthesiser::BuiltinSynthesiser()
+    : pedalAcousticsStorage(std::make_unique<PianoPedalAcoustics>())
+    , pedalAcoustics(*pedalAcousticsStorage) {
     setMinimumRenderingSubdivisionSize(1, true);
     for (auto& pitchWheel : lastPitchWheelValues) {
         pitchWheel = 0x2000;

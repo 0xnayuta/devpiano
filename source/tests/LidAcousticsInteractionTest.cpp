@@ -1,5 +1,8 @@
 #include <JuceHeader.h>
 
+#include <array>
+#include <vector>
+
 #include "Audio/PianoSynthVoice.h"
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
@@ -23,6 +26,7 @@ public:
         testDynamicLidSwitchDuringPlayback();
         testSettingsModelAndStorePersistence();
         testPerformancePresetAcousticRoundTrip();
+        testSampleRateNormalizedTaps();
     }
 
 private:
@@ -50,7 +54,7 @@ private:
             synth.renderNextBlock(buffer, midi, 0, blockSize);
 
             outRms = buffer.getRMSLevel(0, 0, blockSize);
-            // 在前 120 个采样点内（首个反射 tap 延迟为 141 采样），输出纯由 gDirect 直达声决定
+            // 在前 120 个采样点内（44.1 kHz 首个反射 tap 约 130 采样），输出纯由 gDirect 直达声决定
             outDirectPeak = buffer.getMagnitude(0, 0, 120);
         };
 
@@ -72,6 +76,44 @@ private:
         // 数值物理不变量：前 120 采样内直达声比例严格遵循 fullOpen(0.82) > halfStick(0.75) > closed(0.68)
         expect(peakOpen > peakHalf);
         expect(peakHalf > peakClosed);
+    }
+
+    void testSampleRateNormalizedTaps() {
+        beginTest("PianoLidAcoustics: reflection taps follow time constants across sample rates");
+
+        struct TapCase {
+            double sampleRate = 48000.0;
+            std::size_t tap1 = 141;
+            std::size_t tap2 = 344;
+            std::size_t tap3 = 507;
+        };
+        const std::array<TapCase, 4> cases { {
+            { 44100.0, 130, 316, 466 },
+            { 48000.0, 141, 344, 507 },
+            { 96000.0, 282, 688, 1014 },
+            { 192000.0, 564, 1376, 2028 },
+        } };
+
+        for (const auto& c : cases) {
+            devpiano::audio::LidAcoustics lid;
+            lid.setPosition(devpiano::audio::LidPosition::fullOpen, c.sampleRate);
+            const auto count = c.tap3 + 2;
+            std::vector<float> left(count, 0.0f);
+            std::vector<float> right(count, 0.0f);
+            for (std::size_t sample = 0; sample < count; ++sample) {
+                auto l = sample == 0 ? 1.0f : 0.0f;
+                auto r = 0.0f;
+                lid.processStereo(l, r);
+                left[sample] = l;
+                right[sample] = r;
+            }
+
+            expectWithinAbsoluteError(left[0], 0.82f, 1e-6f, "direct left gain at sample 0");
+            expectWithinAbsoluteError(right[0], 0.0f, 1e-6f, "direct right gain at sample 0");
+            expectWithinAbsoluteError(left[c.tap1], 0.10f, 1e-6f, "tap 1 follows 141/48000 s");
+            expectWithinAbsoluteError(right[c.tap2], 0.06f, 1e-6f, "tap 2 follows 344/48000 s");
+            expectWithinAbsoluteError(left[c.tap3], 0.04f, 1e-6f, "tap 3 follows 507/48000 s");
+        }
     }
 
     void testDynamicLidSwitchDuringPlayback() {

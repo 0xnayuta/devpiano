@@ -51,8 +51,6 @@ public:
             return;
         }
 
-        sr = sampleRate;
-
         // 44.1 kHz reference delay lengths (mutually prime to eliminate flutter and metallic ringing)
         constexpr std::array<int, kNumCombFilters> kBaseCombDelaysL
             = { 1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617 };
@@ -315,7 +313,6 @@ private:
         }
     };
 
-    double sr = 44100.0;
     ReverbSpace space = ReverbSpace::chamber;
     float feedback = 0.86f;
     float damping = 0.28f;
