@@ -1046,6 +1046,31 @@ private:
             }
             expect(lowL > 0.0f && lowR > 0.0f, "spruce filter maintains DC/low-frequency path");
 
+            const auto sineResponse = [](double frequency) {
+                PianoSynthVoice::SpruceSoundboardFilter filter;
+                filter.updateCoefficients(kSampleRate);
+                filter.reset();
+                double sum = 0.0;
+                auto count = 0;
+                for (auto i = 0; i < 4096; ++i) {
+                    const auto phase = juce::MathConstants<double>::twoPi * frequency * i / kSampleRate;
+                    const auto input = static_cast<float>(std::sin(phase));
+                    auto left = input;
+                    auto right = input;
+                    filter.processStereo(left, right);
+                    if (i >= 2048) {
+                        sum += static_cast<double>(left) * left + static_cast<double>(right) * right;
+                        count += 2;
+                    }
+                }
+                return std::sqrt(sum / static_cast<double>(juce::jmax(1, count)));
+            };
+
+            const auto lowResponse = sineResponse(1000.0);
+            const auto woodResponse = sineResponse(8000.0);
+            expect(woodResponse > 0.6 * lowResponse,
+                   "42-3b keeps the wet soundboard 8 kHz wood band instead of a 4.2 kHz dead cut");
+
             VoiceFixture spruceFixture;
             juce::AudioBuffer<float> spruceBuf(2, blockSize * 4);
             spruceFixture.noteOnBlock(36, 0.85f, spruceBuf);

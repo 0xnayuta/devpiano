@@ -731,7 +731,7 @@ private:
             if (sampleRate <= 0.0) {
                 return;
             }
-            constexpr float fc = 4200.0f;
+            constexpr float fc = 8000.0f;
             const auto safeFc = std::min(fc, static_cast<float>(sampleRate * 0.480));
             lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * safeFc / static_cast<float>(sampleRate));
         }

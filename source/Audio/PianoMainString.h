@@ -449,8 +449,14 @@ private:
         const auto rolloff = 1.20f + 0.30f * keyPos + 1.20f * (keyPos * keyPos);
         const auto basePowerRollOff = 1.0f / std::pow(m, rolloff);
 
-        // 琴槌毛毡非线性低通滤波: 截止频率 fc = 2.5 / Tc (Chaigne & Askenfelt 1994)
-        const auto hammerCutoff = 2.5f / std::max(tc, 0.0001f);
+        // 琴槌毛毡非线性低通滤波: 截止频率 fc = 2.5 / Tc (Chaigne & Askenfelt 1994)。
+        // 高音区基频 f1 走 42-3b 下限：随接触硬度平滑抬升，mf 时 C7/C8 的
+        // feltFilter(f1) 回到约 0.75-0.88，v41 -> v98 仍单调增亮；低中音区
+        // 现有 fc 不被压低。
+        const auto rawHammerCutoff = 2.5f / std::max(tc, 0.0001f);
+        const auto fundamental = static_cast<float>(partialFrequency) / m;
+        const auto cutoffFloor = (1.8f + 2.6f * contactHardness * contactHardness) * fundamental;
+        const auto hammerCutoff = std::max(rawHammerCutoff, cutoffFloor);
         // 滚降陡度随力度动态变化: pp 弱音更陡 (滤除高频), ff 强音更缓 (保留金属光泽)。
         // rolloffDelta 是三力度整音的可校准残差，仍作用于同一毛毡低通，不另加高频增益。
         const auto hammerRolloffExp = std::clamp(2.0f - 0.80f * contactHardness + rolloffDelta, 0.80f, 6.0f);

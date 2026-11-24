@@ -8,6 +8,8 @@
 
 - **Piano Lid Allpass Diffusion** — replace the fixed three-tap feedforward lid comb with a two-stage series Schroeder allpass diffuser (141/48000 and 507/48000 s) plus a 10% unitary stereo scatter. Full-open remains magnitude-flat; half-stick and closed keep 6.5/2.6 kHz low-pass and higher feedback. The 96–108 maximum adjacent K-weighted step drops from 2.52 dB to 0.12 dB, the full-key v70 range narrows from 8.07 dB to 7.00 dB, and the bounded pedal lid drain now follows the allpass tail.
 
+- **Piano High-Note Hammer and Soundboard** — add a hardness-scaled hammer cutoff floor `max(2.5/Tc, (1.8 + 2.6 h_contact^2) f1)` and raise the wet spruce-soundboard low-pass from 4.2 kHz to 8 kHz. C7/C8 `feltFilter(f1)` recovers to 0.773/0.794/0.820 at v41/70/98 while staying monotonic; the 96–108 maximum adjacent K-weighted step remains 0.17 dB and no limiter or soft-clamp hit occurs. The L1 partial normalization and final register curve remain for 42-4/42-5.
+
 ### Fixed
 
 - **Keyboard Playback During Window Move/Resize** — poll physical key state from a dedicated 16 ms timer while the Windows native move/size modal loop is active. Windows dispatches no `WM_KEYDOWN`/`WM_KEYUP` inside that loop, so notes started during a drag were lost and keys released during a drag stayed held. The sizing poll uses the same identity-locked binding path, also covers the pedals and real-time modifier keys, reconciles once more when the loop ends, and works for both edge resizing and title-bar moving.
