@@ -610,7 +610,7 @@ void AudioEngine::rebuildSynth() {
     sineSynth.addSound(new SineSynthSound());
     synth.setPedalAcousticsEnabled(true);
     sineSynth.setPedalAcousticsEnabled(false);
-    for (int index = 0; index < 8; ++index) {
+    for (int index = 0; index < 12; ++index) {
         auto* voice = new PianoSynthVoice();
         voice->setVoiceIndex(index);
         synth.addVoice(voice);

@@ -42,7 +42,7 @@ public:
 
 private:
     struct Fixture {
-        static constexpr int kVoiceCount = 8;
+        static constexpr int kVoiceCount = 12;
         devpiano::audio::BuiltinSynthesiser synth;
         std::array<PianoSynthVoice*, kVoiceCount> voices {};
         juce::AudioBuffer<float> buffer { 2, 512 };
@@ -135,10 +135,10 @@ private:
     }
 
     void testEightNotesUnderPedal() {
-        beginTest("Eight different notes consume all eight note voices under pedal");
+        beginTest("Twelve different notes consume all twelve note voices under pedal");
         Fixture f;
         down(f.synth, 1);
-        for (int note = 60; note < 68; ++note) {
+        for (int note = 60; note < 72; ++note) {
             f.synth.noteOn(1, note, 0.8f);
         }
         expectEquals(activeVoiceCount(f), Fixture::kVoiceCount);
@@ -154,7 +154,7 @@ private:
         f.render();
         expect(f.synth.isPedalAcousticsActive());
 
-        for (int note = 60; note < 68; ++note) {
+        for (int note = 60; note < 72; ++note) {
             f.synth.noteOn(1, note, 0.8f);
             f.render();
         }

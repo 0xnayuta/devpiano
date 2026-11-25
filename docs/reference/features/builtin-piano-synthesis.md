@@ -1,7 +1,7 @@
 # 内置物理建模钢琴音源功能说明与技术参考
 
 > 用途：说明 devpiano 自主研发、纯 C++ 物理建模钢琴合成器（`PianoSynthVoice`）的完整声学物理系统、算法机理、参数控制、实时性能、分层并发契约与测试验收清单。
-> 行为契约：默认内置发声来源；产品自有发声路径必须保持零堆分配、零锁、全回调零库函数三角。测试桩的已测场景只提供有限证据，不等于无条件证明或第三方路径认证。8 复音单核 CPU ≤0.7% 的长期 SLA 目标与具体测量结果分开登记，不将 Debug 结果称为目标认证。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
+> 行为契约：默认内置发声来源；产品自有发声路径必须保持零堆分配、零锁、全回调零库函数三角。测试桩的已测场景只提供有限证据，不等于无条件证明或第三方路径认证。当前 12 复音配置；历史 8 复音单核 CPU ≤0.7% 的长期 SLA 目标与具体测量结果分开登记，不将 Debug 结果称为目标认证。项目状态以 [roadmap](../../roadmap/roadmap.md) 为准。
 > 更新时机：声学物理模型、DSP 拓扑结构、88 键参数表、音色控制链路或硬实时契约发生变化时。
 
 ---
@@ -29,7 +29,7 @@
 
 1. **零外部采样依赖**：代码由现代 C++ 声学模块（`PianoSynthVoice.h`、`PianoMainString.h`、`PianoMechanicalTransients.h`、`PianoPedalAcoustics.h`、`PianoLidAcoustics.h`、`PianoNoteSetup.h`、`PianoVoiceResonance.h`、`PianoDspMath.h`、`PianoSineLookupTable.h`、`PianoSourceLevels.h`、`Piano88KeyTable.h`、`RoomReverbEngine.h`、`PerspectiveProcessor.h`、`TemperamentEngine.h`）构成，编译后二进制体积极小，彻底摆脱对数百 MB 至数十 GB 外部采样音色库的依赖；
 2. **7 大声学系统建模**：覆盖琴槌（Hammer）、琴弦（String）、琴桥（Bridge）、音板（Soundboard）、琴体（Cabinet）、空气（Air）与空间（Room），沿用增强模态近似，不声称与商业物理建模产品的微观实现一致；
-3. **硬实时保证与性能边界**：Magic Circle 递归振荡器和预计算/有界数学保留逐采样与控制级零库函数三角、产品自有路径零堆分配和零锁。8 复音单核 CPU 占用 $\le 0.7\%$ 的长期 SLA 目标保留，具体配置必须单独验证，不能由旧测量或 Debug 单次耗时外推；
+3. **硬实时保证与性能边界**：Magic Circle 递归振荡器和预计算/有界数学保留逐采样与控制级零库函数三角、产品自有路径零堆分配和零锁。当前配置为 12 复音；历史 8 复音单核 CPU 占用 $\le 0.7\%$ 的长期 SLA 目标保留，具体配置必须单独验证，不能由旧测量或 Debug 单次耗时外推；
 4. **内置音色切换**：Piano 与 `SineSynthVoice` 共用音频线程拥有的 `BuiltinSynthesiser` 无锁调度，支持切换与基准比对；不依赖 JUCE 基类的默认锁式发声调度。
 
 **音色重建所有权**：`MainComponent::setBuiltinSynthTone()` 复用停设备守卫，先关闭 Editor 并等待已有音频 callback 退出，再调用 `AudioEngine::rebuildSynth()` 和提交活动 voice/roomReverb 参数；启动命令与再次启动的 `--piano` / `--sine` 走同一路径。普通参数 setter 仍只发布原子待提交值，由音频所有者或明确的停机 prepare 窗口消费，不把逐次 Synthesiser 内部锁视为整个重建的并发保护。
@@ -333,7 +333,7 @@ void setWholeBodyTuning(Temperament temperament, double referencePitchA4, bool s
    - **第三方 VST3 宿主框架层约束（分层验收）**：
      - 当切换至第三方 VST3 插件时，JUCE 原生适配器存在框架层固有开销（`juce_VST3PluginFormatImpl.h` 的 `SpinLock processMutex` 与 `juce_VST3Common.h` 的 `CriticalSection` 转换）；
      - 单块存在 **2048 条 MIDI 消息上限**（`enum { maxNumEvents = 2048 }`），超额事件被框架截断；第三方插件内部行为超出宿主控制。产品自有发声的零锁零分配不外推至第三方插件；
-3. **单核 CPU 性能 SLA 与实测边界**：44.1/48 kHz、8 复音的长期目标仍为 **$\le 0.7\%$**，不因单次测量改写目标。该目标不是物理常数，也不由零锁/零分配自动推出；Debug 未优化配置的 callback/音频时长比不是已认证的单核 CPU 占用。
+3. **单核 CPU 性能 SLA 与实测边界**：44.1/48 kHz、当前 12 复音的长期目标仍以历史 8 复音 **$\le 0.7\%$** 为参考，不因单次测量改写目标。该目标不是物理常数，也不由零锁/零分配自动推出；Debug 未优化配置的 callback/音频时长比不是已认证的单核 CPU 占用。
    - Phase 37 的同配置 Duplex 开关增量与 callback 观察见 [直接实施证据归档](../../archive/phase37-38-piano-calibration-and-keyboard-performance.md#phase-37-直接实施证据与验证边界)，没有 Release 构建或 ≤0.7% 认证，不向其他硬件或厂商外推。参数/流程和软件门禁证据随阶段归档保存，阶段状态与后续候选见 [roadmap](../../roadmap/roadmap.md)，不能以历史测量认证新增 DSP 成本。
    - Task 39-5 在 Windows Debug 用带已知正调用自检的 IAT 观察器覆盖起音、参数/快照、密集输入、多复音、偷声部、Panic 后重用、44.1/48/96 kHz 重新准备、Take 预设边界与密集长事件回放：产品自有回调闭包内分配、临界区与库函数三角在测试用例场景下均为 0；8 复音起音校准与零偏移的两次 Debug 样本差异方向相反，单次计时方差大于锚点采样成本，表明在当前测量分辨率内未引入明显增量，但不宣称绝对“零成本”或无条件全回调保证。该记录是 Debug 测试桩环境下的单次场景观察，严禁外推为 Release CPU SLA 或物理设备真实 deadline 认证。
 

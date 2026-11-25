@@ -384,7 +384,7 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失败候选、直接验收、依赖排期与证据边界已归档到 [Phase 39 历史归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)。结论保持：Task 39-2 的外部参考直接验收仍为 **inconclusive**，Phase 39 不记为通过；已消费的资格、采集和判决不重放、不补批或放宽。后续外部参考校准须另立任务，现行行为以 [内置音源](../reference/features/builtin-piano-synthesis.md) 为准。
 
-> **规划复审（2026-11-24）**：Phase 40–44 已按当前 HEAD 的代码事实、R0–R11 结构整理结果和用户对音区响度/低高音真实感的反馈重新规划。旧 Phase 40–42 的同音弦耦合、音板频变阻抗、能量驱动张力非线性研究性方向不再作为当前阶段入口，转入“近期不排期”。Phase 40 已采集证据，Phase 41 已完成，Phase 42 客观验收已完成（2026-11-25，待用户人工试听签收），Phase 43-1 已完成；Phase 43-2 与 Phase 44 尚未启动，启动须由用户明确决定；不得因 Phase 39.5、R0–R11 归档、构建通过或时间推移自动启动。
+> **规划复审（2026-11-24）**：Phase 40–44 已按当前 HEAD 的代码事实、R0–R11 结构整理结果和用户对音区响度/低高音真实感的反馈重新规划。旧 Phase 40–42 的同音弦耦合、音板频变阻抗、能量驱动张力非线性研究性方向不再作为当前阶段入口，转入“近期不排期”。Phase 40 已采集证据，Phase 41 已完成，Phase 42 客观验收已完成（2026-11-25，待用户人工试听签收），Phase 43-1 已完成；Phase 43-2（12 复音）已完成，Phase 44 尚未启动；启动须由用户明确决定；不得因 Phase 39.5、R0–R11 归档、构建通过或时间推移自动启动。
 
 ### Phase 39.5:JIVE 内核精简与 JIVE v2 精准移植 [已完成 2026-10-23]
 
@@ -440,16 +440,18 @@ Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失
 
 **状态（2026-11-24）**：Step 42-1a（`ef2c6d3`）与 Step 42-1b 已完成。1a 将 hammer/damper 从 `unisonScale`/`noteOutputGain` 解耦；机械点击内部降低约 20 dB，但 WAV 边界由弦体主导，1a 单独未改变 35/36、47/48。1b 改为同分音同相 + 固定 `1/N` 平均弦数尺度，退役 `gUnisonExcitation`/`unisonWindowPower`/`unisonScale` 及 `kOptPhaseTable` 第 1/2 行；新基线全键 v70 K 计权范围 `-33.65…-25.58 LUFS`（8.07 dB），35/36 `-0.09/-0.16 dB`、47/48 `-0.64/-0.51 dB`，C3/C4 后窗/前窗 `-19.28/-18.91 dB`，无 softSaturate/limiter。96–108 旁路 LidAcoustics 对照：正常最大相邻 LUFS 2.52 dB，旁路 0.12 dB，确认高音锯齿由固定三抽头琴盖引起。Step 42-3a 已完成：2 级串联 Schroeder 全通扩散器替代三抽头梳状，96–108 最大相邻 LUFS 降至 0.12 dB，全键 v70 范围降至 6.997 dB，35/36、47/48、71/72 边界未退化；`fullOpen/halfStick/closed` 均值 `-29.24/-30.63/-34.09 LUFS`。Step 42-3b 已完成：hammer 截止下限 `max(2.5/Tc, (1.8 + 2.6 h_contact^2) f1)` 使 C7/C8 `feltFilter(f1)` 在 v41/70/98 恢复为 `0.773/0.794/0.820` 且单调，湿音板低通 4.2→8 kHz；96–108 最大相邻 LUFS 0.17 dB，全键 v70 范围 7.03 dB，无 limiter/soft-clamp。Step 42-2 已完成：`maxPartials` 36，低音分音预算 36/28/18/14/8/6，低频辐射 `f/sqrt(f^2+70^2)`，A0 滚降 1.20→0.90 并在 keyPos 0.45 平滑回到现行，低音 `tcBase` 3.0→2.2 ms；全键 v70 范围 5.75 dB，35/36、47/48、59/60、71/72 边界 ≤0.68 dB，96–108 0.17 dB；8 复音标准序列 2.51 ms/block 平均、6.42 ms 最大，低音压力 3.40/8.42 ms（Debug）。Step 42-4 已完成：线性 `sqrt2` 声像改为等功率 `cos/sin`，中央 0.7071 不变，A0/C1/C8 分别降低 1.68/1.48/1.74 dB；L1/L2 对照保留 L1（L2 True Peak 0.98、892 次 limiter；L1 0.383、0 次）。Step 42-5 已完成：8 锚点重标定为 `+5.8/+3.0/+1.2/0/+0.2/-0.2/-3.0/-2.5 dB`；全键 v70 极差 0.619 dB，C2–C7 0.541 dB，87 个相邻半音最大 0.210 dB，96–108 0.112 dB，16 代表键 v41/70/98 极差 0.622/0.570/0.544 dB；最大 True Peak 0.236，无 softSaturate/limiter。Phase 42 客观验收完成，待用户人工试听签收；Phase 43/44 未启动。
 
-### Phase 43：整琴共享声学总线收敛 [Phase 43-1 已完成 2026-11-25；Phase 43-2 待评估]
+### Phase 43：整琴共享声学总线收敛 [Phase 43-1/43-2 已完成 2026-11-25；Phase 44 未启动]
 
 目标：把每声部音板/交感/琴盖/视角收敛为 `BuiltinSynthesiser` 持有的单一 `PianoWholeBodyBus`，修复声部结束 `reset()` 截断音板/琴盖尾音、跨音符交感缺失和 9 份空间链路重复。本阶段是行为变更，必须单独批准并建立新基线。
 
 1. **总线边界**：总线拥有音板、整琴交感池、Lid、Perspective；交感池先明确是 12 音级近似还是 88 键模型，不在本阶段顺手改模型。
 2. **Voice 输出契约**：`PianoSynthVoice` 只输出 bridge drive + 音符增益；`PianoPedalAcoustics` 只输出机械瞬态 + shock 激励；总线统一处理并逐子块连续推进，状态预分配、无锁零分配。
-3. **尾音/active 契约**：voice 结束不 reset 总线；总线在所有 voice + pedal tail 静音后 reset；Panic/stop 正确清空；实时与 `WavFileExporter` / `PluginOfflineRenderer` 同构。
-4. **复音评估**：以 Phase 40/本阶段 CPU 基线决定 8→16；先测后改，不直接跳到 32–48。
+3. **尾音/active 契约**：voice 结束不 reset 总线；总线在尾音静音后仅停止处理、不硬清空；Panic / `allNotesOff(0,false)` / CC120（无其他活动声部）/ 采样率重准备 / rebuild 才 reset；实时与 `WavFileExporter` / `PluginOfflineRenderer` 同构。
+4. **复音评估**：以 Phase 40/本阶段 CPU 基线决定 8→12/16；先测后改，不直接跳到 32–48。
 
 进入条件：Phase 42 声音目标稳定；用户明确批准行为变更。出口：离线 A/B + Windows Debug 实机试听；尾音不再被声部 reset 截断；跨音符共鸣可听/可测；CPU 与复音数据；实时/离线一致；以新基线为准，不声称“零音色倒退”。边界：不顺手改弦耦合、张力非线性、88 键交感模型或通用路由。
+
+**状态（2026-11-25）**：43-1 已完成：唯一 `PianoWholeBodyBus`、跨音符交感、voice 结束不截断尾音；42-5 全键指标零回退；8 复音 Debug 标准 1.69/3.66 ms、低音压力 2.44/5.35 ms。43-2 采用 **12 复音**：标准 2.37/6.71 ms，低音压力 3.11/7.83 ms，偷声部 24→20；16 复音低音压力最大 9.73 ms（周期 10.67 ms 的约 91%），未采用。Phase 44 未启动。
 
 ### Phase 44：空间、参考音色与细节收敛 [尚未启动；启动须用户明确决定]
 
