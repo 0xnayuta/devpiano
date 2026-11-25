@@ -94,8 +94,8 @@ private:
         down(f.synth, 1);
         expect(f.synth.isPedalAcousticsEnabled());
         expect(f.synth.isPedalAcousticsActive());
-        expect(f.synth.getPedalAcoustics().shockTail.isShockActive());
-        expect(!f.voices[0]->sympatheticPool.isShockActive(), "voice note pool must not receive the pedal shock");
+        expect(f.synth.getWholeBodyBus().sympatheticPool.isShockActive());
+        expect(!f.voices[0]->isVoiceActive(), "pedal shock must not mark a note voice active");
         expectEquals(activeVoiceCount(f), 0, "pedal must not mark a note voice active");
 
         f.render();
@@ -103,7 +103,7 @@ private:
         expectGreaterThan(peak(f.buffer, 1), 0.001f);
 
         auto remaining = 0;
-        while (f.synth.isPedalAcousticsActive() && remaining < 48000 * 2) {
+        while (f.synth.isPedalAcousticsActive() && remaining < 48000 * 4) {
             f.render();
             remaining += 512;
         }
@@ -383,7 +383,8 @@ private:
         expect(voice != nullptr);
         if (voice != nullptr) {
             expect(voice->isSustainPedalDown(), "JUCE voice sustain flag must inherit ch1");
-            expect(voice->sympatheticPool.pedalDown, "note-driven pool must inherit ch1 before rendering");
+            expect(f.synth.getWholeBodyBus().sympatheticPool.pedalDown,
+                   "shared bus pool must inherit aggregate sustain before rendering");
         }
         expectEquals(activeVoiceCount(f), 1);
     }
@@ -397,12 +398,12 @@ private:
         expect(voice != nullptr);
         if (voice != nullptr) {
             expect(voice->isSustainPedalDown());
-            expect(voice->sympatheticPool.pedalDown);
+            expect(f.synth.getWholeBodyBus().sympatheticPool.pedalDown);
         }
         up(f.synth, 1);
         if (voice != nullptr) {
             expect(!voice->isSustainPedalDown());
-            expect(!voice->sympatheticPool.pedalDown);
+            expect(!f.synth.getWholeBodyBus().sympatheticPool.pedalDown);
         }
     }
 
@@ -419,11 +420,11 @@ private:
         expect(ch2 != nullptr);
         if (ch1 != nullptr) {
             expect(ch1->isSustainPedalDown());
-            expect(ch1->sympatheticPool.pedalDown);
+            expect(f.synth.getWholeBodyBus().sympatheticPool.pedalDown,
+                   "shared pool follows aggregate sustain from channel 1");
         }
         if (ch2 != nullptr) {
             expect(!ch2->isSustainPedalDown());
-            expect(!ch2->sympatheticPool.pedalDown);
         }
     }
 
@@ -455,8 +456,9 @@ private:
                 expect(voice->isPlayingChannel(toChannel));
                 expect(voice->isSustainPedalDown() == synth.isSustainPedalDown(toChannel),
                        "voice sustain flag must match the target channel");
-                expect(voice->sympatheticPool.pedalDown == synth.isSustainPedalDown(toChannel),
-                       "voice pool pedal state must match the target channel");
+                expect(synth.getWholeBodyBus().sympatheticPool.pedalDown
+                           == (synth.isSustainPedalDown(1) || synth.isSustainPedalDown(2)),
+                       "shared bus pool follows aggregate sustain state");
             }
         }
     }

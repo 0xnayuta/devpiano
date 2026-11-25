@@ -215,6 +215,7 @@ target_sources(devpiano PRIVATE
     source/Audio/PianoRegisterVoicing.h
     source/Audio/PianoTuning.h
     source/Audio/PianoVoiceResonance.h
+    source/Audio/PianoWholeBodyBus.h
     source/Audio/PianoStyle.h
     source/Audio/InstrumentLayers.h
     source/Audio/BoundedDelayLine.h
@@ -527,6 +528,7 @@ if (BUILD_TESTS)
         source/Audio/PianoRegisterVoicing.h
         source/Audio/PianoTuning.h
         source/Audio/PianoVoiceResonance.h
+        source/Audio/PianoWholeBodyBus.h
         source/Audio/PianoStyle.h
         source/Audio/InstrumentLayers.h
         source/Audio/BoundedDelayLine.h
@@ -618,6 +620,7 @@ if (BUILD_TESTS)
         source/tests/LayoutGoldenTest.cpp
         source/tests/JiveCoreValuesTest.cpp
         source/tests/LidAcousticsInteractionTest.cpp
+        source/tests/PianoWholeBodyBusTest.cpp
         source/tests/UnaCordaAcousticsTest.cpp
         source/tests/TouchVelocityCurveTest.cpp
         source/tests/AcousticSettingsPersistenceTest.cpp

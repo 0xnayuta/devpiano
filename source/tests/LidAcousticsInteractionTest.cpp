@@ -3,6 +3,7 @@
 #include <array>
 #include <vector>
 
+#include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
@@ -40,14 +41,15 @@ private:
         constexpr int blockSize = 1024;
 
         const auto renderNoteWithLid = [&](PianoSynthVoice::LidPosition lid, float& outRms, float& outDirectPeak) {
-            juce::Synthesiser synth;
+            devpiano::audio::BuiltinSynthesiser synth;
             synth.setCurrentPlaybackSampleRate(sampleRate);
+            synth.setPedalAcousticsEnabled(true);
             synth.addSound(new PianoSynthSound());
             auto* voice = new PianoSynthVoice();
             voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
-            voice->setLidPosition(lid);
+            synth.setPedalLidPosition(lid);
             synth.addVoice(voice);
-            expect(voice->getLidPosition() == lid);
+            expect(synth.getWholeBodyBus().lidPosition == lid);
 
             juce::MidiBuffer midi;
             midi.addEvent(juce::MidiMessage::noteOn(1, 72, 0.8f), 0); // C5, forte
@@ -192,12 +194,13 @@ private:
         constexpr double sampleRate = 44100.0;
         constexpr int blockSize = 256;
 
-        juce::Synthesiser synth;
+        devpiano::audio::BuiltinSynthesiser synth;
         synth.setCurrentPlaybackSampleRate(sampleRate);
+        synth.setPedalAcousticsEnabled(true);
         synth.addSound(new PianoSynthSound());
         auto* voice = new PianoSynthVoice();
         voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
-        voice->setLidPosition(PianoSynthVoice::LidPosition::fullOpen);
+        synth.setPedalLidPosition(PianoSynthVoice::LidPosition::fullOpen);
         synth.addVoice(voice);
 
         juce::MidiBuffer midi;
@@ -208,11 +211,11 @@ private:
         for (int block = 0; block < 10; ++block) {
             buffer.clear();
             if (block == 2) {
-                voice->setLidPosition(PianoSynthVoice::LidPosition::halfStick);
+                synth.setPedalLidPosition(PianoSynthVoice::LidPosition::halfStick);
             } else if (block == 5) {
-                voice->setLidPosition(PianoSynthVoice::LidPosition::closed);
+                synth.setPedalLidPosition(PianoSynthVoice::LidPosition::closed);
             } else if (block == 8) {
-                voice->setLidPosition(PianoSynthVoice::LidPosition::fullOpen);
+                synth.setPedalLidPosition(PianoSynthVoice::LidPosition::fullOpen);
             }
 
             synth.renderNextBlock(buffer, midi, 0, blockSize);

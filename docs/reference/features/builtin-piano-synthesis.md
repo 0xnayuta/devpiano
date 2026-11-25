@@ -43,7 +43,7 @@ flowchart TD
     Midi["最终 MIDI 音高 / 通道 / 力度与踏板"] --> Owner["BuiltinSynthesiser<br/>逐通道 CC64/66/67、分配与释放"]
     Owner --> Attack["PianoSynthVoice::startNote<br/>88 键参数、律制/A4/拉伸<br/>三力度整音、老化与 CC67"]
     Attack --> Voice["增强模态声部<br/>Hammer / String / Bridge / Soundboard / Cabinet / Air<br/>主弦包络、机械瞬态及被动尾音各守生命周期"]
-    Voice --> Space["声部内音板/腔体、琴盖与视角处理<br/>音板默认 74% dry + 26% wet，随 Resonance 调节"]
+    Voice --> Space["BuiltinSynthesiser::PianoWholeBodyBus（唯一）<br/>共享音板 + 交感弦池 + 琴盖 + 视角<br/>声部结束不截断尾音"]
     Space --> Stereo["Piano 立体声输出<br/>固定双层启用时先做层增益与延迟对齐混音"]
     Stereo --> Room["宿主公共 RoomReverbEngine<br/>第七系统 Room：Studio / Chamber / Concert Hall"]
     Room --> Realtime["实时：需要时取 L/R 均值<br/>混入节拍器 → Master Gain → limiter"]
@@ -178,7 +178,7 @@ flowchart TD
    - **16 通道踏板物理隔离**：`BuiltinSynthesiser` 独立维护 16 个 MIDI 通道的踏板物理状态矩阵（CC64 延音 `sustainPedalByChannel`、CC66 保持音 `sostenutoPedalByChannel`、CC67 柔音 `softPedalByChannel`）；
    - **CC66 捕获边界**：仅低→高捕获当时仍按住的声部；重复高值不捕获后起音，被抢占声部的新音不继承旧捕获。CC64/66 释放顺序、同采样排序、逐通道隔离和 Panic 均按声部生命周期处理；电脑键盘入口及原目标释放见 [键盘分册](keyboard-mapping.md)。
    - 踩下 CC64 延音踏板时激活 12 半音全开放交感共鸣弦池，使演奏音符的泛音激发全琴未制音琴弦的共振；
-   - **整琴踏板 owner**：`BuiltinSynthesiser` 持有唯一的 `PianoPedalAcoustics`，负责机械扫掠/冲击、shock-only 交感尾音、独立琴盖延迟和独立视角路径；每声部的音符驱动 `sympatheticPool` 仍只接收该声部的 NoteOn/NoteOff，二者不共享状态。owner 只接收真实聚合 CC64 边沿，逐通道原始 CC64 历史和聚合真值仍归 `BuiltinSynthesiser`。
+   - **整琴踏板与空间 owner**：`BuiltinSynthesiser` 持有唯一的 `PianoPedalAcoustics`（仅机械扫掠/冲击）与唯一的 `PianoWholeBodyBus`；总线持有 16 峰音板、8 kHz 湿路径、唯一 12 音级交感弦池、琴盖与视角，并接收所有活动声部的 `noteOnKey/noteOffKey`、聚合 `anySustainDown`、音符激励和踏板 shock。跨音符开放弦交感因此正式共享；单声部结束不 reset 总线，只有 Panic / `allNotesOff(0,false)` / CC120（无其他活动声部）/ 采样率重准备 / rebuild 才清空。
    - **踏板机械扫掠声与共鸣冲击**：踩下踏板时激发成对的机械毛毡抬起刮擦与空气呼啸脉冲（`pedalWhoosh`，带通 $1350\text{ Hz}$，$Q=1.25$；抬起带通 $950\text{ Hz}$）以及全琴瞬态弱冲击激发（`pedalResonanceShock`，双共振冲击峰 $58\text{ Hz}$ 与 $116\text{ Hz}$），由 `pedalNoiseLevel`（默认 0.6）线性缩放；
    - 支持**未踩踏板时的单键开放主弦交感（Unpedaled Resonance）**：由持有音符对应音级的开放主弦产生交感振动；Duplex 非发音段见上节，不混称为同一模型；
    - **CC67 弱音/移位踏板物理拟真（Una Corda / Soft Pedal）**：踩下 CC67 踏板时击弦机向右微移，敲击毛毡侧面相对柔软区域（有效硬度衰减至多 25%，接触时间延长至多 20%），中高音区三弦组产生三弦敲两弦（Trichord to Bichord）声能衰减（至多 30% 衰减），呈现柔和朦胧的暗调色泽；
@@ -298,11 +298,12 @@ void setReferencePitchA4(double hz);
 
 ### 4.3 空间视角、琴盖与环境混响
 
-以下是 `PianoSynthVoice` 的控制接口；独立 `PerspectiveProcessor::setPerspective()` 另有可选的 `immediateSnap` 参数，不是 voice 的同名方法：
+以下是 `BuiltinSynthesiser` / `PianoWholeBodyBus` 的控制接口；独立 `PerspectiveProcessor::setPerspective()` 另有可选的 `immediateSnap` 参数：
 
 ```cpp
-void setLidPosition(LidPosition position) noexcept;
-void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
+void setPedalLidPosition(LidPosition position) noexcept;
+void setPedalSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
+void setWholeBodyTuning(Temperament temperament, double referencePitchA4, bool stretchTuningEnabled) noexcept;
 ```
 
 - **琴盖状态（`LidPosition`）**：`fullOpen`（全开）、`halfStick`（半开）、`closed`（闭盖）；
@@ -347,6 +348,7 @@ void setSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept
 | **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、接触释放音频反例、生成分量振幅与同音频率中心、三力度锚点插值/非法配置/单一硬度路径及滚降差异、8 kHz 音板湿路径木质频带、完整 mono 下混及既有生命周期；不固定参数锚点声明值 | [x] 结构与测试通过（整体音色已由用户人工验收） |
 | **PianoTuningAndDuplexTest** | 实际 A4 中心峰、保留/剪枝边界的生产频谱、Duplex 尾音与分段不变性、原通道所有权、mono 尾音及低率越界旁路；默认整音下 C4 上方分音平衡与 95/96 三力度连续性 | [x] 已通过 |
 | **PianoSnapshotWavParityTest** | 非零混响、同采样快照/NoteOn、原身份释放及 mono 琴盖/视角/Room 的实时/内置 WAV 对照；误差限于 16-bit 量化 | [x] 已通过 |
+| **PianoWholeBodyBusTest** | 共享交感池跨音符开放弦激励、声部结束不截断音板/琴盖/视角尾音 | [x] 已通过 |
 | **DamperReleaseTest** | 快离键木质落弦闷击、慢离键羊毛毡摩擦延展、高音无制音区自然衰减与快速离键/硬停边界、动态ADSR释放速度缩放、ADSR基准跨音符无泄漏 | [x] 已通过 |
 | **LidAcousticsInteractionTest** | 琴盖三态全通扩散响应、fullOpen 平幅频能量、半开/闭盖高频差异、播放中切换无爆音、设置/预设往返、44.1/48/96/192 kHz 扩散延迟归一化与有界尾音排空 | [x] 已通过 |
 | **PedalAcousticsTest** | CC64 共鸣/机械动作；CC66 捕获边沿、重复高值、声部抢占、CC64/66 释放顺序与同采样逐通道隔离；跨区域 Sync Pedal 原目标释放 | [x] 已通过 |

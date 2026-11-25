@@ -12,6 +12,7 @@ using devpiano::audio::isValidHammerVoicing;
 using devpiano::audio::kHammerVoicingMaxHardnessDelta;
 using devpiano::audio::kHammerVoicingMaxRolloffDelta;
 using devpiano::audio::PianoMainString;
+using devpiano::audio::PianoWholeBodyBus;
 using devpiano::audio::sampleHammerVoicing;
 
 // =============================================================================
@@ -63,10 +64,11 @@ double testBeatingFrequency(int midiNoteNumber, int partialIndex,
 }
 
 struct VoiceFixture {
-    juce::Synthesiser synth;
+    devpiano::audio::BuiltinSynthesiser synth;
 
     VoiceFixture() {
         synth.setCurrentPlaybackSampleRate(kSampleRate);
+        synth.setPedalAcousticsEnabled(true);
         synth.addSound(new PianoSynthSound());
         synth.addVoice(new PianoSynthVoice());
         // 与 AudioEngine::setAdsr 默认一致的接线（attack/release 作门控）。
@@ -947,8 +949,8 @@ private:
         {
             auto leftWeight = 0.0f;
             auto rightWeight = 0.0f;
-            for (auto i = 0; i < PianoSynthVoice::numResonators; ++i) {
-                const auto spec = PianoSynthVoice::resonatorSpec(i);
+            for (auto i = 0; i < devpiano::audio::PianoWholeBodyBus::numResonators; ++i) {
+                const auto spec = devpiano::audio::PianoWholeBodyBus::resonatorSpec(i);
                 leftWeight += spec.weightLeft;
                 rightWeight += spec.weightRight;
                 const auto bandwidth = static_cast<double>(spec.frequency / spec.q);
@@ -1012,19 +1014,19 @@ private:
         beginTest("lid position acoustic transfer function (Phase 22-B)");
         {
             VoiceFixture fullOpenFixture;
-            fullOpenFixture.voice()->setLidPosition(PianoSynthVoice::LidPosition::fullOpen);
+            fullOpenFixture.synth.setPedalLidPosition(PianoSynthVoice::LidPosition::fullOpen);
             juce::AudioBuffer<float> fullOpenBuf(2, blockSize * 4);
             fullOpenFixture.noteOnBlock(72, 0.8f, fullOpenBuf);
             const auto rmsFull = fullOpenBuf.getRMSLevel(0, 0, fullOpenBuf.getNumSamples());
 
             VoiceFixture halfStickFixture;
-            halfStickFixture.voice()->setLidPosition(PianoSynthVoice::LidPosition::halfStick);
+            halfStickFixture.synth.setPedalLidPosition(PianoSynthVoice::LidPosition::halfStick);
             juce::AudioBuffer<float> halfStickBuf(2, blockSize * 4);
             halfStickFixture.noteOnBlock(72, 0.8f, halfStickBuf);
             const auto rmsHalf = halfStickBuf.getRMSLevel(0, 0, halfStickBuf.getNumSamples());
 
             VoiceFixture closedFixture;
-            closedFixture.voice()->setLidPosition(PianoSynthVoice::LidPosition::closed);
+            closedFixture.synth.setPedalLidPosition(PianoSynthVoice::LidPosition::closed);
             juce::AudioBuffer<float> closedBuf(2, blockSize * 4);
             closedFixture.noteOnBlock(72, 0.8f, closedBuf);
             const auto rmsClosed = closedBuf.getRMSLevel(0, 0, closedBuf.getNumSamples());
@@ -1036,7 +1038,7 @@ private:
 
         beginTest("spruce soundboard low-pass cutoff and modal balancing (Phase 23-C)");
         {
-            PianoSynthVoice::SpruceSoundboardFilter filter;
+            PianoWholeBodyBus::SpruceSoundboardFilter filter;
             filter.updateCoefficients(kSampleRate);
             filter.reset();
 
@@ -1048,7 +1050,7 @@ private:
             expect(lowL > 0.0f && lowR > 0.0f, "spruce filter maintains DC/low-frequency path");
 
             const auto sineResponse = [](double frequency) {
-                PianoSynthVoice::SpruceSoundboardFilter filter;
+                PianoWholeBodyBus::SpruceSoundboardFilter filter;
                 filter.updateCoefficients(kSampleRate);
                 filter.reset();
                 double sum = 0.0;
@@ -1106,8 +1108,11 @@ private:
 
             const auto& tailBlock = fixture.renderBlock(buffer);
             expect(peakMagnitude(tailBlock) > 0.0f, "release tail still rings");
-            const auto releaseBlocks = static_cast<int>(2.0 * kSampleRate / blockSize) + 1;
+            const auto releaseBlocks = static_cast<int>(4.0 * kSampleRate / blockSize) + 1;
             for (auto block = 0; block < releaseBlocks && fixture.voice()->isVoiceActive(); ++block) {
+                fixture.renderBlock(buffer);
+            }
+            for (auto block = 0; block < releaseBlocks && fixture.synth.getWholeBodyBus().isActive(); ++block) {
                 fixture.renderBlock(buffer);
             }
             fixture.renderBlock(buffer);
@@ -1157,8 +1162,12 @@ private:
             fixture.noteOnBlock(60, 0.8f, buffer);
             fixture.synth.noteOff(1, 60, 0.0f, false);
             fixture.renderBlock(buffer);
-            expect(peakMagnitude(buffer) == 0.0f, "allowTailOff=false must silence immediately");
             expect(!fixture.voice()->isVoiceActive(), "voice must be cleared");
+            for (auto block = 0; block < 200 && fixture.synth.getWholeBodyBus().isActive(); ++block) {
+                fixture.renderBlock(buffer);
+            }
+            fixture.renderBlock(buffer);
+            expect(peakMagnitude(buffer) == 0.0f, "shared bus tail reaches silence after hard voice stop");
         }
 
         beginTest("long render stays finite and bounded");
@@ -1218,8 +1227,12 @@ private:
             fixture.noteOnBlock(108, 0.8f, buffer);
             fixture.synth.noteOff(1, 108, 0.0f, false);
             fixture.renderBlock(buffer);
-            expect(peakMagnitude(buffer) == 0.0f, "allowTailOff=false must silence C8 immediately");
             expect(!fixture.voice()->isVoiceActive(), "C8 hard stop clears the voice");
+            for (auto block = 0; block < 200 && fixture.synth.getWholeBodyBus().isActive(); ++block) {
+                fixture.renderBlock(buffer);
+            }
+            fixture.renderBlock(buffer);
+            expect(peakMagnitude(buffer) == 0.0f, "shared bus tail reaches silence after C8 hard stop");
         }
     }
 
@@ -1412,6 +1425,7 @@ private:
             for (const auto reference : { firstReference, firstReference + 1.0 }) {
                 devpiano::audio::BuiltinSynthesiser synth;
                 synth.setCurrentPlaybackSampleRate(rate);
+                synth.setPedalAcousticsEnabled(true);
                 synth.addSound(new PianoSynthSound());
                 synth.addVoice(new PianoSynthVoice());
                 auto* voice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(0));
@@ -1480,14 +1494,15 @@ private:
             // from equal fresh state and compare sample by sample.
             auto renderVoice
                 = [&](int channels, PianoSynthVoice::LidPosition lid, PianoSynthVoice::SoundPerspective perspective) {
-                      juce::Synthesiser synth;
+                      devpiano::audio::BuiltinSynthesiser synth;
                       synth.setCurrentPlaybackSampleRate(44100.0);
+                      synth.setPedalAcousticsEnabled(true);
                       synth.addSound(new PianoSynthSound());
                       synth.addVoice(new PianoSynthVoice());
                       auto* voice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(0));
                       voice->setAdsrParameters({ 0.01f, 0.2f, 0.8f, 0.3f });
-                      voice->setLidPosition(lid);
-                      voice->setSoundPerspective(perspective);
+                      synth.setPedalLidPosition(lid);
+                      synth.setPedalSoundPerspective(perspective);
                       voice->setFeltAgeingAmount(0.0f);
                       juce::AudioBuffer<float> buffer(channels, 2048);
                       juce::MidiBuffer midi;

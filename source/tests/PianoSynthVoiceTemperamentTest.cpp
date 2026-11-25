@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Audio/TemperamentEngine.h"
 
@@ -26,8 +27,9 @@ private:
         constexpr double sampleRate = 44100.0;
         constexpr int blockSize = 512;
 
-        juce::Synthesiser synth;
+        devpiano::audio::BuiltinSynthesiser synth;
         synth.setCurrentPlaybackSampleRate(sampleRate);
+        synth.setPedalAcousticsEnabled(true);
         synth.addSound(new PianoSynthSound());
 
         auto* voice = new PianoSynthVoice();

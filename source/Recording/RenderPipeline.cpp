@@ -163,10 +163,8 @@ void applyAcousticSnapshotToBuiltin(devpiano::audio::BuiltinSynthesiser& pianoSy
             voice->setPianoParameters(clampedBrightness, clampedHardness, clampedResonance);
             (void)voice->setHammerVoicing(snapshot.hammerVoicing);
             voice->setPianoTuning(snapshot.stretchTuningEnabled, duplex);
-            voice->setLidPosition(lidPos);
             voice->setTemperament(snapshot.temperament);
             voice->setReferencePitchA4(refPitch);
-            voice->setSoundPerspective(snapshot.soundPerspective);
             voice->setFeltAgeingAmount(feltAgeing);
             voice->setAdsrParameters(snapshot.adsr);
         }
@@ -174,7 +172,7 @@ void applyAcousticSnapshotToBuiltin(devpiano::audio::BuiltinSynthesiser& pianoSy
     pianoSynth.setPedalNoiseLevel(pedalNoise);
     pianoSynth.setPedalLidPosition(lidPos);
     pianoSynth.setPedalSoundPerspective(snapshot.soundPerspective);
-    pianoSynth.setPedalTuning(snapshot.temperament, refPitch, snapshot.stretchTuningEnabled);
+    pianoSynth.setWholeBodyTuning(snapshot.temperament, refPitch, snapshot.stretchTuningEnabled);
     if (applyPedalState) {
         pianoSynth.setSoftPedal(0, snapshot.unaCorda, snapshot.unaCorda ? 1.0f : 0.0f);
     }
@@ -213,16 +211,14 @@ void initialiseOfflinePianoSynth(devpiano::audio::BuiltinSynthesiser& pianoSynth
         voice->setPianoParameters(options.pianoBrightness, options.pianoHammerHardness, options.pianoResonance);
         (void)voice->setHammerVoicing(options.hammerVoicing);
         voice->setPianoTuning(options.stretchTuningEnabled, juce::jlimit(0.0f, 1.0f, options.duplexResonance));
-        voice->setLidPosition(static_cast<PianoSynthVoice::LidPosition>(options.lidPosition));
         voice->setTemperament(options.temperament);
         voice->setReferencePitchA4(options.referencePitchA4);
-        voice->setSoundPerspective(options.soundPerspective);
         voice->setFeltAgeingAmount(options.feltAgeingAmount);
         pianoSynth.addVoice(voice);
     }
     pianoSynth.setCurrentPlaybackSampleRate(options.sampleRate);
     pianoSynth.setPedalNoiseLevel(options.pedalNoiseLevel);
-    pianoSynth.setPedalTuning(options.temperament, options.referencePitchA4, options.stretchTuningEnabled);
+    pianoSynth.setWholeBodyTuning(options.temperament, options.referencePitchA4, options.stretchTuningEnabled);
     pianoSynth.setPedalLidPosition(static_cast<devpiano::audio::LidPosition>(options.lidPosition));
     pianoSynth.setPedalSoundPerspective(options.soundPerspective);
 }

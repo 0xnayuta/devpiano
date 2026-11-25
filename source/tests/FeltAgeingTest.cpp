@@ -1,6 +1,7 @@
 #include <JuceHeader.h>
 
 #include "Audio/AudioEngine.h"
+#include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
 
 // ==============================================================================
@@ -48,15 +49,17 @@ private:
     void testPerKeyHardnessAndTimbreDispersion() {
         beginTest("Adjacent keys exhibit subtle organic timbre dispersion with felt ageing");
 
-        juce::Synthesiser synthZero;
+        devpiano::audio::BuiltinSynthesiser synthZero;
         synthZero.setCurrentPlaybackSampleRate(48000.0);
+        synthZero.setPedalAcousticsEnabled(true);
         synthZero.addSound(new PianoSynthSound());
         auto* v0 = new PianoSynthVoice();
         v0->setFeltAgeingAmount(0.0f);
         synthZero.addVoice(v0);
 
-        juce::Synthesiser synthAged;
+        devpiano::audio::BuiltinSynthesiser synthAged;
         synthAged.setCurrentPlaybackSampleRate(48000.0);
+        synthAged.setPedalAcousticsEnabled(true);
         synthAged.addSound(new PianoSynthSound());
         auto* vAged = new PianoSynthVoice();
         vAged->setFeltAgeingAmount(0.8f);

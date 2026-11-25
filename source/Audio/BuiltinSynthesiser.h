@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PianoPedalAcoustics.h"
+#include "PianoWholeBodyBus.h"
 
 #include <array>
 #include <cstddef>
@@ -95,6 +96,15 @@ public:
     void setPedalTuning(Temperament temperament, double referencePitchA4, bool stretchTuningEnabled) noexcept;
     void setPedalLidPosition(LidPosition position) noexcept;
     void setPedalSoundPerspective(SoundPerspective perspective) noexcept;
+    void setWholeBodyTuning(Temperament temperament, double referencePitchA4, bool stretchTuningEnabled) noexcept {
+        wholeBodyBus.applyTuning(temperament, referencePitchA4, stretchTuningEnabled);
+    }
+    [[nodiscard]] PianoWholeBodyBus& getWholeBodyBus() noexcept {
+        return wholeBodyBus;
+    }
+    [[nodiscard]] const PianoWholeBodyBus& getWholeBodyBus() const noexcept {
+        return wholeBodyBus;
+    }
     [[nodiscard]] PianoPedalAcoustics& getPedalAcoustics() noexcept {
         return pedalAcoustics;
     }
@@ -102,7 +112,7 @@ public:
         return pedalAcoustics;
     }
     [[nodiscard]] bool isPedalAcousticsActive() const noexcept {
-        return pedalAcoustics.isActive();
+        return pedalAcoustics.isActive() || wholeBodyBus.isActive();
     }
 
     [[nodiscard]] bool isSustainPedalDown(int midiChannel = 1) const noexcept {
@@ -138,6 +148,9 @@ private:
     // whole-piano pedal tail.
     void allNotesOffInternal(int midiChannel, bool allowTailOff, bool preservePedalState) noexcept;
 
+    template <typename FloatType>
+    void renderVoicesImpl(juce::AudioBuffer<FloatType>& outputAudio, int startSample, int numSamples) noexcept;
+
     double currentPlaybackSampleRate = 0.0;
     int minimumSubBlockSize = 1;
     bool subBlockSubdivisionIsStrict = true;
@@ -153,6 +166,10 @@ private:
     // call sites and the owner lifetime matches this synthesiser.
     std::unique_ptr<PianoPedalAcoustics> pedalAcousticsStorage;
     PianoPedalAcoustics& pedalAcoustics;
+    std::unique_ptr<PianoWholeBodyBus> wholeBodyBusStorage;
+    PianoWholeBodyBus& wholeBodyBus;
+    // 3-channel input scratch: dry L/R and wet body/sympathetic drive.
+    juce::AudioBuffer<float> busScratch { 3, 2048 };
 };
 
 } // namespace devpiano::audio
