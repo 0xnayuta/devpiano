@@ -10,6 +10,8 @@
 
 - **Piano High-Note Hammer and Soundboard** — add a hardness-scaled hammer cutoff floor `max(2.5/Tc, (1.8 + 2.6 h_contact^2) f1)` and raise the wet spruce-soundboard low-pass from 4.2 kHz to 8 kHz. C7/C8 `feltFilter(f1)` recovers to 0.773/0.794/0.820 at v41/70/98 while staying monotonic; the 96–108 maximum adjacent K-weighted step remains 0.17 dB and no limiter or soft-clamp hit occurs. The L1 partial normalization and final register curve remain for 42-4/42-5.
 
+- **Piano Low-Register Spectrum** — raise `maxPartials` to 36 and split the low partial budget into 36/28/18/14/8/6 bands, add the stateless radiation efficiency `f/sqrt(f^2+70^2)`, soften the A0 rolloff from 1.20 to 0.90 with a smoothstep return by `keyPos=0.45`, and tighten the low `tcBase` from 3.0 to 2.2 ms. The full-key v70 K-weighted range narrows from 7.03 dB to 5.75 dB; 35/36, 47/48, 59/60 and 71/72 boundaries stay within 0.68 dB, 96–108 stays at 0.17 dB, and no limiter or soft-clamp hit occurs. The 8-voice Debug dense sequence rises from 2.26 to 2.51 ms/block average (6.42 ms max); the low-bass stress probe is 3.40 ms average / 8.42 ms max.
+
 ### Fixed
 
 - **Keyboard Playback During Window Move/Resize** — poll physical key state from a dedicated 16 ms timer while the Windows native move/size modal loop is active. Windows dispatches no `WM_KEYDOWN`/`WM_KEYUP` inside that loop, so notes started during a drag were lost and keys released during a drag stayed held. The sizing poll uses the same identity-locked binding path, also covers the pedals and real-time modifier keys, reconciles once more when the loop ends, and works for both edge resizing and title-bar moving.

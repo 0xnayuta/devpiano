@@ -10,14 +10,14 @@ namespace devpiano::audio {
 //==============================================================================
 /// 88 键物理声学参数结构体 (Phase 18-A/B, Phase 22-C)
 struct PianoNoteParams {
-    int partialCount; ///< 激活分音数 (低音 20 -> 极高音 6)
+    int partialCount; ///< 激活分音数 (低音 36 -> 28 -> 18 -> 14 -> 8 -> 6)
     int stringCount; ///< 琴弦数: 1 (MIDI 21~35), 2 (MIDI 36~47), 3 (MIDI 48~108)
     float stringLength; ///< 振动弦长 L (米, 1.92m -> 0.09m)
     float b1; ///< 频率无关阻尼常数 (0.25 -> 9.17 s^-1)
     float b2; ///< 内部摩擦高阶损耗 (7.5e-5 -> 2.1e-3 s)
     double inharmonicityB;
     float strikePosRatio; ///< 击弦比 d/L (低音 0.125 -> 极高音 0.0625)
-    float tcBase; ///< 基础接触时间 (3.0ms -> 0.6ms)
+    float tcBase; ///< 基础接触时间 (低音 2.2ms -> 0.6ms)
     float decaySeconds; ///< τ_slow 基础慢衰减时间常数 (低音 4.8s -> 极高音 0.8s)
     float fastDecayRatio; ///< 快衰减比率 τ_fast / τ_slow (0.12 -> 0.18)
     float slowWeight; ///< 慢分量初始权重 (0.14 -> 0.22)
@@ -36,6 +36,27 @@ inline constexpr float kOptPhaseTable[64]
         0.2159f, 2.9470f, 3.6037f, 1.2411f, 3.0013f, 2.1811f, 4.8246f, 5.0224f, 3.2362f };
 
 //==============================================================================
+// 42-2 low-register partial budget. The bands avoid the old 36-to-14
+// cliff at MIDI 48; beatingPartials remains capped at 6 separately.
+[[nodiscard]] constexpr int pianoPartialCount(int midiNoteNumber) noexcept {
+    if (midiNoteNumber <= 35) {
+        return 36;
+    }
+    if (midiNoteNumber <= 47) {
+        return 28;
+    }
+    if (midiNoteNumber <= 59) {
+        return 18;
+    }
+    if (midiNoteNumber <= 71) {
+        return 14;
+    }
+    if (midiNoteNumber <= 95) {
+        return 8;
+    }
+    return 6;
+}
+
 namespace detail {
 
 // 线性插值辅助
@@ -94,16 +115,8 @@ inline PianoNoteParams computePianoNoteParams(int midiNoteNumber) noexcept {
         p.stringCount = 3; // 三弦 Trichord
     }
 
-    // 2. 激活分音数 (低音 20 -> 中音 14 -> 高音 8 -> 极高音 6)
-    if (midiNoteNumber < 48) {
-        p.partialCount = 20;
-    } else if (midiNoteNumber < 72) {
-        p.partialCount = 14;
-    } else if (midiNoteNumber < 96) {
-        p.partialCount = 8;
-    } else {
-        p.partialCount = 6;
-    }
+    // 2. 激活分音数 (42-2: 36/28/18/14/8/6 分段阶梯)
+    p.partialCount = pianoPartialCount(midiNoteNumber);
 
     // 3. 弦长 L 与阻尼 b1, b2 (Bensa et al. 2003 三点对数插值)
     constexpr float bensaMidi[3] = { 36.0f, 60.0f, 96.0f };
@@ -141,9 +154,9 @@ inline PianoNoteParams computePianoNoteParams(int midiNoteNumber) noexcept {
     constexpr float strikeRatios[4] = { 0.125f, 0.1333f, 0.100f, 0.0625f };
     p.strikePosRatio = pieceWiseInterp(midi, strikeMidi, strikeRatios, 4);
 
-    // 6. 基础接触时间 TcBase (3.0ms -> 0.6ms)
+    // 6. 基础接触时间 TcBase (42-2 low-end 2.2ms -> 1.8ms -> 0.6ms)
     constexpr float tcMidi[3] = { 36.0f, 60.0f, 96.0f };
-    constexpr float tcVals[3] = { 0.0030f, 0.0018f, 0.0006f };
+    constexpr float tcVals[3] = { 0.0022f, 0.0018f, 0.0006f };
     p.tcBase = logPieceWiseInterp(midi, tcMidi, tcVals, 3);
 
     // 7. 同音微失谐与拍频 (低音 0.0020 -> 中音 0.0015 -> 高音 0.0010 -> 极高音 0)

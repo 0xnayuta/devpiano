@@ -73,7 +73,7 @@ public:
         }
 
         const auto sr = sampleRate;
-        activePartials = start.requestedPartials;
+        activePartials = std::min(start.requestedPartials, maxPartials);
 
         // 39-A admission and budget: the highest detuned string of each
         // partial decides admission against the coherent ceiling, so every
@@ -307,10 +307,11 @@ public:
     }
 
 private:
-    static constexpr int maxPartials = 20;
+    static constexpr int maxPartials = 36;
     static constexpr double kMagicCircleEpsilonMax = 1.995;
     static constexpr double kCoherentBandRatio = 0.477485;
     static constexpr float silentLevelThreshold = 1e-4f;
+    static constexpr float kLowFrequencyRadiationCutoffHz = 70.0f;
 
     struct SpatialDiffusionEngine {
         float diffusionProgress = 1.0f;
@@ -445,8 +446,13 @@ private:
                                                   double partialFrequency, float tc,
                                                   float rolloffDelta = 0.0f) noexcept {
         const auto m = static_cast<float>(partialIndex + 1);
-        // 88 键音区基底幂次滚降: 低音 1.25 -> 高音 2.10 (保证低音丰富，高音突出基频)
-        const auto rolloff = 1.20f + 0.30f * keyPos + 1.20f * (keyPos * keyPos);
+        // 42-2 低音基底滚降：A0 端 0.90，keyPos >= 0.45 后保持现行 1.20 曲线；
+        // C3 过渡区随 smoothstep 缓慢回升，避免 MIDI 48 处产生新台阶。
+        const auto currentRolloff = 1.20f + 0.30f * keyPos + 1.20f * (keyPos * keyPos);
+        const auto bassT = std::clamp(keyPos / 0.45f, 0.0f, 1.0f);
+        const auto bassBlend = bassT * bassT * (3.0f - 2.0f * bassT);
+        const auto lowRolloff = 0.90f + 0.30f * keyPos + 1.20f * (keyPos * keyPos);
+        const auto rolloff = lowRolloff + (currentRolloff - lowRolloff) * bassBlend;
         const auto basePowerRollOff = 1.0f / std::pow(m, rolloff);
 
         // 琴槌毛毡非线性低通滤波: 截止频率 fc = 2.5 / Tc (Chaigne & Askenfelt 1994)。
@@ -485,11 +491,19 @@ private:
         return 0.7f + 0.3f * cosineMod;
     }
 
+    [[nodiscard]] static float lowFrequencyRadiationGain(double frequency) noexcept {
+        // 42-2: 一阶平滑辐射效率 f / sqrt(f^2 + f_rad^2)，无状态、无尾音。
+        const auto f = std::max(static_cast<float>(frequency), 1.0f);
+        const auto ratio = f / kLowFrequencyRadiationCutoffHz;
+        return ratio / std::sqrt(1.0f + ratio * ratio);
+    }
+
     [[nodiscard]] static float amplitudeFor(int partialIndex, float keyPos, float contactHardness, float strikingRatio,
                                             double partialFrequency, float tc, float rolloffDelta) noexcept {
         return strikeCombGain(partialIndex, strikingRatio)
             * hammerSpectrumGain(partialIndex, keyPos, contactHardness, partialFrequency, tc, rolloffDelta)
-            * hammerElasticModulation(partialFrequency, tc) * bridgeHillGain(partialFrequency);
+            * hammerElasticModulation(partialFrequency, tc) * bridgeHillGain(partialFrequency)
+            * lowFrequencyRadiationGain(partialFrequency);
     }
 
     [[nodiscard]] static float brightnessBoost(int partialIndex, float brightness, int partialCount) noexcept {
