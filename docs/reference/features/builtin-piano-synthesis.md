@@ -202,10 +202,11 @@ flowchart TD
      - 演奏者视角：88 键琴桥展开，低音居左、高音居右，近场宽广；
      - 听众视角：声像左右镜像翻转，并施加适度的高频空气吸收与中置凝聚感。
 
-5. **轻量数学算法房间混响网络（RoomReverbEngine）**：
-   - 内置纯数学算法立体声混响网络，基于 8 组互质延时反馈梳状滤波阵列与 4 级全通扩散矩阵（Schroeder-Moorer 架构演进），零外部采样依赖；
-   - 提供 **Studio（录音棚 0.6 s）**、**Chamber（室内乐厅 1.5 s）** 与 **Concert Hall（音乐厅 2.4 s）** 三大经典声学空间预设（C++ 枚举 `ReverbSpace::studio`、`chamber`、`concertHall`；文件持久化标识分别为 `studio`、`chamber`、`concert_hall`，旧别名 `hall` 不再映射，未知标识安全回退至 `chamber`），支持平滑干湿比（`reverbWet`）无级调节；
-   - **直通与抗下溢保护**：`RoomReverbEngine::processStereo()` 在目标与平滑后的当前 wet 均 `<= 1e-4` 时旁路混响 DSP，保留边界判断；实时入口启用 `juce::ScopedNoDenormals`，滤波器内部另有衰减归零保护。
+5. **立体声早期反射 + FDN 房间混响网络（RoomReverbEngine，Phase 44-1）**：
+   - 内置纯数学算法立体声混响网络：左右早期反射抽头（7.1/11.3/17.9/23.3 ms）保留琴桥空间定位，随后进入 4×4 归一化 Hadamard 反馈延迟网络；每条反馈支路带一阶频率相关阻尼，无外部 IR；
+   - 提供 **Studio（录音棚 0.6 s）**、**Chamber（室内乐厅 1.5 s）** 与 **Concert Hall（音乐厅 2.4 s）** 三大经典声学空间预设（C++ 枚举 `ReverbSpace::studio`、`chamber`、`concertHall`；文件持久化标识分别为 `studio`、`chamber`、`concert_hall`，旧别名 `hall` 不再映射，未知标识安全回退至 `chamber`）；48 kHz 相对 -60 dB 实测约 0.58/1.50/2.63 s；
+   - 干湿使用 `boundedSinCos` 等功率混合；`reverbWet=0` 精确直通；静音尾部门控清除低于 -80 dB 的残余状态，无 denormal/NaN；
+   - **直通与抗下溢保护**：`RoomReverbEngine::processStereo()` 在目标与平滑后的当前 wet 均 `<= 1e-4` 时旁路混响 DSP；实时入口启用 `juce::ScopedNoDenormals`，滤波器内部另有衰减归零保护。
 6. **动态声场空间漫射（Dynamic Spatial Diffusion）**：
    - 空间声相展开度（Stereo Spread）随时间连续演化：$t=0$ 起振瞬间聚焦于琴桥敲击点（点声源），并在 $25\text{ ms}$ 内经由音板共振与空气反射平滑漫射为整个琴腔的面声源包围场。
 
@@ -285,7 +286,7 @@ flowchart TD
 
 固定双层开启时 Piano 不随 `builtinTone=sine` 改成 Sine；它与当前单 VST3 消费同一最终 MIDI 身份，使用独立工作缓冲和有界采样延迟，层增益在一次公共 Reverb/Master 之前混合。层开关与配比随 Settings、预设和 Take 保存，不把钢琴逐键拉伸变成对插件的全局 Pitch Bend，详见 [双层渲染契约](plugin-offline-rendering.md)。
 
-设置的 `piano-style-combo` 提供 Standard / Bright / Warm / Intimate / Vintage，只批量提交实际声学字段，不覆盖 A4、律制、全局调号、键位、插件、音源类型或 Master。名称根据已保存声学值（含 `hammerVoicing`）重建，手动改动或不同整音配置显示 Custom，不另存易漂移的风格标签。它们是参数化取向，不是 Upright/Fortepiano 物理结构复刻；随演奏方案恢复须保存普通预设。启动仅用已选预设 UUID 恢复映射与身份，声学值恢复上次 Settings 工作副本；主动加载预设才应用其完整声学配置。
+设置的 `piano-style-combo` 提供 Standard / Bright / Warm / Intimate / Vintage / NY Steinway D Classical，只批量提交实际声学字段（含琴盖位置与 Room 空间/干湿），不覆盖 A4、律制、全局调号、键位、插件、音源类型或 Master。NY 风格使用独立的 pp 更暗、ff 更亮的非零 `HammerVoicing` 锚点与 Concert Hall 适度干湿；默认 Standard 仍为中性全零锚点且不改变默认发声。名称根据已保存声学值（含 `hammerVoicing` 与 Room 状态）重建，手动改动或不同整音配置显示 Custom，不另存易漂移的风格标签。它们是参数化取向，不是 Upright/Fortepiano 物理结构复刻；随演奏方案恢复须保存普通预设。启动仅用已选预设 UUID 恢复映射与身份，声学值恢复上次 Settings 工作副本；主动加载预设才应用其完整声学配置。
 
 ### 4.2 古典微调律制与基准音高（`TemperamentEngine`）
 
@@ -354,8 +355,9 @@ void setWholeBodyTuning(Temperament temperament, double referencePitchA4, bool s
 | **PedalAcousticsTest** | CC64 共鸣/机械动作；CC66 捕获边沿、重复高值、声部抢占、CC64/66 释放顺序与同采样逐通道隔离；跨区域 Sync Pedal 原目标释放 | [x] 已通过 |
 | **FeltAgeingTest** | 逐键扰动确定性与范围、老化前后的实际音频差异、引擎老化参数限幅；不以 getter 或测试侧公式重算证明音高行为 | [x] 已通过 |
 | **PerspectiveProcessorTest** | 演奏者/听众立体声像反转镜像、距离高频滚降、声像能量分布与无下溢数值收敛 | [x] 已通过 |
-| **RoomReverbEngineTest** | Studio/Chamber/Concert Hall（ReverbSpace::concertHall / 标识 concert_hall，回退未知字符串）三大空间衰减时间常数、干湿比线性缩放与旁路、长时静音衰减无下溢 denormal、跨采样率不变性；getter 与声明断言不作为逐采样 DSP/逐 bit 保证 | [x] 已通过 |
+| **RoomReverbEngineTest** | Studio/Chamber/Concert Hall 三档衰减时间常数、立体声早期反射/分离度、4×4 FDN 跨 44.1/48/96 kHz 衰减一致性、等功率干湿与旁路、长时静音衰减无下溢 denormal、标识回退；getter 与声明断言不作为逐采样 DSP/逐 bit 保证 | [x] 已通过 |
 | **SpatialAcousticsTest** | 空间声学设置与当前预设字段磁盘往返、损坏/越界输入限幅；声场与混响 DSP 行为由对应处理器套件验证；不以 getter 复制代替 DSP 保证 | [x] 已通过 |
+| **AcousticSettingsPersistenceTest** | Settings 声学字段钳制、PerformancePreset 声学 round-trip、NY 风格的 HammerVoicing/琴盖/Room 身份经预设保存加载后仍可识别、默认 Standard 中性不变 | [x] 已通过 |
 | **PianoSynthVoiceTemperamentTest** | 持续发声期间改律制/A4 后真实音频有限与稳定；A4 声音基准由实际谱峰回归验证，不复制 getter 公式 | [x] 已通过 |
 | **MechanicalAcousticsTest** | 机械噪声与毛毡老化设置存取、当前预设声学字段往返、极端参数下实际音频有限性、幅度与起音连续性；不以声明回声替代物理安全性 | [x] 已通过 |
 | **UnaCordaAcousticsTest** | CC 67 弱音/移位踏板物理声学响应、毛毡侧移软化、三弦敲两弦衰减、全链路控制器响应与回放动态踏板稳定性 | [x] 已通过 |

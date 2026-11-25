@@ -100,7 +100,7 @@ Performance Preset 的 New、Rename、Delete 保持在上方，Export、Import�
 2. **调号与通道跟随卡片（`makeKeySignatureSectionTree`）**：全局调号选择器、MIDI 移调开关以及采用 **JIVE CSS Grid（8 列 × 2 行）** 声明的 16 通道跟随开关（`followKeyArea` + 16 个 `follow-key-N` 复选框）；
 3. **键盘显示、分区与语言卡片（`makeKeyboardDisplaySectionTree`）**：颜色/音名/余晖、乐器过滤器、延音策略与语言；`partition-mode-combo` 选择本机布局，区域 A/B 配置通道、半音与八度，通道提示消费最终 ViewModel 并明确 Group 覆盖。预设恢复刷新音乐参数，不切换本机模式。
 4. **声学与调律卡片（`makeAcousticsSectionTree`）**：模块化滚动卡片，包含：
-   - **钢琴风格**（`piano-style-combo`）：Standard / Bright / Warm / Intimate / Vintage；根据实际参数识别，自定义值显示 Custom，不额外持久化名称；
+   - **钢琴风格**（`piano-style-combo`）：Standard / Bright / Warm / Intimate / Vintage / NY Steinway D Classical；根据实际参数（含琴盖与 Room 状态）识别，自定义值显示 Custom，不额外持久化名称；
    - **琴盖**（`lid-position-combo`）：Full Open / Half Stick / Closed；
    - **拉伸调律与 Duplex**（`stretch-tuning-toggle` / `duplex-resonance-slider`）：第一分音锚定的开关与 `[0,1]` 非发音段共鸣配比；
    - **触键曲线**（`touch-curve-combo`）：Standard / Light / Heavy / Wide Dynamic；

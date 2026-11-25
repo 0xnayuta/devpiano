@@ -28,7 +28,9 @@ public:
         testSettingsStoreAcousticRoundTrip();
         testSettingsStoreCorruptedBoundaryClamping();
         testPerformancePresetAcousticRoundTrip();
+        testPerformancePresetNyStyleRoundTrip();
         testPianoStyleIdentityIncludesHammerVoicing();
+        testNySteinwayStyleIdentityAndDefaultNeutrality();
         testKeyboardMidiMapperSoftPedalStateAndCallback();
     }
 
@@ -123,6 +125,53 @@ private:
         }
     }
 
+    void testPerformancePresetNyStyleRoundTrip() {
+        beginTest("PerformancePreset: NY style acoustic identity round-trip");
+        const auto* ny = devpiano::audio::getPianoStyleParameters(devpiano::audio::PianoStyle::nySteinwayDClassical);
+        expect(ny != nullptr, "NY style parameters must exist");
+        if (ny == nullptr) {
+            return;
+        }
+
+        devpiano::test::ScopedTempDir tempDir("ny-style-preset-rt");
+        const auto presetFile = tempDir.getChildFile("ny_style.devpiano.preset");
+        auto preset = makeDefaultPreset();
+        preset.uuid = "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e";
+        preset.name = "NY Style Round Trip";
+        preset.brightness = ny->brightness;
+        preset.hammerHardness = ny->hammerHardness;
+        preset.hammerVoicing = ny->hammerVoicing;
+        preset.resonance = ny->resonance;
+        preset.lidPosition = static_cast<SettingsModel::LidPosition>(ny->lidPosition);
+        preset.reverbSpace = static_cast<devpiano::audio::ReverbSpace>(ny->reverbSpace);
+        preset.reverbWet = ny->reverbWet;
+        preset.feltAgeingAmount = ny->feltAgeingAmount;
+        preset.stretchTuningEnabled = ny->stretchTuningEnabled;
+        preset.duplexResonance = ny->duplexResonance;
+
+        expect(savePreset(preset, presetFile), "NY style preset should save");
+        const auto loadedOpt = loadPreset(presetFile);
+        expect(loadedOpt.has_value(), "NY style preset should load");
+        if (loadedOpt.has_value()) {
+            const auto& loaded = *loadedOpt;
+            const devpiano::audio::PianoStyleParameters roundTripped {
+                .brightness = loaded.brightness,
+                .hammerHardness = loaded.hammerHardness,
+                .hammerVoicing = loaded.hammerVoicing,
+                .resonance = loaded.resonance,
+                .stretchTuningEnabled = loaded.stretchTuningEnabled,
+                .duplexResonance = loaded.duplexResonance,
+                .lidPosition = static_cast<std::uint8_t>(loaded.lidPosition),
+                .feltAgeingAmount = loaded.feltAgeingAmount,
+                .reverbSpace = static_cast<std::uint8_t>(loaded.reverbSpace),
+                .reverbWet = loaded.reverbWet,
+            };
+            expect(devpiano::audio::identifyPianoStyle(roundTripped)
+                       == devpiano::audio::PianoStyle::nySteinwayDClassical,
+                   "NY style identity must survive preset round-trip");
+        }
+    }
+
     void testPianoStyleIdentityIncludesHammerVoicing() {
         beginTest("PianoStyle: voicing calibration participates in Custom detection");
         devpiano::audio::PianoStyleParameters params;
@@ -131,6 +180,22 @@ private:
         params.hammerVoicing.anchors[1].loudnessDeltaDb += 0.5f;
         expect(devpiano::audio::identifyPianoStyle(params) == devpiano::audio::PianoStyle::custom,
                "a changed voicing anchor must identify as Custom");
+    }
+
+    void testNySteinwayStyleIdentityAndDefaultNeutrality() {
+        beginTest("PianoStyle: NY Steinway D Classical includes voicing and room state");
+        const auto* ny = devpiano::audio::getPianoStyleParameters(devpiano::audio::PianoStyle::nySteinwayDClassical);
+        expect(ny != nullptr, "NY Steinway D Classical style must exist");
+        if (ny == nullptr) {
+            return;
+        }
+
+        expect(ny->reverbSpace == 2 && ny->reverbWet > 0.0f, "NY style must carry a non-zero room state");
+        expect(devpiano::audio::identifyPianoStyle(*ny) == devpiano::audio::PianoStyle::nySteinwayDClassical,
+               "NY style parameters must identify as the NY style");
+        expect(devpiano::audio::identifyPianoStyle(devpiano::audio::PianoStyleParameters {})
+                   == devpiano::audio::PianoStyle::standard,
+               "default neutral parameters must remain Standard");
     }
 
     void testKeyboardMidiMapperSoftPedalStateAndCallback() {

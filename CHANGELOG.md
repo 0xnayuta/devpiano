@@ -22,6 +22,8 @@
 
 - **Room Reverb Stereo Early Reflections and FDN** — replace the mono-input 8-comb/4-allpass Schroeder-Moorer room with stereo early-reflection taps (7.1/11.3/17.9/23.3 ms) and a 4x4 normalized Hadamard feedback delay network with per-branch one-pole damping. Delay and tap lengths scale with sample rate; the dry/wet mix uses boundedSinCos constant-power gains and exact wet=0 bypass. Measured 48 kHz relative -60 dB tails are about 0.58/1.50/2.63 s for Studio/Chamber/Concert Hall, the left-only impulse retains a non-zero right reflection with correlation near zero, and the silence gate reaches exact zero without denormals.
 
+- **NY Steinway D Classical Style** — add a parameterized style with a non-zero three-anchor HammerVoicing (pp darker, ff brighter), full-open lid, and Concert Hall at 0.18 wet. The calibrated C4 HF power at v41/70/98 is -61.85/-39.91/-29.69 dB versus the reference observation of -60.04/-40.73/-28.24 dB; the measured v41-to-v98 span is 32.16 dB versus 31.8 dB. Sixteen representative keys at v70 span 0.955 LUFS, v98 true peak is 0.235 with no limiter hits, and Standard remains the neutral default. Style identity now includes reverb space/wet so manual room changes show Custom.
+
 ### Fixed
 
 - **Keyboard Playback During Window Move/Resize** — poll physical key state from a dedicated 16 ms timer while the Windows native move/size modal loop is active. Windows dispatches no `WM_KEYDOWN`/`WM_KEYUP` inside that loop, so notes started during a drag were lost and keys released during a drag stayed held. The sizing poll uses the same identity-locked binding path, also covers the pedals and real-time modifier keys, reconciles once more when the loop ends, and works for both edge resizing and title-bar moving.
