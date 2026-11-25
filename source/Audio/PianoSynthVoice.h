@@ -245,8 +245,12 @@ public:
 
         const auto keyPos = setup.keyPos;
         const auto directPan = 0.15f + 0.70f * keyPos;
-        directLeftGain = (1.0f - directPan) * std::numbers::sqrt2_v<float>;
-        directRightGain = directPan * std::numbers::sqrt2_v<float>;
+        // 42-4: 等功率声像；中央 pan=0.5 仍为 0.7071，两端不再有 +1.73 dB 翘曲。
+        // boundedSinCos 在 startNote 一次计算，实时逐采样路径无库函数三角。
+        const auto panAngle = static_cast<double>(directPan) * devpiano::audio::dsp::kHalfPi;
+        const auto pan = devpiano::audio::dsp::boundedSinCos(panAngle);
+        directLeftGain = static_cast<float>(pan.cosVal);
+        directRightGain = static_cast<float>(pan.sinVal);
 
         const auto unaCordaMu = setup.unaCordaMu;
         const auto hammerHardness = setup.hammerHardness;
