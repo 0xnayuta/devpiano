@@ -16,7 +16,7 @@ devpiano 是一款基于 JUCE 的现代 C++ 电脑键盘钢琴应用，聚焦软
 - 旧配置系统 -> `ApplicationProperties` / `ValueTree` / 项目内状态模型。
 - 旧 fallback 简单发声 -> 覆盖 7 大声学子系统的自主研发增强物理建模钢琴音源（`PianoSynthVoice`）。
 
-**近期状态：内置钢琴音源结构整理（R0–R11）已完成并归档** [2026-10-23]；Phase 39 已冻结并归档（Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过）；**Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）已完成**（用户人工表面验收无明显问题，Windows Debug 构建、默认 CTest 与增量 clang-tidy 通过）；**最近维护任务 E3 已完成**：WAV 导出在 take 结束按身份补 NoteOff 与踏板 Off，不再自动 All Sound Off 截断；默认尾音 6.0 秒、可由 `WavExportOptions::tailSeconds` 配 0–30 秒，内置/插件/双层共享，当前 UI 使用默认值。Phase 40 证据已采集，Phase 41 已完成；Phase 42 Step 42-1a/1b、3a/3b、42-2、42-4 已完成，Step 42-5 与 Phase 43/44 尚未启动，启动须由用户明确决定。R0–R11 历史见 [结构整理归档](../archive/r0-r11-physical-piano-source-refactor.md)，Phase 39 历史见 [声学基线归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)；Phase 39.5 的任务拆分、实施与验证记录见 [Phase 39.5 归档](../archive/phase39-5-jive-core-pruning-and-v2-selective-port.md)。
+**近期状态：内置钢琴音源结构整理（R0–R11）已完成并归档** [2026-10-23]；Phase 39 已冻结并归档（Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过）；**Phase 39.5（JIVE 内核精简与 JIVE v2 精准移植）已完成**（用户人工表面验收无明显问题，Windows Debug 构建、默认 CTest 与增量 clang-tidy 通过）；**最近维护任务 E3 已完成**：WAV 导出在 take 结束按身份补 NoteOff 与踏板 Off，不再自动 All Sound Off 截断；默认尾音 6.0 秒、可由 `WavExportOptions::tailSeconds` 配 0–30 秒，内置/插件/双层共享，当前 UI 使用默认值。Phase 40 证据已采集，Phase 41 已完成；Phase 42 客观验收已完成（2026-11-25，待用户人工试听签收）；Phase 43/44 尚未启动，启动须由用户明确决定。R0–R11 历史见 [结构整理归档](../archive/r0-r11-physical-piano-source-refactor.md)，Phase 39 历史见 [声学基线归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)；Phase 39.5 的任务拆分、实施与验证记录见 [Phase 39.5 归档](../archive/phase39-5-jive-core-pruning-and-v2-selective-port.md)。
 
 **最近软件交付：Phase 38 电脑键盘分区、三踏板与固定双层** [软件交付完成，2026-10-10]；Phase 37 [已完成，2026-10-08]。原任务、直接消费者、失败记录和后续修复归属见 [Phase 37/38 完成归档](../archive/phase37-38-piano-calibration-and-keyboard-performance.md)。CPU SLA 与商业厂商/物理硬件补验不由 Debug 门禁或本次归档认证；Phase 36 归档与 AUDIT-004 实机边界保持独立。
 
@@ -384,7 +384,7 @@ Phase 35 原计划与完成勾选见 [完成计划归档](../archive/phase35-key
 
 Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失败候选、直接验收、依赖排期与证据边界已归档到 [Phase 39 历史归档](../archive/phase39-acoustic-baseline-and-voicing-calibration.md)。结论保持：Task 39-2 的外部参考直接验收仍为 **inconclusive**，Phase 39 不记为通过；已消费的资格、采集和判决不重放、不补批或放宽。后续外部参考校准须另立任务，现行行为以 [内置音源](../reference/features/builtin-piano-synthesis.md) 为准。
 
-> **规划复审（2026-11-24）**：Phase 40–44 已按当前 HEAD 的代码事实、R0–R11 结构整理结果和用户对音区响度/低高音真实感的反馈重新规划。旧 Phase 40–42 的同音弦耦合、音板频变阻抗、能量驱动张力非线性研究性方向不再作为当前阶段入口，转入“近期不排期”。Phase 40 已采集证据，Phase 41 已完成，Phase 42 Step 42-1a/1b、3a/3b、42-2、42-4 已完成；Step 42-5 与 Phase 43/44 尚未启动，启动须由用户明确决定；不得因 Phase 39.5、R0–R11 归档、构建通过或时间推移自动启动。
+> **规划复审（2026-11-24）**：Phase 40–44 已按当前 HEAD 的代码事实、R0–R11 结构整理结果和用户对音区响度/低高音真实感的反馈重新规划。旧 Phase 40–42 的同音弦耦合、音板频变阻抗、能量驱动张力非线性研究性方向不再作为当前阶段入口，转入“近期不排期”。Phase 40 已采集证据，Phase 41 已完成，Phase 42 客观验收已完成（2026-11-25，待用户人工试听签收）；Phase 43/44 尚未启动，启动须由用户明确决定；不得因 Phase 39.5、R0–R11 归档、构建通过或时间推移自动启动。
 
 ### Phase 39.5:JIVE 内核精简与 JIVE v2 精准移植 [已完成 2026-10-23]
 
@@ -425,7 +425,7 @@ Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失
 
 **状态（2026-11-24）**：已完成。`MIDI > 88` 松键跳过 ADSR release，保留木质回弹并自然衰减至 `allPartialsSilent()`；`allowTailOff=false` 保持立即重置。琴盖抽头按 48 kHz 时间常量换算，48 kHz 精确落回 `141/344/507`，延迟线上限 2048 覆盖 192 kHz；`PianoPedalAcoustics` 改为堆持有以保持 `AudioEngine` 内联占位稳定。删除死字段/无消费者辅助函数并迁移测试。Windows Debug app/tests、默认 CTest 通过；抽头测试覆盖 44.1/48/96/192 kHz；48 kHz 21–88 键 held-note WAV 与 Phase 40 基线 SHA-256 逐文件一致。
 
-### Phase 42：低/高音频谱重塑与音区响度重标定 [Step 42-1a/1b、3a/3b、42-2、42-4 已完成 2026-11-25；Step 42-5 待启动]
+### Phase 42：低/高音频谱重塑与音区响度重标定 [客观验收完成 2026-11-25；待用户人工试听签收；Phase 43/44 未启动]
 
 目标：在 Phase 40 基线上修复低音“频谱贫困”、高音“音板/基频被压”、音区曲线“峰值校准/微笑曲线”、`unisonScale` 全音域放大（C3/C4 约 +18.45/+14.56 dB）与声像翘曲；以 K 计权短期响度 + True Peak 重标定 `PianoRegisterVoicing`。以下 1a/1b/2–5 分步 A/B，不把多个机制合并进同一提交。
 
@@ -438,7 +438,7 @@ Phase 39 的输入事实、Task 39-1/39-A/39-2/39-3/39-4/39-5 实施记录、失
 
 进入条件：Phase 40 基线 + Phase 41 低风险修复完成；用户批准。出口：1a/1b/2/3/4/5 各自 A/B 与 Phase 40 同协议复测、Windows Debug 实机试听（低/中/中高/高、和弦、踏板）与全键频谱证据；1b 必须新基线且不与音区曲线同提交；不以更响当音色改善；实时/离线一致。边界：不启动共享总线、不升级 RoomReverb、不改复音数。
 
-**状态（2026-11-24）**：Step 42-1a（`ef2c6d3`）与 Step 42-1b 已完成。1a 将 hammer/damper 从 `unisonScale`/`noteOutputGain` 解耦；机械点击内部降低约 20 dB，但 WAV 边界由弦体主导，1a 单独未改变 35/36、47/48。1b 改为同分音同相 + 固定 `1/N` 平均弦数尺度，退役 `gUnisonExcitation`/`unisonWindowPower`/`unisonScale` 及 `kOptPhaseTable` 第 1/2 行；新基线全键 v70 K 计权范围 `-33.65…-25.58 LUFS`（8.07 dB），35/36 `-0.09/-0.16 dB`、47/48 `-0.64/-0.51 dB`，C3/C4 后窗/前窗 `-19.28/-18.91 dB`，无 softSaturate/limiter。96–108 旁路 LidAcoustics 对照：正常最大相邻 LUFS 2.52 dB，旁路 0.12 dB，确认高音锯齿由固定三抽头琴盖引起。Step 42-3a 已完成：2 级串联 Schroeder 全通扩散器替代三抽头梳状，96–108 最大相邻 LUFS 降至 0.12 dB，全键 v70 范围降至 6.997 dB，35/36、47/48、71/72 边界未退化；`fullOpen/halfStick/closed` 均值 `-29.24/-30.63/-34.09 LUFS`。Step 42-3b 已完成：hammer 截止下限 `max(2.5/Tc, (1.8 + 2.6 h_contact^2) f1)` 使 C7/C8 `feltFilter(f1)` 在 v41/70/98 恢复为 `0.773/0.794/0.820` 且单调，湿音板低通 4.2→8 kHz；96–108 最大相邻 LUFS 0.17 dB，全键 v70 范围 7.03 dB，无 limiter/soft-clamp。Step 42-2 已完成：`maxPartials` 36，低音分音预算 36/28/18/14/8/6，低频辐射 `f/sqrt(f^2+70^2)`，A0 滚降 1.20→0.90 并在 keyPos 0.45 平滑回到现行，低音 `tcBase` 3.0→2.2 ms；全键 v70 范围 5.75 dB，35/36、47/48、59/60、71/72 边界 ≤0.68 dB，96–108 0.17 dB；8 复音标准序列 2.51 ms/block 平均、6.42 ms 最大，低音压力 3.40/8.42 ms（Debug）。Step 42-4 已完成：线性 `sqrt2` 声像改为等功率 `cos/sin`，中央 0.7071 不变，A0/C1/C8 分别降低 1.68/1.48/1.74 dB；L1/L2 对照保留 L1（L2 True Peak 0.98、892 次 limiter；L1 0.383、0 次）。Step 42-5 尚未启动。
+**状态（2026-11-24）**：Step 42-1a（`ef2c6d3`）与 Step 42-1b 已完成。1a 将 hammer/damper 从 `unisonScale`/`noteOutputGain` 解耦；机械点击内部降低约 20 dB，但 WAV 边界由弦体主导，1a 单独未改变 35/36、47/48。1b 改为同分音同相 + 固定 `1/N` 平均弦数尺度，退役 `gUnisonExcitation`/`unisonWindowPower`/`unisonScale` 及 `kOptPhaseTable` 第 1/2 行；新基线全键 v70 K 计权范围 `-33.65…-25.58 LUFS`（8.07 dB），35/36 `-0.09/-0.16 dB`、47/48 `-0.64/-0.51 dB`，C3/C4 后窗/前窗 `-19.28/-18.91 dB`，无 softSaturate/limiter。96–108 旁路 LidAcoustics 对照：正常最大相邻 LUFS 2.52 dB，旁路 0.12 dB，确认高音锯齿由固定三抽头琴盖引起。Step 42-3a 已完成：2 级串联 Schroeder 全通扩散器替代三抽头梳状，96–108 最大相邻 LUFS 降至 0.12 dB，全键 v70 范围降至 6.997 dB，35/36、47/48、71/72 边界未退化；`fullOpen/halfStick/closed` 均值 `-29.24/-30.63/-34.09 LUFS`。Step 42-3b 已完成：hammer 截止下限 `max(2.5/Tc, (1.8 + 2.6 h_contact^2) f1)` 使 C7/C8 `feltFilter(f1)` 在 v41/70/98 恢复为 `0.773/0.794/0.820` 且单调，湿音板低通 4.2→8 kHz；96–108 最大相邻 LUFS 0.17 dB，全键 v70 范围 7.03 dB，无 limiter/soft-clamp。Step 42-2 已完成：`maxPartials` 36，低音分音预算 36/28/18/14/8/6，低频辐射 `f/sqrt(f^2+70^2)`，A0 滚降 1.20→0.90 并在 keyPos 0.45 平滑回到现行，低音 `tcBase` 3.0→2.2 ms；全键 v70 范围 5.75 dB，35/36、47/48、59/60、71/72 边界 ≤0.68 dB，96–108 0.17 dB；8 复音标准序列 2.51 ms/block 平均、6.42 ms 最大，低音压力 3.40/8.42 ms（Debug）。Step 42-4 已完成：线性 `sqrt2` 声像改为等功率 `cos/sin`，中央 0.7071 不变，A0/C1/C8 分别降低 1.68/1.48/1.74 dB；L1/L2 对照保留 L1（L2 True Peak 0.98、892 次 limiter；L1 0.383、0 次）。Step 42-5 已完成：8 锚点重标定为 `+5.8/+3.0/+1.2/0/+0.2/-0.2/-3.0/-2.5 dB`；全键 v70 极差 0.619 dB，C2–C7 0.541 dB，87 个相邻半音最大 0.210 dB，96–108 0.112 dB，16 代表键 v41/70/98 极差 0.622/0.570/0.544 dB；最大 True Peak 0.236，无 softSaturate/limiter。Phase 42 客观验收完成，待用户人工试听签收；Phase 43/44 未启动。
 
 ### Phase 43：整琴共享声学总线收敛 [尚未启动；启动须用户明确决定]
 

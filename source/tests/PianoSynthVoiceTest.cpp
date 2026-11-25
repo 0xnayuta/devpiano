@@ -231,11 +231,11 @@ private:
         const auto high = devpiano::audio::pianoRegisterLoudnessGain(108);
 
         expectWithinAbsoluteError(mid, 1.0f, 1e-6f, "C4 is the neutral register anchor");
-        expectGreaterThan(low, 1.0f, "A0 receives low-register loudness lift");
-        expectGreaterThan(c3, 1.0f, "C3 receives a small low-mid lift");
-        expectWithinAbsoluteError(c5, 1.0f, 1e-6f, "C5 is neutral in the experimental curve");
-        expectWithinAbsoluteError(c6, 1.0f, 1e-6f, "C6 is neutral in the experimental curve");
-        expectLessThan(high, 1.0f, "C8 receives high-register attenuation");
+        expectGreaterThan(low, c3, "A0 keeps more low-register lift than C3");
+        expectGreaterThan(c3, mid, "C3 keeps a small low-mid lift");
+        expectGreaterThan(c5, 1.0f, "C5 keeps a small calibrated lift");
+        expectLessThan(c6, 1.0f, "C6 keeps a small calibrated cut");
+        expectLessThan(high, c6, "C8 receives the strongest high-register attenuation");
 
         expectWithinAbsoluteError(devpiano::audio::pianoRegisterLoudnessGain(19),
                                   devpiano::audio::pianoRegisterLoudnessGain(21), 1e-6f,
@@ -259,7 +259,8 @@ private:
             + midBuffer.getRMSLevel(1, 0, midBuffer.getNumSamples());
         const auto highEnergy = highBuffer.getRMSLevel(0, 0, highBuffer.getNumSamples())
             + highBuffer.getRMSLevel(1, 0, highBuffer.getNumSamples());
-        expect(lowEnergy > midEnergy * 1.15f, "rendered A0 must receive the low-register lift");
+        expect(lowEnergy > midEnergy * 0.5f && lowEnergy < midEnergy * 1.5f,
+               "calibrated A0 stays in the same broad level band as C4");
         expect(highEnergy < midEnergy, "rendered C7 must receive the high-register attenuation");
     }
 

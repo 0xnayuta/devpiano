@@ -14,6 +14,8 @@
 
 - **Piano Equal-Power Stereo Pan** — replace the linear `sqrt2` pan gains with equal-power `cos/sin` of `directPan * pi/2`, computed once in `startNote` through `boundedSinCos`. The center stays at 0.7071 and the A0/C8 endpoints lose the old +1.73 dB power bulge (A0 -1.68 dB, C1 -1.48 dB, C8 -1.74 dB at v70). A small L1/L2 comparison retained L1: L2 raised LUFS by up to 10.9 dB, reached True Peak 0.98 and produced 892 limiter hits; L1 + equal-power stays at True Peak 0.383 with no limiter hits. The existing anchors are intentionally left for the following 42-5 recalibration.
 
+- **Piano Register Voicing Recalibration** — recompute the eight K-weighted register anchors from the 42-4 88-key baseline to `+5.8/+3.0/+1.2/0.0/+0.2/-0.2/-3.0/-2.5 dB` at A0/C2/C3/C4/C5/C6/C7/C8. Final 42-5 objective acceptance: full-key v70 range 0.619 dB, C2–C7 core range 0.541 dB, all 87 adjacent semitones within 0.210 dB, 96–108 within 0.112 dB, 16 representative keys at v41/70/98 within 0.622/0.570/0.544 dB, True Peak 0.236 and zero soft-saturation/limiter hits. Phase 42 objective acceptance is complete and awaits user listening sign-off.
+
 ### Fixed
 
 - **Keyboard Playback During Window Move/Resize** — poll physical key state from a dedicated 16 ms timer while the Windows native move/size modal loop is active. Windows dispatches no `WM_KEYDOWN`/`WM_KEYUP` inside that loop, so notes started during a drag were lost and keys released during a drag stayed held. The sizing poll uses the same identity-locked binding path, also covers the pedals and real-time modifier keys, reconciles once more when the loop ends, and works for both edge resizing and title-bar moving.

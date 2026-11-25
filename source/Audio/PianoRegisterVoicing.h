@@ -9,20 +9,21 @@ namespace devpiano::audio {
 
 /// 连续音区整音锚点。锚点只表达声部输出级的相对响度，不改变弦列、调律、
 /// 分音权重或力度响应。锚点之间使用 dB 线性插值，避免逐键增益表和音区硬切。
+/// 42-5 依据 42-4 全 88 键 K 计权短期响度重新标定。
 struct PianoRegisterVoicingAnchor {
     int midiNote;
     float loudnessDeltaDb;
 };
 
 inline constexpr std::array<PianoRegisterVoicingAnchor, 8> kCalibratedPianoRegisterVoicing { {
-    { 21, 10.0f },
-    { 36, 8.0f },
-    { 48, 1.0f },
+    { 21, 5.8f },
+    { 36, 3.0f },
+    { 48, 1.2f },
     { 60, 0.0f },
-    { 72, 0.0f },
-    { 84, 0.0f },
+    { 72, 0.2f },
+    { 84, -0.2f },
     { 96, -3.0f },
-    { 108, -4.0f },
+    { 108, -2.5f },
 } };
 
 /// 返回 MIDI 音高的连续线性 dB 增益。该曲线是工程整音值，不是实琴逐键测量，
