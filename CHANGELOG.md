@@ -20,6 +20,8 @@
 
 - **Piano 12-Voice Polyphony** — raise realtime and offline Piano voice counts from 8 to 12 while Sine keeps its existing configuration. The same 32-NoteOn dense sequence now reaches 12 active voices and reduces steals from 24 to 20; MSVC Debug standard timing is 2.37/6.71 ms average/max and the low-bass stress is 3.11/7.83 ms. A 16-voice probe reached 9.73 ms maximum on the low-bass stress (about 91% of the 10.67 ms block period), so it was not adopted. Tests and docs now use the 12-voice configuration.
 
+- **Room Reverb Stereo Early Reflections and FDN** — replace the mono-input 8-comb/4-allpass Schroeder-Moorer room with stereo early-reflection taps (7.1/11.3/17.9/23.3 ms) and a 4x4 normalized Hadamard feedback delay network with per-branch one-pole damping. Delay and tap lengths scale with sample rate; the dry/wet mix uses boundedSinCos constant-power gains and exact wet=0 bypass. Measured 48 kHz relative -60 dB tails are about 0.58/1.50/2.63 s for Studio/Chamber/Concert Hall, the left-only impulse retains a non-zero right reflection with correlation near zero, and the silence gate reaches exact zero without denormals.
+
 ### Fixed
 
 - **Keyboard Playback During Window Move/Resize** — poll physical key state from a dedicated 16 ms timer while the Windows native move/size modal loop is active. Windows dispatches no `WM_KEYDOWN`/`WM_KEYUP` inside that loop, so notes started during a drag were lost and keys released during a drag stayed held. The sizing poll uses the same identity-locked binding path, also covers the pedals and real-time modifier keys, reconciles once more when the loop ends, and works for both edge resizing and title-bar moving.

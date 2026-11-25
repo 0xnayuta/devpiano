@@ -33,7 +33,7 @@ Phase 40–44 是 2026-11-24 复审后的当前规划，替代旧 Phase 40–42 
 
 ### Phase 44：空间、参考音色与细节收敛
 
-在 Phase 42/43 稳定后升级 RoomReverb 为立体声输入 + 早期反射 + FDN/频率相关阻尼与等功率干湿；新增“NY Steinway D Classical”风格预设（当前内核重新校准的非零 `HammerVoicing`，默认中性不变）；木质琴槌冲击/纵波先驱/高音残余失谐逐项试听。不改变核心拓扑，不声称与 Pianoteq 微观实现一致。
+在 Phase 42/43 稳定后升级 RoomReverb 为立体声输入 + 早期反射 + FDN/频率相关阻尼与等功率干湿；新增“NY Steinway D Classical”风格预设（当前内核重新校准的非零 `HammerVoicing`，默认中性不变）；木质琴槌冲击/纵波先驱/高音残余失谐逐项试听。不改变核心拓扑，不声称与 Pianoteq 微观实现一致。**状态（2026-11-25）**：44-1 RoomReverb 已完成；44-2 NY 风格待完成。
 
 ## 2. 恢复规则
 

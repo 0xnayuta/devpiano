@@ -25,6 +25,7 @@ public:
         testWetLevelBypassAndScaling();
         testNumericalSafetyAndDenormalFlushing();
         testSampleRateInvariance();
+        testStereoReflectionsAndCrossRateDecay();
         testAudioEngineIntegration();
         testMonoKeepsStereoRoomWet();
         testIdentifierRoundTrip();
@@ -201,6 +202,79 @@ private:
             expect(!std::isnan(l[0]) && !std::isinf(l[0]));
             expect(!std::isnan(r[0]) && !std::isinf(r[0]));
         }
+    }
+
+    void testStereoReflectionsAndCrossRateDecay() {
+        beginTest("RoomReverbEngine: stereo early reflections and cross-rate decay");
+
+        using namespace devpiano::audio;
+
+        const auto measureDecaySeconds = [](double sampleRate, ReverbSpace space) {
+            RoomReverbEngine reverb;
+            reverb.prepare(sampleRate);
+            reverb.setSpace(space);
+            reverb.setWetLevel(1.0f, true);
+            std::vector<float> impulseL(2048, 0.0f);
+            std::vector<float> impulseR(2048, 0.0f);
+            impulseL[0] = 1.0f;
+            impulseR[0] = 0.0f;
+            reverb.processStereo(impulseL.data(), impulseR.data(), 2048);
+            auto referencePeak = 0.0f;
+            for (auto sample = 0; sample < 2048; ++sample) {
+                referencePeak = std::max(referencePeak, std::abs(impulseL[sample]));
+                referencePeak = std::max(referencePeak, std::abs(impulseR[sample]));
+            }
+            const auto threshold = std::max(1.0e-6f, referencePeak * 1.0e-3f);
+            constexpr int blockSize = 512;
+            std::vector<float> silentL(blockSize, 0.0f);
+            std::vector<float> silentR(blockSize, 0.0f);
+            auto total = 2048;
+            auto lastAudible = 0;
+            for (auto block = 0; block < 600; ++block) {
+                std::fill(silentL.begin(), silentL.end(), 0.0f);
+                std::fill(silentR.begin(), silentR.end(), 0.0f);
+                reverb.processStereo(silentL.data(), silentR.data(), blockSize);
+                total += blockSize;
+                auto peak = 0.0f;
+                for (auto sample = 0; sample < blockSize; ++sample) {
+                    peak = std::max(peak, std::abs(silentL[sample]));
+                    peak = std::max(peak, std::abs(silentR[sample]));
+                }
+                if (peak > threshold) {
+                    lastAudible = total;
+                }
+            }
+            return static_cast<double>(lastAudible) / sampleRate;
+        };
+
+        const auto decay44 = measureDecaySeconds(44100.0, ReverbSpace::chamber);
+        const auto decay48 = measureDecaySeconds(48000.0, ReverbSpace::chamber);
+        const auto decay96 = measureDecaySeconds(96000.0, ReverbSpace::chamber);
+        expect(decay44 > 0.3 && decay44 < 4.0, "chamber decay has a bounded time-domain length");
+        expectWithinAbsoluteError(decay48, decay44, std::max(0.35, 0.30 * decay44));
+        expectWithinAbsoluteError(decay96, decay44, std::max(0.35, 0.30 * decay44));
+
+        RoomReverbEngine reverb;
+        reverb.prepare(48000.0);
+        reverb.setSpace(ReverbSpace::chamber);
+        reverb.setWetLevel(1.0f, true);
+        std::vector<float> left(4096, 0.0f);
+        std::vector<float> right(4096, 0.0f);
+        left[0] = 1.0f;
+        reverb.processStereo(left.data(), right.data(), 4096);
+
+        auto leftEnergy = 0.0;
+        auto rightEnergy = 0.0;
+        auto correlation = 0.0;
+        for (auto sample = 0; sample < 4096; ++sample) {
+            leftEnergy += static_cast<double>(left[sample]) * left[sample];
+            rightEnergy += static_cast<double>(right[sample]) * right[sample];
+            correlation += static_cast<double>(left[sample]) * right[sample];
+        }
+        correlation /= std::sqrt(std::max(1.0e-20, leftEnergy * rightEnergy));
+        expectGreaterThan(leftEnergy, 1.0e-8, "left input produces room output");
+        expectGreaterThan(rightEnergy, 1.0e-10, "stereo room preserves a right-channel reflection path");
+        expect(std::abs(correlation) < 0.99, "stereo room does not collapse to a mono wet signal");
     }
 
     void testAudioEngineIntegration() {
