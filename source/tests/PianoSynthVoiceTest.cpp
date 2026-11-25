@@ -677,7 +677,7 @@ private:
                    "harder strike preserves substantially more high frequency partial energy");
         }
 
-        beginTest("attack transient crack and longitudinal mode tuning (Phase 23-D)");
+        beginTest("wood knock modes and longitudinal precursor tuning (Phase 44-3)");
         {
             devpiano::audio::HammerTransient softTransient;
             softTransient.trigger(kSampleRate, 72, 0.30f, 0.5f, 0.30f, 1.0f);
@@ -688,7 +688,22 @@ private:
             const auto s2 = loudTransient.getNextSample();
 
             expect(std::abs(s2) > std::abs(s1) * 3.0f,
-                   "loud strike attack crack produces much higher transient spike than soft strike");
+                   "loud strike wood knock produces much higher transient peak than soft strike");
+
+            devpiano::audio::HammerTransient lowWoodTransient;
+            lowWoodTransient.trigger(kSampleRate, 24, 0.85f, 0.5f, 1.50f, 1.0f);
+            devpiano::audio::HammerTransient highWoodTransient;
+            highWoodTransient.trigger(kSampleRate, 96, 0.85f, 0.5f, 0.30f, 1.0f);
+            expect(highWoodTransient.totalSamples < lowWoodTransient.totalSamples,
+                   "high-key wood knock is shorter than the low-key modal decay");
+            expect(lowWoodTransient.totalSamples >= static_cast<int>(0.004 * kSampleRate),
+                   "wood knock duration stays inside the 4-10 ms design band");
+            expect(highWoodTransient.totalSamples <= static_cast<int>(0.010 * kSampleRate),
+                   "wood knock duration stays inside the 4-10 ms design band");
+            for (std::size_t mode = 0; mode < lowWoodTransient.woodModes.size(); ++mode) {
+                expect(highWoodTransient.woodModes[mode].phaseInc > lowWoodTransient.woodModes[mode].phaseInc,
+                       "each wood mode scales upward with key position");
+            }
 
             devpiano::audio::HammerTransient bassLongTransient;
             bassLongTransient.trigger(kSampleRate, 30, 0.85f, 0.5f, 1.50f, 1.0f);
@@ -709,9 +724,23 @@ private:
                          "the precursor is absent at and above its documented boundary");
 
             for (auto i = 0; i < 900; ++i) {
-                [[maybe_unused]] const auto discarded = bassLongTransient.getNextSample();
+                [[maybe_unused]] const auto woodDiscarded = bassLongTransient.getNextSample();
+                [[maybe_unused]] const auto longDiscarded = bassLongTransient.getNextLongitudinalSample();
             }
-            expect(!bassLongTransient.isActive(), "longitudinal precursor mode cleanly decays within 20ms");
+            expect(!bassLongTransient.isActive(), "wood knock and longitudinal precursor cleanly decay within 20ms");
+        }
+
+        beginTest("high treble residual detune stays tiny and non-zero (Phase 44-3)");
+        {
+            for (auto midi = 100; midi <= 108; ++midi) {
+                const auto params = devpiano::audio::getNoteParams(midi);
+                expect(params.beatingDetuneRatio >= 0.00025f && params.beatingDetuneRatio <= 0.00035f,
+                       "MIDI " + juce::String(midi) + " keeps a sub-cent unison residual");
+                expectEquals(params.beatingPartials, 1,
+                             "the residual is a fundamental-only shimmer, not a full-triad level loss");
+            }
+            expect(devpiano::audio::getNoteParams(96).beatingDetuneRatio < 0.00025f,
+                   "96 keeps the previously approved high-treble detune trend");
         }
 
         beginTest("hammer contact audibly shapes the string onset (Phase 24-B)");

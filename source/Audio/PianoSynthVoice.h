@@ -259,10 +259,10 @@ public:
         mainString.start(stringStart);
 
         const auto hammerTransientVel = clampedVelocity * (1.0f - 0.35f * unaCordaMu);
-        // The hammer click and crack are additive mechanical transients, not
-        // part of the coherent string sum. Do not inherit the string unison
-        // phase-compensation gain; the mechanical register curve is applied
-        // to the full transient in renderToBus.
+        // The wood knock and longitudinal precursor are additive mechanical
+        // transients, not part of the coherent string sum. The precursor is
+        // routed separately into the shared body drive; do not inherit the
+        // string unison phase-compensation gain.
         hammerTransient.trigger(sampleRate, midiNoteNumber, hammerTransientVel, hammerHardness, params.stringLength,
                                 1.0f);
         hammerContactEngine.trigger(sampleRate, effectiveTc);
@@ -367,14 +367,16 @@ public:
 
             // Pre-scale mechanical transients so the shared string output gain
             // leaves their net level at mechanicalOutputGain.
-            const auto click = hammerTransient.getNextSample() * mechanicalPreGain;
+            const auto woodKnock = hammerTransient.getNextSample() * mechanicalPreGain;
+            const auto longitudinal = hammerTransient.getNextLongitudinalSample() * mechanicalPreGain * noteOutputGain
+                * kLongitudinalBodyDriveGain;
             const auto damperThump = damperTransient.getNextSample() * mechanicalPreGain;
             const auto stringSample = mainString.nextSample();
             const auto valueLeft = stringSample.left;
             const auto valueRight = stringSample.right;
             const auto contactMult = hammerContactEngine.getReleaseMultiplier();
-            const auto preSatLeft = valueLeft * contactMult * envelope + click + damperThump;
-            const auto preSatRight = valueRight * contactMult * envelope + click + damperThump;
+            const auto preSatLeft = valueLeft * contactMult * envelope + woodKnock + damperThump;
+            const auto preSatRight = valueRight * contactMult * envelope + woodKnock + damperThump;
             const auto rawLeft = softSaturate(preSatLeft);
             const auto rawRight = softSaturate(preSatRight);
             const auto rawMono = 0.5f * (rawLeft + rawRight);
@@ -388,7 +390,7 @@ public:
             const auto dryRight
                 = (duplexGain * (1.0f - wet) * rawRight * directRightGain + duplexMix * duplexOut * directRightGain)
                 * noteOutputGain;
-            const auto drive = rawMono * noteOutputGain * wet * duplexGain;
+            const auto drive = rawMono * noteOutputGain * wet * duplexGain + longitudinal;
             input.add(sampleIndex, dryLeft, dryRight, drive);
         }
 
@@ -601,6 +603,10 @@ private:
     float pianoFeltAgeingAmount = 0.0f;
 
 private:
+    // The longitudinal precursor is an independent bass excitation. Keep it
+    // inside the shared body/sympathetic drive instead of adding it to dry
+    // stereo; 0.65 keeps the isolated metallic ping subordinate to the board.
+    static constexpr float kLongitudinalBodyDriveGain = 0.65f;
     // Explicit test-only observation of private DSP/helper state. Production
     // callers use semantic setters/render and never write these fields.
     friend class ::PianoSynthVoiceTest;

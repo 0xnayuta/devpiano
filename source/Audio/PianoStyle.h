@@ -69,7 +69,7 @@ inline constexpr std::array<PianoStyleParameters, 6> pianoStyles { PianoStylePar
                                                                      .lidPosition = 0,
                                                                      .feltAgeingAmount = 0.0f,
                                                                      .reverbSpace = 2,
-                                                                     .reverbWet = 0.18f } };
+                                                                     .reverbWet = 0.09f } };
 
 [[nodiscard]] constexpr const PianoStyleParameters* getPianoStyleParameters(PianoStyle style) noexcept {
     const auto index = static_cast<std::size_t>(style);

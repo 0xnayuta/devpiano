@@ -79,15 +79,15 @@ flowchart TD
      $$S(m) = 0.06 + 0.94 \cdot \left| \sin\left( \frac{m \pi x_0}{L} \right) \right|$$
    - 物理抑制敲击点对应的第 7～9 阶非协和杂音。
 
-3. **3ms 起音瞬态裂音与碰撞核（Attack Transient Crack & Strike Click）**：
-   - 在击键最初 $3\text{ ms}$ 内注入与力度平方 $v^2$ 强耦合的高频瞬态裂音（HF Attack Crack）以及 $1.1\sim 4.5\text{ kHz}$ 毛毡撞击木核；
-   - 工程门控保持 $\text{Attack} \le 0.2\text{ ms}$；WAV 的 RMS 上升时间、琴槌接触时间与软件延迟分别量测，不用输出包络反推门控或接触求解器。
+3. **木质琴槌敲击模态与碰撞核（Wood Knock Modes）**：
+   - 击键最初 4～10 ms 使用 3 个受琴键位置调制的阻尼木质模态（约 1.6～5.4 kHz），高音区频率上移、时长缩短；不再注入 3 ms 无滤波白噪裂音或独立纯正弦双音。
+   - 三模态以查表正弦推进，模态频率/时长/幅度在 NoteOn 一次计算；实时逐采样路径无堆分配、无库函数三角。力度平方驱动幅度，琴键位置驱动频谱与时长；工程门控保持 $\text{Attack} \le 0.2\text{ ms}$。
 
 4. **琴槌接触微阻尼与脱离释放（Contact-Release Dynamics）**：
    - 在有效 $T_c$ 窗口内，主弦和采用逐采样从 0.55 到 1 的有界接触释放增益，随后保持自由振动增益 1。该状态在生产发声路径每个主弦样本推进一次；Strike Click、制音器和踏板机械瞬态不乘此增益。它是工程接触包络，不是已验证的粘滞接触力或完整非线性求解器。
 
 5. **机械瞬态独立增益（Mechanical Register Gain）**：
-   - 主木核、3 ms 裂音、纵波先驱与制音器落弦使用独立的浅音区增益 $0.95 \to 1.0$（A0 → C8），净机械电平不继承同音弦相位补偿（42-1b 已退役的 `unisonScale`），也不继承弦体 `PianoRegisterVoicing` 曲线；A0 的低音敲击与制音噪声不再被 `+10 dB` 弦体补偿顶重，C3/C4 的点击不再被该补偿放大。
+   - 主木核、三模态木质敲击、纵波先驱与制音器落弦使用独立的浅音区增益 $0.95 \to 1.0$（A0 → C8），净机械电平不继承同音弦相位补偿（42-1b 已退役的 `unisonScale`），也不继承弦体 `PianoRegisterVoicing` 曲线；纵波先驱只送入共享音板总线，不叠加到直达声。
 
 6. **琴槌毛毡微老化物理动力学（Felt Ageing Dynamics）**：
    - 引入连续老化参数 $A_{\text{felt}} \in [0, 1]$（`feltAgeingAmount`，默认 0.0 保留纯净基准）；
@@ -125,7 +125,7 @@ flowchart TD
 5. **低音钢弦纵向波先驱脉冲（Longitudinal Precursor Ping，Bank 2005/2010）**：
    - 钢弦内部纵向声速 $v_L = \sqrt{E/\rho} \approx 5100\text{ m/s}$，远快于横波传播速度；
    - 为低音琴键（MIDI 21～55）注入极速衰减（$15\text{ ms}$）的金属张力先导冲击，赋予低音真实的钢铁撞击张力；
-   - MIDI 48～55 使用 smoothstep 连续收尾，MIDI 56 起为零。纵波是独立生成的附加激励，不参与同音弦相干求和，也不继承弦体增益；该边界是工程整音值，不是实测纵向模态截止。
+   - 纵波激励不再叠加在直达声上，而是以 0.65 增益送入唯一的 `PianoWholeBodyBus` drive，经 16 峰音板、交感弦池、琴盖和视角处理；它不参与同音弦相干求和，也不继承弦体增益。MIDI 48～55 使用 smoothstep 连续收尾，MIDI 56 起为零；该边界是工程整音值，不是实测纵向模态截止。
 
 6. **泛音时间滞后膨胀与绽放（Harmonic Blooming）**：
    - 强奏时弦体非线性张力将能量持续泵浦至高阶分音；
@@ -224,12 +224,12 @@ flowchart TD
 | **刚度失谐系数** | `inharmonicityB`| $4.77 \times 10^{-5} \to 2.92 \times 10^{-2}$ | 控制泛音非谐波性金属质感（**17 个官方参考实测锚点**（21–84）：A1 处 $4.77 \times 10^{-5}$ 为全琴最小值，A0 $1.37 \times 10^{-4}$，D1 $6.87 \times 10^{-5}$，C4 $3.53 \times 10^{-4}$，C6 $3.16 \times 10^{-3}$；24–28 段实测剖面为 V 形（D1 最低）；84 以上按公开文献的高音桥标准斜率外推（ln B $0.0926$/键 = 每八度 3.04 倍；Young 1952 / Rigaud-David-Daudet 2013），96 为 $9.61 \times 10^{-3}$、C8 为 $2.92 \times 10^{-2}$；原 G#2 阶跃假设、4e-2/8.5e-2 保留上界均已由实测/文献否定；19 节点段间对数插值并已冻结） |
 | **击弦比** | `strikePosRatio` | $1/8 (0.125) \to 1/16 (0.0625)$ | 决定几何梳状陷波抑制点（低音 0.125，主琴桥折角 0.1333，高音 0.100，极高音 0.0625） |
 | **接触时间** | `tcBase` | 2.2 ms → 0.6 ms | 42-2 低音端由 3.0 ms 收紧至 2.2 ms，C4 以上保持 1.8 ms → 0.6 ms；控制琴槌冲击持续时间与动态截止点 |
-| **同音微失谐** | `beatingDetuneRatio` | 0.0020 → 0.0（相对频率） | 同分音所有弦同相起振；双弦各偏移半个比例，三弦低/中心/高各按完整比例；拍频分音上限由 `beatingPartials = min(partialCount, 6)` 约束；弦数能量使用固定 `1/N` 尺度，不再使用 `unisonScale`；cents 应由频率比取对数，不使用线性近似当物理证明 |
+| **同音微失谐** | `beatingDetuneRatio` | 0.0020 → 0.0（100 以下） / 0.00030（100–108） | 同分音所有弦同相起振；双弦各偏移半个比例，三弦低/中心/高各按完整比例。100–108 只对第一分音施加残余失谐，避免全三弦近相干平均造成音区电平损失；该残余模式使用 0.38 弦和尺度而非常规 1/3，仍不使用逐键补偿表；cents 应由频率比取对数，不使用线性近似当物理证明 |
 | **基础慢衰减** | `decaySeconds` | 4.8 s → 0.8 s | 决定琴弦慢分量自然延音长度 |
 | **快衰减比率** | `fastDecayRatio` | $0.12 \to 0.18$ | 琴弦早期辐射衰减速度与慢衰减之比 |
 | **阻尼常数** | `b1` / `b2` | $0.25 \to 9.17\text{ s}^{-1}$ / $7.5\times10^{-5} \to 2.1\times10^{-3}\text{ m}^2\text{s}^{-1}$ | 当前模型使用 $b_1+b_2(m\pi/L)^2$；这里只澄清量纲，不认证材料常数或改变数值 |
 
-> **离散分区与相位收敛**：`stringCount` 与 `partialCount` 仍为离散配置，拍频分音保持 `min(partialCount,6)`，不恢复 MIDI 96 硬切。同一分音的双弦/三弦在 $t=0$ 使用相同初相（`kOptPhaseTable` 仅保留跨分音色散），失谐自然产生拍频与 Mid-Side 展开；不再使用 `gUnisonExcitation` 的 80–100 相位收敛补丁或 `unisonScale`。弦数能量采用固定 `1/N` 平均尺度：$t=0$ 峰值保持单弦参考，稳态功率按 `1/N` 下降；该尺度由 35/36、47/48 交界审计选定，不作为逐键补偿表。振幅采用单音总预算，不逐分音加补偿。历史 U2 的台阶改善保留为局部结构证据，人工验收与默认整音切换记录见 [Phase 39 归档](../../archive/phase39-acoustic-baseline-and-voicing-calibration.md#task-39-5--39-3-用户受控试听反馈与音色验收重开记录2026-10-19)。
+> **离散分区与相位收敛**：`stringCount` 与 `partialCount` 仍为离散配置，拍频分音保持 `min(partialCount,6)`，不恢复 MIDI 96 硬切。同一分音的双弦/三弦在 $t=0$ 使用相同初相（`kOptPhaseTable` 仅保留跨分音色散），失谐自然产生拍频与 Mid-Side 展开；不再使用 `gUnisonExcitation` 的 80–100 相位收敛补丁或 `unisonScale`。弦数能量采用固定 `1/N` 平均尺度：$t=0$ 峰值保持单弦参考，稳态功率按 `1/N` 下降；该尺度由 35/36、47/48 交界审计选定，不作为逐键补偿表。Phase 44-3 的 100–108 残余模式仅对第一分音使用 0.38 尺度，避免近相干三弦平均导致顶端音区掉响。振幅采用单音总预算，不逐分音加补偿。历史 U2 的台阶改善保留为局部结构证据，人工验收与默认整音切换记录见 [Phase 39 归档](../../archive/phase39-acoustic-baseline-and-voicing-calibration.md#task-39-5--39-3-用户受控试听反馈与音色验收重开记录2026-10-19)。
 
 > **42-2 低音频谱重塑**：`maxPartials` 扩至 36，分音预算按 21–35/36–47/48–59/60–71/72–95/96–108 分为 36/28/18/14/8/6，拍频上限保持 6。分音权重乘一阶低频辐射效率 $R(f)=f/\sqrt{f^2+70^2}$（A0 约 -8.7 dB、C2 约 -3.3 dB、C3 约 -1.1 dB、C4 以上近 0 dB），无状态、无滤波器尾音。低音基底滚降由 A0 `0.90` 经 smoothstep 在 `keyPos=0.45` 回到现行 `1.20+0.30p+1.20p²`；`tcBase` 低音端 3.0→2.2 ms，使 v70 `fc_ham` 约 650–800 Hz。该步不改 `PianoRegisterVoicing` 锚点、不加逐键增益或隐藏 EQ。42-2 全键 v70 K 计权范围 5.75 dB；35/36、47/48、59/60、71/72 边界均 ≤0.68 dB；96–108 仍 0.17 dB。
 
@@ -286,7 +286,7 @@ flowchart TD
 
 固定双层开启时 Piano 不随 `builtinTone=sine` 改成 Sine；它与当前单 VST3 消费同一最终 MIDI 身份，使用独立工作缓冲和有界采样延迟，层增益在一次公共 Reverb/Master 之前混合。层开关与配比随 Settings、预设和 Take 保存，不把钢琴逐键拉伸变成对插件的全局 Pitch Bend，详见 [双层渲染契约](plugin-offline-rendering.md)。
 
-设置的 `piano-style-combo` 提供 Standard / Bright / Warm / Intimate / Vintage / NY Steinway D Classical，只批量提交实际声学字段（含琴盖位置与 Room 空间/干湿），不覆盖 A4、律制、全局调号、键位、插件、音源类型或 Master。NY 风格使用独立的 pp 更暗、ff 更亮的非零 `HammerVoicing` 锚点与 Concert Hall 适度干湿；默认 Standard 仍为中性全零锚点且不改变默认发声。名称根据已保存声学值（含 `hammerVoicing` 与 Room 状态）重建，手动改动或不同整音配置显示 Custom，不另存易漂移的风格标签。它们是参数化取向，不是 Upright/Fortepiano 物理结构复刻；随演奏方案恢复须保存普通预设。启动仅用已选预设 UUID 恢复映射与身份，声学值恢复上次 Settings 工作副本；主动加载预设才应用其完整声学配置。
+设置的 `piano-style-combo` 提供 Standard / Bright / Warm / Intimate / Vintage / NY Steinway D Classical，只批量提交实际声学字段（含琴盖位置与 Room 空间/干湿），不覆盖 A4、律制、全局调号、键位、插件、音源类型或 Master。NY 风格使用独立的 pp 更暗、ff 更亮的非零 `HammerVoicing` 锚点与 Concert Hall 9% 干湿（Phase 44-3 按 96–108 相邻响度阈值收敛，非隐藏 EQ）；默认 Standard 仍为中性全零锚点且不改变默认发声。名称根据已保存声学值（含 `hammerVoicing` 与 Room 状态）重建，手动改动或不同整音配置显示 Custom，不另存易漂移的风格标签。它们是参数化取向，不是 Upright/Fortepiano 物理结构复刻；随演奏方案恢复须保存普通预设。启动仅用已选预设 UUID 恢复映射与身份，声学值恢复上次 Settings 工作副本；主动加载预设才应用其完整声学配置。
 
 ### 4.2 古典微调律制与基准音高（`TemperamentEngine`）
 
@@ -346,7 +346,7 @@ void setWholeBodyTuning(Temperament temperament, double referencePitchA4, bool s
 
 | 测试套件 / 物理用例 | 验证物理机理与断言指标 | 状态 |
 |---|---|:---:|
-| **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、接触释放音频反例、生成分量振幅与同音频率中心、三力度锚点插值/非法配置/单一硬度路径及滚降差异、8 kHz 音板湿路径木质频带、完整 mono 下混及既有生命周期；不固定参数锚点声明值 | [x] 结构与测试通过（整体音色已由用户人工验收） |
+| **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、接触释放音频反例、生成分量振幅与同音频率中心、三力度锚点插值/非法配置/单一硬度路径及滚降差异、8 kHz 音板湿路径木质频带、44-3 木质三模态的键位/时长、纵波独立输出与 100–108 残余失谐边界、完整 mono 下混及既有生命周期；不固定参数锚点声明值 | [x] 已通过（整体音色由用户人工验收） |
 | **PianoTuningAndDuplexTest** | 实际 A4 中心峰、保留/剪枝边界的生产频谱、Duplex 尾音与分段不变性、原通道所有权、mono 尾音及低率越界旁路；默认整音下 C4 上方分音平衡与 95/96 三力度连续性 | [x] 已通过 |
 | **PianoSnapshotWavParityTest** | 非零混响、同采样快照/NoteOn、原身份释放及 mono 琴盖/视角/Room 的实时/内置 WAV 对照；误差限于 16-bit 量化 | [x] 已通过 |
 | **PianoWholeBodyBusTest** | 共享交感池跨音符开放弦激励、声部结束不截断音板/琴盖/视角尾音 | [x] 已通过 |

@@ -161,11 +161,22 @@ inline PianoNoteParams computePianoNoteParams(int midiNoteNumber) noexcept {
 
     // 7. 同音微失谐与拍频 (低音 0.0020 -> 中音 0.0015 -> 高音 0.0010 -> 极高音 0)
     // 多弦配置由 stringCount 决定；拍频分音使用统一上限 6，不再按 MIDI 音区硬切。
-    // 高音区 detune 连续降至 0 时，多弦自然等价为单弦，计算量由显式上限约束。
+    // Phase 44-3 adds a tiny residual only at MIDI 100-108. Keeping the old
+    // 80-to-100 interpolation for notes below 100 avoids changing the
+    // already-approved C7/C8 boundary; the residual is a disabled-string
+    // shimmer, not a pitch correction.
     constexpr float beatMidi[4] = { 36.0f, 60.0f, 80.0f, 100.0f };
     constexpr float beatRatios[4] = { 0.0020f, 0.0015f, 0.0010f, 0.0f };
     p.beatingDetuneRatio = pieceWiseInterp(midi, beatMidi, beatRatios, 4);
-    p.beatingPartials = std::min(p.partialCount, 6);
+    if (midi >= 100.0f) {
+        p.beatingDetuneRatio = 0.00030f;
+        // The undamped top octave has no damper and only six partials. Detuning
+        // every partial would make the near-coherent triad lose too much level;
+        // a fundamental-only residual keeps the shimmer without a register trim.
+        p.beatingPartials = 1;
+    } else {
+        p.beatingPartials = std::min(p.partialCount, 6);
+    }
 
     // 8. 双阶段衰减常数 (τ_slow 与 τ_fast 比率)
     constexpr float decayMidi[6] = { 21.0f, 36.0f, 60.0f, 80.0f, 100.0f, 108.0f };

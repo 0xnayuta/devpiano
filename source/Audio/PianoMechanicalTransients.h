@@ -5,6 +5,7 @@
 #include "PianoSourceLevels.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <juce_core/juce_core.h>
@@ -18,22 +19,22 @@ struct HammerTransient {
     static constexpr int longitudinalFadeStartMidi = 48;
     static constexpr int longitudinalEndMidi = 56;
 
+    // Three short, key-position-modulated wood knock modes. They replace the
+    // old unfiltered white-noise crack and pure dual-sine click; phase lookup
+    // is table-based, so the realtime path uses no library trig.
+    struct WoodMode {
+        float phase = 0.0f;
+        float phaseInc = 0.0f;
+        float amplitude = 0.0f;
+        float decayPerSample = 0.0f;
+    };
+    std::array<WoodMode, 3> woodModes {};
     int samplesRemaining = 0;
     int totalSamples = 0;
-    float amplitude = 0.0f;
-    float decayPerSample = 0.0f;
-    float oscPhase1 = 0.0f;
-    float phaseInc1 = 0.0f;
-    float oscPhase2 = 0.0f;
-    float phaseInc2 = 0.0f;
 
-    // 起音高频摩擦裂音 (Phase 23-D, Attack HF Crack, 0~3ms)
-    int crackSamplesRemaining = 0;
-    float crackAmplitude = 0.0f;
-    float crackDecayPerSample = 0.0f;
-    std::uint32_t crackRng = 0x5a5a5a5au;
-
-    // 低音纵波先驱声 (Phase 20-A / Phase 23-D, Longitudinal Precursor Ping)
+    // 低音纵波先驱声 (Phase 20-A / Phase 23-D / Phase 44-3).
+    // Kept separate from the wood transient so the voice can route it into
+    // the shared whole-body bus instead of the direct dry signal.
     int longSamplesRemaining = 0;
     float longAmplitude = 0.0f;
     float longDecayPerSample = 0.0f;
@@ -65,33 +66,33 @@ struct HammerTransient {
             return;
         }
         const auto sampleRate = static_cast<float>(sr);
-        const auto dur = juce::jlimit(0.0012f, 0.0030f, 0.0030f - static_cast<float>(midiNoteNumber) * 0.000015f);
+        const auto keyPos = std::clamp((static_cast<float>(midiNoteNumber) - 21.0f) / 87.0f, 0.0f, 1.0f);
+        const auto dur = juce::jlimit(0.004f, 0.010f, 0.010f - 0.004f * keyPos);
         totalSamples = juce::jmax(1, static_cast<int>(dur * sampleRate));
         samplesRemaining = totalSamples;
 
-        const auto nyquist = sampleRate * 0.480f;
-        const auto rawF1 = 1100.0f + static_cast<float>(midiNoteNumber) * 12.0f;
-        const auto rawF2 = 2600.0f + static_cast<float>(midiNoteNumber) * 18.0f;
-        const auto f1 = std::min(juce::jlimit(900.0f, 2200.0f, rawF1), nyquist);
-        const auto f2 = std::min(juce::jlimit(2200.0f, 4800.0f, rawF2), nyquist);
-        phaseInc1 = f1 / sampleRate;
-        phaseInc2 = f2 / sampleRate;
-        oscPhase1 = 0.0f;
-        oscPhase2 = 0.0f;
-
         const auto v = juce::jlimit(0.0f, 1.0f, velocity);
         const auto vLevel = (v * v) * (0.6f + 0.8f * hardness);
-        amplitude = peakLevelAtFullVelocity * hammerExcitationGain * 0.12f * vLevel;
-        decayPerSample = std::exp(-4.5f / static_cast<float>(totalSamples));
+        const auto woodBase = peakLevelAtFullVelocity * hammerExcitationGain * 0.12f * vLevel * (0.62f + 0.38f * keyPos)
+            * (1.0f + 0.16f * keyPos);
+        const auto nyquist = sampleRate * 0.480f;
 
-        // 起音 3ms 高频裂音 (Phase 23-D, Attack HF Crack, 消除起振延迟)
-        const auto keyPos = std::clamp((static_cast<float>(midiNoteNumber) - 21.0f) / 87.0f, 0.0f, 1.0f);
-        constexpr auto crackDur = 0.003f;
-        const auto crackTotal = juce::jmax(1, static_cast<int>(crackDur * sampleRate));
-        crackSamplesRemaining = crackTotal;
-        crackAmplitude = peakLevelAtFullVelocity * hammerExcitationGain * 0.02f * (v * v) * (0.20f + 0.80f * keyPos);
-        crackDecayPerSample = std::exp(-6.0f / static_cast<float>(crackTotal));
-        crackRng = static_cast<std::uint32_t>(midiNoteNumber) * 1664525u + 1013904223u;
+        // 1.6-5.4 kHz inharmonic wood modes: higher keys scale the modes
+        // upward; the three decays keep the knock short without a broadband
+        // impulse. Phase offsets avoid an all-zero first sample.
+        constexpr std::array<float, 3> woodBaseFrequencies { 1600.0f, 3100.0f, 4700.0f };
+        constexpr std::array<float, 3> woodKeySpan { 300.0f, 500.0f, 700.0f };
+        constexpr std::array<float, 3> woodWeights { 0.55f, 0.28f, 0.17f };
+        constexpr std::array<float, 3> woodPhaseOffsets { 0.0f, 0.27f, 0.58f };
+        for (std::size_t i = 0; i < woodModes.size(); ++i) {
+            const auto frequency = std::min(woodBaseFrequencies[i] + keyPos * woodKeySpan[i], nyquist);
+            const auto modeSeconds = dur * (1.0f - 0.18f * static_cast<float>(i));
+            auto& mode = woodModes[i];
+            mode.phase = woodPhaseOffsets[i];
+            mode.phaseInc = frequency / sampleRate;
+            mode.amplitude = woodBase * woodWeights[i];
+            mode.decayPerSample = std::exp(-5.0f / juce::jmax(1.0f, modeSeconds * sampleRate));
+        }
 
         // Hammer excitation is phase-compensated with the strings; this
         // independently generated precursor is not part of that coherent
@@ -123,26 +124,25 @@ struct HammerTransient {
         auto out = 0.0f;
         if (samplesRemaining > 0) {
             --samplesRemaining;
-            const auto s1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(oscPhase1);
-            const auto s2 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(oscPhase2);
-            oscPhase1 += phaseInc1;
-            if (oscPhase1 >= 1.0f) {
-                oscPhase1 -= 1.0f;
+            for (auto& mode : woodModes) {
+                out += mode.amplitude * devpiano::audio::dsp::gSineLookupTable.lookupNorm(mode.phase);
+                mode.phase += mode.phaseInc;
+                if (mode.phase >= 1.0f) {
+                    mode.phase -= 1.0f;
+                }
+                mode.amplitude *= mode.decayPerSample;
             }
-            oscPhase2 += phaseInc2;
-            if (oscPhase2 >= 1.0f) {
-                oscPhase2 -= 1.0f;
+            if (samplesRemaining == 0) {
+                for (auto& mode : woodModes) {
+                    mode.amplitude = 0.0f;
+                }
             }
-            out += amplitude * (0.6f * s1 + 0.4f * s2);
-            amplitude *= decayPerSample;
         }
-        if (crackSamplesRemaining > 0) {
-            --crackSamplesRemaining;
-            crackRng = crackRng * 1664525u + 1013904223u;
-            const auto noiseVal = static_cast<float>(crackRng >> 16) / 65535.0f * 2.0f - 1.0f;
-            out += crackAmplitude * noiseVal;
-            crackAmplitude *= crackDecayPerSample;
-        }
+        return out;
+    }
+
+    [[nodiscard]] float getNextLongitudinalSample() noexcept {
+        auto out = 0.0f;
         if (longSamplesRemaining > 0) {
             --longSamplesRemaining;
             const auto l1 = devpiano::audio::dsp::gSineLookupTable.lookupNorm(longPhase1);
@@ -168,20 +168,18 @@ struct HammerTransient {
 
     void reset() noexcept {
         samplesRemaining = 0;
-        amplitude = 0.0f;
-        crackSamplesRemaining = 0;
-        crackAmplitude = 0.0f;
+        for (auto& mode : woodModes) {
+            mode = {};
+        }
         longSamplesRemaining = 0;
         longAmplitude = 0.0f;
-        oscPhase1 = 0.0f;
-        oscPhase2 = 0.0f;
         longPhase1 = 0.0f;
         longPhase2 = 0.0f;
         longPhase3 = 0.0f;
     }
 
     [[nodiscard]] bool isActive() const noexcept {
-        return samplesRemaining > 0 || crackSamplesRemaining > 0 || longSamplesRemaining > 0;
+        return samplesRemaining > 0 || longSamplesRemaining > 0;
     }
 };
 

@@ -118,6 +118,8 @@ public:
                                              start.hammerVoicingRolloffDelta);
         }
         const auto scale = devpiano::audio::peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
+        string3Scale
+            = (start.beatingPartials == 1 && start.beatingDetuneRatio > 0.0f) ? kResidualString3Scale : 1.0f / 3.0f;
 
         for (auto k = admittedCount; k < maxPartials; ++k) {
             auto& p = partials[static_cast<std::size_t>(k)];
@@ -519,6 +521,11 @@ private:
     // deliberately left for the later register-curve recalibration.
     float string2Scale = 0.5f;
     float string3Scale = 1.0f / 3.0f;
+    // MIDI 100-108 keeps only the fundamental detuned. The near-coherent
+    // triad's 1/3 average would otherwise lose level, so this residual-only
+    // scale preserves the approved single-string treble loudness. It is not a
+    // per-note or EQ trim; all other registers keep the 42-1b 1/3 scale.
+    static constexpr float kResidualString3Scale = 0.38f;
     double sampleRate = 0.0;
     PitchGlideEngine pitchGlide;
     SpatialDiffusionEngine spatialDiffusion;
