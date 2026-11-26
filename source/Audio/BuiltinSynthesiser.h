@@ -11,6 +11,10 @@
 
 namespace devpiano::audio {
 
+// 实时与离线共用的声部分配：Piano 为 12，Sine 保持 8。
+inline constexpr int kPianoVoiceCount = 12;
+inline constexpr int kSineVoiceCount = 8;
+
 class BuiltinSynthesiser : public juce::Synthesiser {
 public:
     struct SoftPedalState {

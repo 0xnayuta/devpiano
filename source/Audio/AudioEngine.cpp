@@ -610,10 +610,12 @@ void AudioEngine::rebuildSynth() {
     sineSynth.addSound(new SineSynthSound());
     synth.setPedalAcousticsEnabled(true);
     sineSynth.setPedalAcousticsEnabled(false);
-    for (int index = 0; index < 12; ++index) {
+    for (int index = 0; index < devpiano::audio::kPianoVoiceCount; ++index) {
         auto* voice = new PianoSynthVoice();
         voice->setVoiceIndex(index);
         synth.addVoice(voice);
+    }
+    for (int index = 0; index < devpiano::audio::kSineVoiceCount; ++index) {
         sineSynth.addVoice(new SineSynthVoice());
     }
     pendingParameterMask.store(allParameters, std::memory_order_release);

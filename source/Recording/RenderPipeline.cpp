@@ -225,13 +225,14 @@ void initialiseOfflinePianoSynth(devpiano::audio::BuiltinSynthesiser& pianoSynth
 
 void initialiseOfflineSynths(devpiano::audio::BuiltinSynthesiser& pianoSynth,
                              devpiano::audio::BuiltinSynthesiser& sineSynth,
-                             const devpiano::exporting::WavExportOptions& options, int voiceCount) {
-    initialiseOfflinePianoSynth(pianoSynth, options, voiceCount);
+                             const devpiano::exporting::WavExportOptions& options, int pianoVoiceCount,
+                             int sineVoiceCount) {
+    initialiseOfflinePianoSynth(pianoSynth, options, pianoVoiceCount);
 
     sineSynth.clearSounds();
     sineSynth.clearVoices();
     sineSynth.addSound(new SineSynthSound());
-    for (auto index = 0; index < voiceCount; ++index) {
+    for (auto index = 0; index < sineVoiceCount; ++index) {
         auto* voice = new SineSynthVoice();
         voice->setAdsrParameters(options.adsr);
         voice->setTemperament(options.temperament);
