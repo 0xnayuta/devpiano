@@ -73,14 +73,14 @@ struct PianoWholeBodyBus {
         float s2 = 0.0f;
         double lastSampleRate = 0.0;
 
-        void updateCoefficients(double sampleRate) noexcept {
-            if (sampleRate <= 0.0 || std::abs(sampleRate - lastSampleRate) < 1e-6) {
+        void updateCoefficients(double rate) noexcept {
+            if (rate <= 0.0 || std::abs(rate - lastSampleRate) < 1e-6) {
                 return;
             }
-            lastSampleRate = sampleRate;
-            const auto theta = juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / sampleRate;
+            lastSampleRate = rate;
+            const auto theta = juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / rate;
             const auto bandwidth = static_cast<double>(frequency / q);
-            const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / sampleRate);
+            const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / rate);
             c1 = static_cast<float>(2.0 * r * devpiano::audio::dsp::boundedCos(theta));
             c2 = static_cast<float>(-r * r);
             g = static_cast<float>((1.0 - r * r) * 0.5);
@@ -105,13 +105,13 @@ struct PianoWholeBodyBus {
         float lpRight = 0.0f;
         float lpCoeff = 0.0f;
 
-        void updateCoefficients(double sampleRate) noexcept {
-            if (sampleRate <= 0.0) {
+        void updateCoefficients(double rate) noexcept {
+            if (rate <= 0.0) {
                 return;
             }
             constexpr float fc = 8000.0f;
-            const auto safeFc = std::min(fc, static_cast<float>(sampleRate * 0.480));
-            lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * safeFc / static_cast<float>(sampleRate));
+            const auto safeFc = std::min(fc, static_cast<float>(rate * 0.480));
+            lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * safeFc / static_cast<float>(rate));
         }
 
         void reset() noexcept {
