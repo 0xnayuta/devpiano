@@ -1013,14 +1013,16 @@ private:
             const auto dryEnergy = dryBuffer.getRMSLevel(0, 0, dryBuffer.getNumSamples());
 
             VoiceFixture pedalOnFixture;
-            pedalOnFixture.voice()->controllerMoved(64, 127);
+            pedalOnFixture.synth.handleController(1, 64, 127);
+            expect(pedalOnFixture.synth.getWholeBodyBus().sympatheticPool.pedalDown,
+                   "CC64 must reach the shared sympathetic pool through the synthesizer");
             juce::AudioBuffer<float> pedalBuffer(2, blockSize * 4);
             pedalOnFixture.noteOnBlock(60, 0.8f, pedalBuffer);
             const auto pedalEnergy = pedalBuffer.getRMSLevel(0, 0, pedalBuffer.getNumSamples());
 
-            expect(pedalEnergy > dryEnergy * 0.95f, "sustain pedal sympathetic pool enriches audio energy");
+            expect(pedalEnergy > dryEnergy, "sustain pedal sympathetic pool enriches audio energy");
 
-            pedalOnFixture.voice()->controllerMoved(64, 0);
+            pedalOnFixture.synth.handleController(1, 64, 0);
             pedalOnFixture.renderBlock(pedalBuffer);
             expect(std::isfinite(pedalBuffer.getRMSLevel(0, 0, pedalBuffer.getNumSamples())),
                    "pedal release stays numerically stable");
