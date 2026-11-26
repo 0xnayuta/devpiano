@@ -22,10 +22,12 @@
      - MIDI 36~47（C2~B2）：双弦（Bichord），具备对称同音微失谐；
      - MIDI 48~108（C3~C8）：三弦（Trichord），具备合唱微失谐与拍频。
 
-2. **STFT 损失优化实测微相位矩阵内联（Phase 18-B）**：
-   - 内联经 PyTorch STFT Loss 训练优化生成的 $3 \times 64$ 最优初始相位矩阵 `kOptPhaseTable[3][64]`；
+2. **STFT 损失优化微相位矩阵内联（Phase 18-B）**：
+   - 内联 `danielpodrazka/piano` 提供的、经其 PyTorch STFT Loss 优化生成的 $3 \times 64$ 初始相位矩阵 `kOptPhaseTable[3][64]`；
    - 在 `startNote` 初始化各分音振荡器状态：$\text{cosState} = \cos(\varphi), \text{sinState} = \sin(\varphi)$；
    - 彻底消灭 $t=0$ 正弦波同相叠加产生的狄拉克脉冲式机械尖峰。
+
+> **来源更正（2026-11-26）**：`kOptPhaseTable[3][64]` 的 192 个数值与 `danielpodrazka/piano` 的 `generators/generate_grand_piano.py::_PHASE_TABLE` 完全一致（逐项最大绝对差 0.0）。Phase 18-B 是采用该 MIT 许可表，不是 devpiano 独立训练生成；Phase 42-1b 后仅保留第 0 行。归属与许可见 [`THIRD-PARTY-NOTICES.md`](../../THIRD-PARTY-NOTICES.md)。后续独立重优化属于 Phase 45-2，须另立来源与验证，不沿用“实测最优”表述。
 
 3. **空气黏性阻尼与“中频下凹歌唱性”（Phase 18-C，Desvages & Bilbao 2016）**：
    - 落地三项综合模态耗散模型：

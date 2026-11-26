@@ -57,3 +57,36 @@ The `submodules/JUCE/` directory contains the JUCE framework, providing core aud
 - **Repository**: <https://github.com/steinbergmedia/vst3sdk>
 - **Copyright**: Steinberg Media Technologies GmbH
 - **License**: Proprietary / GPLv3 License
+
+---
+
+## 4. danielpodrazka/piano (Phase 18-B initial-phase table)
+
+- **Repository**: <https://github.com/danielpodrazka/piano>
+- **Original Author**: Copyright (c) 2025–2026 Daniel Podrazka
+- **License**: MIT License
+- **Usage in devpiano**: The three-row `3 × 64` initial-phase table adopted in Phase 18-B (commit `4e63ca2`) is taken verbatim from `generators/generate_grand_piano.py::_PHASE_TABLE` in the upstream repository. Phase 42-1b removed rows 1 and 2 and keeps row 0 as `source/Audio/Piano88KeyTable.h::kOptPhaseTable`. The values are not an independent devpiano optimization. Upstream states that the table was optimized with `optimize_phases.py` using mel-scale STFT loss against its `audio/piano` reference samples.
+
+```text
+MIT License
+
+Copyright (c) 2025–2026 Daniel Podrazka
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

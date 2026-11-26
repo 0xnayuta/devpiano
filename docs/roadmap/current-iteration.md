@@ -23,7 +23,7 @@ Phase 45–47 按“先手感/起音、再总线密度/空间、最后工程支�
 **现状证据**：
 
 - `BuiltinSynthesiser::noteOn` 对同音 voice 先 `stopVoice(voice, 1.0f, true)`，再 `findFreeVoice`；`PianoSynthVoice::stopNote` 以 `relVel=1.0` 得到约 0.135 s 的 release；`PianoMainString::start` 重新初始化所有 `cosState/sinState/epsilon`。
-- 当前 `kOptPhaseTable[64]` 来自 Phase 18-B（commit `4e63ca2`，2026-08-22），当时是 `3×64` 三弦相位矩阵；42-1b 后同分音同相，只保留单行。Phase 42–44 已改频谱、响度、瞬态与湿音板低通，表的优化条件已变化。
+- 当前 `kOptPhaseTable[64]` 的数值直接来自 `danielpodrazka/piano` 的 `3×64` `_PHASE_TABLE` 第 0 行（MIT，见 `THIRD-PARTY-NOTICES.md`）；Phase 18-B（commit `4e63ca2`，2026-08-22）整表采用，42-1b 后同分音同相，只保留单行。该表由上游模型与其参考样本训练，从未针对当前 devpiano 参数独立优化；Phase 42–44 已改频谱、响度、瞬态与湿音板低通，因此 45-2 的定位是独立重优化，不是刷新旧的内生表。
 - `PianoNoteParams::slowWeight` 为固定音区表（0.20/0.18/0.15/0.12），`computePianoNoteSetup` 不随力度调制。
 
 **任务与顺序**：
@@ -34,10 +34,10 @@ Phase 45–47 按“先手感/起音、再总线密度/空间、最后工程支�
    - `PianoMainString` 新增“重新激励”入口：保留 `cos/sin/epsilon`，重新计算每个 partial 的 `levelFast/levelSlow`/decay/bloom；旧 level 乘锤毡/制音器吸收系数（建议 0.4–0.6），再叠加新锤能量。新音高/新 voice 仍走现有 `start`。
    - NoteOff 身份不变：同一 voice、同一 MIDI note；`PlaybackIdentityTracker` 语义不变。不得为同音重复新增第二个持久 voice。
    - 验证：同音 8 连击（v41/70/98；间隔 30/60/120/200 ms）、轮指片段；逐次 LUFS/True Peak；12 复音偷声部计数不增加；录音回放 NoteOff 配对；Panic/踏板/采样率重准备。
-2. **45-2 相位表重优化（离线，无运行时行为风险）**：
-   - 固定当前生产参数，渲染 C2/C4/C8 的 v41/70/98 干声；以合法参考录音为目标，用 mel-STFT loss 优化 64 项相位；比较单行与按音区 3 组。
-   - 只替换 `Piano88KeyTable.h` 的 `kOptPhaseTable`；不新增运行时计算、不改变 `PianoMainString` 的递推结构。
-   - 验证：0–50 ms 起音峰值/谱、全键 v70 LUFS、相邻半音差、True Peak；A/B 试听 C4–C7 起音“struck vs plucked”。若 3 组相对单行无稳定收益，保留单行。
+2. **45-2 相位表独立重优化（离线，无运行时行为风险）**：
+   - 现状：当前 64 项是上游 `danielpodrazka/piano` 的 MIT 表第 0 行，不是 devpiano 独立优化结果。先固定当前生产参数，渲染 C2/C4/C8 的 v41/70/98 干声；以合法参考录音为目标，用 mel-STFT loss 独立优化 64 项相位；比较单行与按音区 3 组。
+   - 只替换 `Piano88KeyTable.h` 的 `kOptPhaseTable`；不新增运行时计算、不改变 `PianoMainString` 的递推结构。保留上游 MIT 归属与 `THIRD-PARTY-NOTICES.md` 记录。
+   - 验证：0–50 ms 起音峰值/谱、全键 v70 LUFS、相邻半音差、True Peak；A/B 试听 C4–C7 起音“struck vs plucked”。若独立优化收益不足或 3 组相对单行无稳定收益，保留上游第 0 行并保留归属，不得改称 devpiano 实测最优。
 3. **45-3 力度依赖两段衰减（行为变更，需单独批准）**：
    - 在 `computePianoNoteSetup` 中让 `slowWeight` 随力度小幅调制（弱音更多 aftersound，强音更多 prompt）；建议 v41 +15%、v98 −15%，由现有 L1 归一化吸收。
    - 不新增逐键补偿表；不改 `fastDecayRatio` 的现有音区结构。
@@ -97,7 +97,7 @@ Phase 45–47 按“先手感/起音、再总线密度/空间、最后工程支�
 - **跨音符总线记忆/弦—音板双向耦合**（bBpiano/fan455）：需稳定性与能量守恒设计；当前不做实时闭环。
 - **完整非线性锤求解**（bBpiano 的 Maxwell 锤 + Newton/二分）：与实时预算和 88 键响度校准冲突，不进入。
 - **3D 空气 FEM、波导主弦重写、Upright↔Grand 连续变形、五麦克风阵列、完整 Verlet 琴槌—琴弦求解器**：不进入。
-- **外部参考边界**：bBpiano 为闭源专有实现，只借鉴公开文档/讨论中的设计思想，不克隆实现或参数；fan455 代码未完成且依赖 GMSH/MKL，只作方法与参数参考；Instrudio 只借鉴 SSOT 工程模式；danielpodrazka/piano 只借鉴离线相位/音板校准方法，不引入其离线采样架构。
+- **外部参考边界**：bBpiano 为闭源专有实现，只借鉴公开文档/讨论中的设计思想，不克隆实现或参数；fan455 代码未完成且依赖 GMSH/MKL，只作方法与参数参考；Instrudio 只借鉴 SSOT 工程模式；danielpodrazka/piano 只借鉴离线相位/音板校准方法，不引入其离线采样架构；Phase 18-B 采用的相位表数值已按 MIT 归属登记，后续不得重新包装为自研优化。
 - 研究候选不以参考报告的“极低代价”估计替代设计和验收，也不为这些展望预留实现。
 
 ## 3. 恢复规则与实施顺序
