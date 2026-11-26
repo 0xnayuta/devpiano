@@ -13,8 +13,15 @@ double testPartialFrequency(int midiNoteNumber, int partialIndex,
                             devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal,
                             double referencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch,
                             bool stretchTuningEnabled = true) noexcept {
-    return devpiano::audio::pianoPartialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4,
-                                                  stretchTuningEnabled);
+    // Independent oracle: nominal pitch * 拉伸比 * 归一化不谐和度分音比。
+    // 不调用被测的 pianoPartialFrequency，避免渲染目标与期望值同源偏移。
+    const auto note = std::clamp(midiNoteNumber, 0, 127);
+    const auto nominal = devpiano::audio::TemperamentEngine::getFrequency(note, temperament, referencePitchA4);
+    const auto stretch
+        = stretchTuningEnabled ? devpiano::audio::getPianoStretchRatios()[static_cast<std::size_t>(note)] : 1.0;
+    const auto b = std::max(0.0, devpiano::audio::getNoteParams(note).inharmonicityB);
+    const auto m = static_cast<double>(partialIndex + 1);
+    return nominal * stretch * m * std::sqrt((1.0 + b * m * m) / (1.0 + b));
 }
 
 struct PianoFixture {
