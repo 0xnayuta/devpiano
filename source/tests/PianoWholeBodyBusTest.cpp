@@ -17,6 +17,7 @@ public:
     void runTest() override {
         testCrossNoteOpenStringResonance();
         testVoiceEndDoesNotResetBusTail();
+        testPianoAudibleWithoutPedalAcoustics();
     }
 
 private:
@@ -121,6 +122,27 @@ private:
         expect(voiceEnded, "voice releases after the note-off tail");
         expect(busActiveAtVoiceEnd, "shared bus must still be active when the voice ends");
         expect(busDrained, "shared bus tail reaches a bounded end");
+    }
+
+    void testPianoAudibleWithoutPedalAcoustics() {
+        beginTest("piano voices stay audible when pedal acoustics are disabled");
+        devpiano::audio::BuiltinSynthesiser synth;
+        synth.setCurrentPlaybackSampleRate(kSampleRate);
+        // 默认关闭踏板机械声，钢琴声部仍必须经共享总线发声。
+        expect(!synth.isPedalAcousticsEnabled(), "pedal acoustics must default to disabled");
+        synth.addSound(new PianoSynthSound());
+        synth.addVoice(new PianoSynthVoice());
+        synth.noteOn(1, 60, 0.8f);
+
+        juce::AudioBuffer<float> buffer(2, kBlockSize);
+        auto peak = 0.0f;
+        for (auto block = 0; block < 4; ++block) {
+            buffer.clear();
+            synth.renderNextBlock(buffer, {}, 0, kBlockSize);
+            peak = std::max(peak, buffer.getMagnitude(0, 0, kBlockSize));
+        }
+        expect(peak > 1.0e-3f, "disabled pedal acoustics must not silence the piano");
+        expect(std::isfinite(buffer.getRMSLevel(0, 0, kBlockSize)), "disabled switch output stays finite");
     }
 };
 

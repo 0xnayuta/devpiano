@@ -111,15 +111,9 @@ void BuiltinSynthesiser::renderNextBlock(juce::AudioBuffer<double>& outputAudio,
 template <typename FloatType>
 void BuiltinSynthesiser::renderVoicesImpl(juce::AudioBuffer<FloatType>& outputAudio, int startSample,
                                           int numSamples) noexcept {
-    if (!pedalAcousticsEnabled) {
-        for (auto* voice : voices) {
-            if (voice != nullptr) {
-                voice->renderNextBlock(outputAudio, startSample, numSamples);
-            }
-        }
-        return;
-    }
-
+    // The whole-body bus is the only production path for piano voices, so it
+    // must run regardless of the pedal-mechanical switch. The switch gates the
+    // pedal whoosh/thump and shock excitation only.
     const auto scratchCapacity = busScratch.getNumSamples();
     for (auto offset = 0; offset < numSamples; offset += scratchCapacity) {
         const auto count = std::min(scratchCapacity, numSamples - offset);
@@ -134,7 +128,9 @@ void BuiltinSynthesiser::renderVoicesImpl(juce::AudioBuffer<FloatType>& outputAu
                 voice->renderNextBlock(outputAudio, startSample + offset, count);
             }
         }
-        pedalAcoustics.renderToBus(input, count);
+        if (pedalAcousticsEnabled) {
+            pedalAcoustics.renderToBus(input, count);
+        }
         wholeBodyBus.render(input, outputAudio, startSample + offset, count);
     }
 }
@@ -717,11 +713,11 @@ juce::SynthesiserVoice* BuiltinSynthesiser::findVoiceToSteal(juce::SynthesiserSo
 void BuiltinSynthesiser::setPedalAcousticsEnabled(bool enabled) noexcept {
     pedalAcousticsEnabled = enabled;
     if (!enabled) {
+        // The whole-body bus keeps running; only the mechanical pedal owner is
+        // flushed so a disabled switch cannot truncate piano tail energy.
         pedalAcoustics.reset();
-        wholeBodyBus.reset();
     } else if (currentPlaybackSampleRate > 0.0) {
         pedalAcoustics.prepare(currentPlaybackSampleRate);
-        wholeBodyBus.prepare(currentPlaybackSampleRate);
         wholeBodyBus.setSustainPedal(anySustainDown());
     }
 }
