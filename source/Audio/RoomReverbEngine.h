@@ -255,17 +255,14 @@ private:
         float presetPoleAt48k = 0.60f;
         switch (space) {
         case ReverbSpace::studio:
-            rt60Seconds = 0.6;
             presetPoleAt48k = 0.35f;
             presetFeedback = 0.83f;
             break;
         case ReverbSpace::chamber:
-            rt60Seconds = 1.5;
             presetPoleAt48k = 0.28f;
             presetFeedback = 0.945f;
             break;
         case ReverbSpace::concertHall:
-            rt60Seconds = 2.4;
             presetPoleAt48k = 0.20f;
             presetFeedback = 0.967f;
             break;
@@ -279,7 +276,6 @@ private:
 
     ReverbSpace space = ReverbSpace::chamber;
     double sampleRate = 48000.0;
-    double rt60Seconds = 1.5;
     float dampingPole = 0.60f;
     float targetWet = kDefaultWetLevel;
     float currentWet = kDefaultWetLevel;

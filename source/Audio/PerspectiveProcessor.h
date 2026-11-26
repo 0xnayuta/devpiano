@@ -151,24 +151,6 @@ public:
         return SoundPerspective::player;
     }
 
-    // Bounded drain estimate for the air-absorption IIR state. The estimate is
-    // based on the actual one-pole decay and a -80 dB residual relative to the
-    // last state. It is only used to close an independent acoustic tail; it
-    // does not alter processing.
-    [[nodiscard]] int tailDrainSamples() const noexcept {
-        const auto activeAir = std::max(currentAir, targetAir);
-        if (activeAir <= 1e-4f) {
-            return 0;
-        }
-        const auto pole = 1.0f - airFilterAlpha;
-        if (pole <= 0.0f || pole >= 1.0f) {
-            return 0;
-        }
-        constexpr auto residual = 1.0e-4f;
-        const auto samples = std::ceil(std::log(residual) / std::log(pole));
-        return std::clamp(static_cast<int>(samples), 0, 8192);
-    }
-
 private:
     void updateTargets() noexcept {
         if (perspective == SoundPerspective::player) {

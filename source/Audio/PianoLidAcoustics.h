@@ -60,7 +60,6 @@ struct LidAcoustics {
     float lpRight = 0.0f;
     float lpCoeff = 0.0f;
     float outputGain = 1.0f;
-    int tailSamples = 0;
 
     // 2x2 正交微交叉散射：保持总功率，只交换少量左右声道信息。
     static constexpr float crossMix = 0.10f;
@@ -113,17 +112,6 @@ struct LidAcoustics {
         rightStage1.setParameters(delay1, feedback1);
         leftStage2.setParameters(delay2, feedback2);
         rightStage2.setParameters(delay2, feedback2);
-
-        // 保守尾音预算：最慢反馈衰减到 -60 dB 所需的回声数乘最长延迟。
-        // 不是无限尾音；PianoPedalAcoustics 用它决定何时停止渲染。
-        const auto slowestFeedback = std::max(feedback1, feedback2);
-        const auto longestDelay = std::max(delay1, delay2);
-        const auto echoes = slowestFeedback > 0.0f && slowestFeedback < 1.0f
-            ? std::ceil(std::log(1.0e-3f) / std::log(slowestFeedback))
-            : 0.0f;
-        tailSamples = std::max(1,
-                               static_cast<int>(std::ceil(echoes * static_cast<float>(longestDelay)))
-                                   + 2 * static_cast<int>(longestDelay));
     }
 
     void setPosition(LidPosition newPosition, double sampleRate) noexcept {
@@ -138,10 +126,6 @@ struct LidAcoustics {
         rightStage2.reset();
         lpLeft = 0.0f;
         lpRight = 0.0f;
-    }
-
-    [[nodiscard]] int tailDrainSamples() const noexcept {
-        return tailSamples;
     }
 
     void processStereo(float& left, float& right) noexcept {
