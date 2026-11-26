@@ -95,11 +95,12 @@ private:
             std::size_t delay1 = 141;
             std::size_t delay2 = 507;
         };
-        const std::array<DelayCase, 4> cases { {
+        const std::array<DelayCase, 5> cases { {
             { 44100.0, 130, 466 },
             { 48000.0, 141, 507 },
             { 96000.0, 282, 1014 },
             { 192000.0, 564, 2028 },
+            { 384000.0, 1128, 4056 },
         } };
 
         for (const auto& c : cases) {

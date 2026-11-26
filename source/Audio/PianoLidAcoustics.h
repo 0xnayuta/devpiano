@@ -18,7 +18,7 @@ enum class LidPosition : std::uint8_t {
 // 三角钢琴琴盖的近场早期反射。两级 Schroeder 全通扩散器保持 |H|=1，
 // 用相位群延迟提供纵深；不再用固定三抽头前馈梳状滤波制造周期性凹陷。
 struct LidAcoustics {
-    static constexpr std::size_t delaySize = 2048;
+    static constexpr std::size_t delaySize = 4096;
 
     struct AllpassStage {
         std::array<float, delaySize> buffer {};
