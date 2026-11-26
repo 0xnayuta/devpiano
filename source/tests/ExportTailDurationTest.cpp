@@ -331,6 +331,8 @@ private:
         expectEquals(static_cast<std::int64_t>(sixAudio.getNumSamples()), std::int64_t { 48000 + 288000 });
         expectLessThan(maximumDifference(twoAudio, sixAudio, twoAudio.getNumSamples()), 1.0e-6f,
                        "shared 2 s tail prefix must remain sample-identical");
+        // 2026-11-26 共享总线 + FDN 路径实测尾段 RMS 为 7.29e-5；
+        // 门槛取约 0.69 倍实测值，只拦截尾音完全消失，不作为电平认证。
         expectGreaterThan(rms(sixAudio, twoAudio.getNumSamples(), sixAudio.getNumSamples()), 5.0e-5f,
                           "six-second version must contain additional audible Room/release output");
     }
