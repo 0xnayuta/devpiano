@@ -178,7 +178,7 @@ flowchart TD
    - **16 通道踏板物理隔离**：`BuiltinSynthesiser` 独立维护 16 个 MIDI 通道的踏板物理状态矩阵（CC64 延音 `sustainPedalByChannel`、CC66 保持音 `sostenutoPedalByChannel`、CC67 柔音 `softPedalByChannel`）；
    - **CC66 捕获边界**：仅低→高捕获当时仍按住的声部；重复高值不捕获后起音，被抢占声部的新音不继承旧捕获。CC64/66 释放顺序、同采样排序、逐通道隔离和 Panic 均按声部生命周期处理；电脑键盘入口及原目标释放见 [键盘分册](keyboard-mapping.md)。
    - 踩下 CC64 延音踏板时激活 12 半音全开放交感共鸣弦池，使演奏音符的泛音激发全琴未制音琴弦的共振；
-   - **整琴踏板与空间 owner**：`BuiltinSynthesiser` 持有唯一的 `PianoPedalAcoustics`（仅机械扫掠/冲击）与唯一的 `PianoWholeBodyBus`；总线持有 16 峰音板、8 kHz 湿路径、唯一 12 音级交感弦池、琴盖与视角，并接收所有活动声部的 `noteOnKey/noteOffKey`、聚合 `anySustainDown`、音符激励和踏板 shock。跨音符开放弦交感因此正式共享；单声部结束不 reset 总线，只有 Panic / `allNotesOff(0,false)` / CC120（无其他活动声部）/ 采样率重准备 / rebuild 才清空。
+   - **整琴踏板与空间 owner**：`BuiltinSynthesiser` 持有唯一的 `PianoPedalAcoustics`（仅机械扫掠与踏板落木声）与唯一的 `PianoWholeBodyBus`；总线持有 16 峰音板、8 kHz 湿路径、唯一 12 音级交感弦池、琴盖与视角，并接收所有活动声部的 `noteOnKey/noteOffKey`、聚合 `anySustainDown`、音符激励和踏板 shock。跨音符开放弦交感因此正式共享；单声部结束不 reset 总线，只有 Panic / `allNotesOff(0,false)` / CC120（无其他活动声部）/ 采样率重准备 / rebuild 才清空。
    - **踏板机械扫掠声与共鸣冲击**：踩下踏板时激发成对的机械毛毡抬起刮擦与空气呼啸脉冲（`pedalWhoosh`，带通 $1350\text{ Hz}$，$Q=1.25$；抬起带通 $950\text{ Hz}$）以及全琴瞬态弱冲击激发（`pedalResonanceShock`，双共振冲击峰 $58\text{ Hz}$ 与 $116\text{ Hz}$），由 `pedalNoiseLevel`（默认 0.6）线性缩放；
    - 支持**未踩踏板时的单键开放主弦交感（Unpedaled Resonance）**：由持有音符对应音级的开放主弦产生交感振动；Duplex 非发音段见上节，不混称为同一模型；
    - **CC67 弱音/移位踏板物理拟真（Una Corda / Soft Pedal）**：踩下 CC67 踏板时击弦机向右微移，敲击毛毡侧面相对柔软区域（有效硬度衰减至多 25%，接触时间延长至多 20%），中高音区三弦组产生三弦敲两弦（Trichord to Bichord）声能衰减（至多 30% 衰减），呈现柔和朦胧的暗调色泽；
@@ -188,7 +188,7 @@ flowchart TD
    - 支持 3 种琴盖物理状态：全开（Full Open）、半开（Half Stick）、闭盖（Closed Lid）。
    - 使用 2 级串联 Schroeder 全通扩散器（`141/48000`、`507/48000` 秒）替代固定三抽头前馈梳状滤波；全通级在 $|H|=1$ 下只提供相位群延迟，避免 96–108 高音区的周期性幅频凹陷；10% 正交微交叉散射保持总功率并增加近场宽度。
    - `fullOpen` 不施加低通，反馈为 `0.72/0.45`；`halfStick` 使用 6.5 kHz 一阶低通与 `0.78/0.55` 反馈；`closed` 使用 2.6 kHz 一阶低通与 `0.86/0.65` 反馈，三档输出增益为 `1.00/0.94/0.88`。较短反馈尾音避免 0.1–0.2 s 窗口出现 95/96 电平跳变，并让声部结束时的尾音截断保持有界。
-   - 延迟长度按时间常量换算到当前采样率并取整；48 kHz 精确落回 `141/507`，44.1/96/192 kHz 保持相同物理延迟。2048 采样延迟线上界覆盖 192 kHz。`PianoPedalAcoustics` 使用 `lid.tailDrainSamples()`（最慢反馈衰减到 -60 dB 的保守预算，<1.5 s）排空尾音；播放中切换开合度只延长、不缩短当前尾音预算。
+   - 延迟长度按时间常量换算到当前采样率并取整；48 kHz 精确落回 `141/507`，44.1/96/192/384 kHz 保持相同物理延迟。4096 采样延迟线上界覆盖 384 kHz。整琴尾音由 `PianoWholeBodyBus` 在输入停止后保留 2 s（按采样率换算）预算并递减；`PianoPedalAcoustics` 只渲染机械扫掠/冲击，不持有琴盖尾音。播放中切换开合度只改变后续扩散参数。
 
 3. **制音器落木闷击与琴键释放机械瞬态（Damper Release & Key Thump）**：
    - 琴键释放时，制音器机械臂带动羊毛毡压回琴弦：
@@ -203,7 +203,7 @@ flowchart TD
      - 听众视角：声像左右镜像翻转，并施加适度的高频空气吸收与中置凝聚感。
 
 5. **立体声早期反射 + FDN 房间混响网络（RoomReverbEngine，Phase 44-1）**：
-   - 内置纯数学算法立体声混响网络：左右早期反射抽头（7.1/11.3/17.9/23.3 ms）保留琴桥空间定位，随后进入 4×4 归一化 Hadamard 反馈延迟网络；每条反馈支路带一阶频率相关阻尼，无外部 IR；
+   - 内置纯数学算法立体声混响网络：左右早期反射抽头（7.1/11.3/17.9/23.3 ms）保留琴桥空间定位，随后进入 4×4 归一化 Hadamard 反馈延迟网络；每条反馈支路带一阶频率相关阻尼，阻尼极点按 48 kHz 参考换算到当前采样率，无外部 IR；
    - 提供 **Studio（录音棚 0.6 s）**、**Chamber（室内乐厅 1.5 s）** 与 **Concert Hall（音乐厅 2.4 s）** 三大经典声学空间预设（C++ 枚举 `ReverbSpace::studio`、`chamber`、`concertHall`；文件持久化标识分别为 `studio`、`chamber`、`concert_hall`，旧别名 `hall` 不再映射，未知标识安全回退至 `chamber`）；48 kHz 相对 -60 dB 实测约 0.58/1.50/2.63 s；
    - 干湿使用 `boundedSinCos` 等功率混合；`reverbWet=0` 精确直通；静音尾部门控清除低于 -80 dB 的残余状态，无 denormal/NaN；
    - **直通与抗下溢保护**：`RoomReverbEngine::processStereo()` 在目标与平滑后的当前 wet 均 `<= 1e-4` 时旁路混响 DSP；实时入口启用 `juce::ScopedNoDenormals`，滤波器内部另有衰减归零保护。
