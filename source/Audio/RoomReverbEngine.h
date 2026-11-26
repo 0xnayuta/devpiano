@@ -252,24 +252,28 @@ private:
     }
 
     void updatePresetParameters() noexcept {
+        float presetPoleAt48k = 0.60f;
         switch (space) {
         case ReverbSpace::studio:
             rt60Seconds = 0.6;
-            dampingPole = 0.35f;
+            presetPoleAt48k = 0.35f;
             presetFeedback = 0.83f;
             break;
         case ReverbSpace::chamber:
             rt60Seconds = 1.5;
-            dampingPole = 0.28f;
+            presetPoleAt48k = 0.28f;
             presetFeedback = 0.945f;
             break;
         case ReverbSpace::concertHall:
             rt60Seconds = 2.4;
-            dampingPole = 0.20f;
+            presetPoleAt48k = 0.20f;
             presetFeedback = 0.967f;
             break;
         }
 
+        // 一阶阻尼极点在 48 kHz 参考下定义；换采样率时按同一物理截止换算，
+        // 使 44.1/48/96/192 kHz 的高频衰减保持同一条时间常数曲线。
+        dampingPole = static_cast<float>(std::pow(static_cast<double>(presetPoleAt48k), 48000.0 / sampleRate));
         feedbackGain.fill(presetFeedback);
     }
 

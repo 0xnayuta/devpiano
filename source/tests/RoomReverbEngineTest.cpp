@@ -226,11 +226,13 @@ private:
             }
             const auto threshold = std::max(1.0e-6f, referencePeak * 1.0e-3f);
             constexpr int blockSize = 512;
+            constexpr double measureSeconds = 8.0;
+            const auto maxBlocks = static_cast<int>(std::ceil(measureSeconds * sampleRate / blockSize));
             std::vector<float> silentL(blockSize, 0.0f);
             std::vector<float> silentR(blockSize, 0.0f);
             auto total = 2048;
             auto lastAudible = 0;
-            for (auto block = 0; block < 600; ++block) {
+            for (auto block = 0; block < maxBlocks; ++block) {
                 std::fill(silentL.begin(), silentL.end(), 0.0f);
                 std::fill(silentR.begin(), silentR.end(), 0.0f);
                 reverb.processStereo(silentL.data(), silentR.data(), blockSize);
@@ -251,6 +253,8 @@ private:
         const auto decay48 = measureDecaySeconds(48000.0, ReverbSpace::chamber);
         const auto decay96 = measureDecaySeconds(96000.0, ReverbSpace::chamber);
         expect(decay44 > 0.3 && decay44 < 4.0, "chamber decay has a bounded time-domain length");
+        // 容差由实测跨率差异决定：延迟取整与峰值参考不同仍带来约 25% 偏差，
+        // 这里只拦截数量级错误，不用过紧阈值掩盖或伪造采样率不变性。
         expectWithinAbsoluteError(decay48, decay44, std::max(0.35, 0.30 * decay44));
         expectWithinAbsoluteError(decay96, decay44, std::max(0.35, 0.30 * decay44));
 
