@@ -15,68 +15,9 @@ class PianoSynthVoiceTest;
 // Main-string/partial core extracted from PianoSynthVoice for R9.
 // This file owns only partial admission/installation, oscillator recursion and
 // the pitch-glide/spatial-diffusion state needed by that recursion. It has no
-// Voice pointer and no dependency on PianoSynthVoice.h. All expressions are
-// moved from the R7 implementation; do not change their order or types here.
-namespace devpiano::audio::dsp {
-
-struct UnisonExcitation {
-    std::array<float, 3> phase {};
-};
-
-inline const auto gUnisonExcitation = [] {
-    std::array<std::array<UnisonExcitation, 64>, 88> result {};
-    // Follow the existing MIDI 80..100 detune taper when approaching single-string equivalence.
-    const auto fullSpreadDetune = devpiano::audio::getNoteParams(80).beatingDetuneRatio;
-    for (std::size_t key = 0; key < result.size(); ++key) {
-        const auto& params = devpiano::audio::getNoteParams(21 + static_cast<int>(key));
-        const auto spread = std::clamp(params.beatingDetuneRatio / fullSpreadDetune, 0.0f, 1.0f);
-        for (std::size_t partial = 0; partial < result[key].size(); ++partial) {
-            auto& entry = result[key][partial];
-            const auto base = devpiano::audio::kOptPhaseTable[0][partial];
-            for (std::size_t string = 0; string < entry.phase.size(); ++string) {
-                const auto original = devpiano::audio::kOptPhaseTable[string][partial];
-                const auto difference = std::remainder(static_cast<double>(original - base), kTwoPi);
-                entry.phase[string] = spread >= 1.0f ? original : base + spread * static_cast<float>(difference);
-            }
-        }
-    }
-    return result;
-}();
-
-struct UnisonWindowPower {
-    double reference = 1.0;
-    double actual = 1.0;
-};
-
-[[nodiscard]] inline UnisonWindowPower unisonWindowPower(const std::array<float, 3>& phase, int strings,
-                                                         double frequency, float detune) noexcept {
-    if (strings <= 1) {
-        return {};
-    }
-    // The registered early-body RMS window defines the amplitude reference.
-    // This is one note-wide calibration scalar, not physical energy conservation.
-    constexpr auto duration = 0.2;
-    constexpr auto midpoint = 0.2;
-    auto reference = static_cast<double>(strings);
-    auto actual = reference;
-    for (auto first = 0; first < strings; ++first) {
-        for (auto second = first + 1; second < strings; ++second) {
-            const auto difference = frequency * static_cast<double>(detune) * static_cast<double>(second - first);
-            const auto halfWindow = kPi * difference * duration;
-            const auto sinc = halfWindow == 0.0 ? 1.0 : boundedSin(halfWindow) / halfWindow;
-            const auto meanPhase = kTwoPi * difference * midpoint;
-            const auto phaseDifference
-                = static_cast<double>(phase[static_cast<std::size_t>(second)] - phase[static_cast<std::size_t>(first)]);
-            reference += 2.0 * sinc * boundedCos(meanPhase);
-            actual += 2.0 * sinc * boundedCos(meanPhase + phaseDifference);
-        }
-    }
-    const auto divisor = static_cast<double>(strings * strings);
-    return { std::max(0.0, reference / divisor), std::max(0.0, actual / divisor) };
-}
-
-} // namespace devpiano::audio::dsp
-
+// Voice pointer and no dependency on PianoSynthVoice.h. The oscillator
+// expressions were extracted from the R7 implementation; Phase 42-1b changed
+// only the initial phase and the string-sum scale.
 namespace devpiano::audio {
 
 // Exact subset of PianoNoteParams/PianoNoteSetup consumed by the old inline
@@ -86,7 +27,6 @@ struct MainStringStart {
     int stringCount = 1;
     int beatingPartials = 0;
     float beatingDetuneRatio = 0.0f;
-    int unisonKeyIndex = 0;
 
     double baseFrequency = 0.0;
     double effectiveInharmonicityB = 0.0;
@@ -125,16 +65,15 @@ public:
         sampleRate = newSampleRate;
     }
 
-    // Installs the admitted partial prefix and returns the existing
-    // unisonScale. Pitch glide and diffusion are triggered separately at their
-    // original start-note call positions.
-    [[nodiscard]] float start(const MainStringStart& start) noexcept {
+    // Installs the admitted partial prefix. Pitch glide and diffusion are
+    // triggered separately at their original start-note call positions.
+    void start(const MainStringStart& start) noexcept {
         if (sampleRate <= 0.0) {
-            return 1.0f;
+            return;
         }
 
         const auto sr = sampleRate;
-        activePartials = start.requestedPartials;
+        activePartials = std::min(start.requestedPartials, maxPartials);
 
         // 39-A admission and budget: the highest detuned string of each
         // partial decides admission against the coherent ceiling, so every
@@ -168,30 +107,19 @@ public:
             fallbackActive = true;
         }
         activePartials = admittedCount;
-        const auto& unisonExcitation
-            = devpiano::audio::dsp::gUnisonExcitation[static_cast<std::size_t>(start.unisonKeyIndex)];
+        // One whole-voice L1 scalar keeps the relative modal weights intact.
+        // The static string-count scale is applied at the string-sum stage.
         auto normSum = 0.0f;
-        auto nominalPower = 0.0f;
-        auto coherentPower = 0.0f;
         for (auto n = 0; n < requestedPartials; ++n) {
             const auto frequency
                 = (fallbackActive && n == 0) ? coherentCeiling : noteFrequencies[static_cast<std::size_t>(n)];
-            const auto weight = retainedPartialWeight(n, start.keyPos, start.contactHardness, start.effectiveStrikePos,
-                                                      frequency, start.effectiveTc, requestedPartials,
-                                                      start.effectiveBrightness, start.hammerVoicingRolloffDelta);
-            const auto stringCount
-                = n < start.beatingPartials && start.beatingDetuneRatio > 0.0f ? start.stringCount : 1;
-            // One whole-voice scalar keeps the relative modal weights intact.
-            // No per-partial boost or per-key correction table is applied.
-            const auto power
-                = devpiano::audio::dsp::unisonWindowPower(unisonExcitation[static_cast<std::size_t>(n % 64)].phase,
-                                                          stringCount, frequency, start.beatingDetuneRatio);
-            normSum += weight;
-            nominalPower += weight * weight * static_cast<float>(power.reference);
-            coherentPower += weight * weight * static_cast<float>(power.actual);
+            normSum += retainedPartialWeight(n, start.keyPos, start.contactHardness, start.effectiveStrikePos,
+                                             frequency, start.effectiveTc, requestedPartials, start.effectiveBrightness,
+                                             start.hammerVoicingRolloffDelta);
         }
-        const auto unisonScale = std::sqrt(nominalPower / juce::jmax(1e-12f, coherentPower));
-        const auto scale = devpiano::audio::peakLevelAtFullVelocity * unisonScale / juce::jmax(1e-6f, normSum);
+        const auto scale = devpiano::audio::peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
+        string3Scale
+            = (start.beatingPartials == 1 && start.beatingDetuneRatio > 0.0f) ? kResidualString3Scale : 1.0f / 3.0f;
 
         for (auto k = admittedCount; k < maxPartials; ++k) {
             auto& p = partials[static_cast<std::size_t>(k)];
@@ -212,12 +140,10 @@ public:
             const auto m = static_cast<double>(n + 1);
             const auto partialFrequency = noteFrequencies[static_cast<std::size_t>(n)];
             partial.stringCount = start.stringCount;
-            // Original phase signature below the existing treble detune taper;
-            // phase differences converge with detune instead of jumping at zero.
-            const auto& excitation = unisonExcitation[static_cast<std::size_t>(n % 64)];
-            const auto phase1 = excitation.phase[0] + start.jitterPhase;
-            const auto phase2 = excitation.phase[1] + start.jitterPhase;
-            const auto phase3 = excitation.phase[2] + start.jitterPhase;
+            // Cross-partial phase dispersion only. Every string of the same
+            // partial starts in phase, matching a single hammer strike; the
+            // detune then evolves the unison beating naturally.
+            const auto phase = devpiano::audio::kOptPhaseTable[static_cast<std::size_t>(n % 64)] + start.jitterPhase;
 
             // 39-A unit-y Magic Circle init: every active string starts at
             // its output phase with y = sin(phi) and
@@ -226,24 +152,24 @@ public:
             // attenuation; pruned weights are not redistributed.
             if (partial.stringCount == 1 || n >= start.beatingPartials || start.beatingDetuneRatio <= 0.0f) {
                 partial.stringCount = 1;
-                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, partialFrequency, sr, phase1);
+                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, partialFrequency, sr, phase);
                 partial.epsilon2 = 0.0;
                 partial.epsilon3 = 0.0;
             } else if (partial.stringCount == 2) {
                 const auto detuneHalf = static_cast<double>(start.beatingDetuneRatio * 0.5f);
                 const auto f1 = partialFrequency * (1.0 - detuneHalf);
                 const auto f2 = partialFrequency * (1.0 + detuneHalf);
-                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr, phase1);
-                initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr, phase2);
+                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr, phase);
+                initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr, phase);
                 partial.epsilon3 = 0.0;
             } else {
                 const auto detune = static_cast<double>(start.beatingDetuneRatio);
                 const auto f1 = partialFrequency * (1.0 - detune);
                 const auto f2 = partialFrequency;
                 const auto f3 = partialFrequency * (1.0 + detune);
-                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr, phase1);
-                initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr, phase2);
-                initMagicCircleState(partial.cosState3, partial.sinState3, partial.epsilon3, f3, sr, phase3);
+                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr, phase);
+                initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr, phase);
+                initMagicCircleState(partial.cosState3, partial.sinState3, partial.epsilon3, f3, sr, phase);
             }
             // Una-corda trichord energy (Phase 29-B, unchanged mechanism).
             const auto trichordAtten
@@ -280,8 +206,6 @@ public:
             partial.levelFast = partial.level * (1.0f - start.slowWeight);
             partial.levelSlow = partial.level * start.slowWeight;
         }
-
-        return unisonScale;
     }
 
     void triggerSpatialDiffusion() noexcept {
@@ -311,8 +235,8 @@ public:
             if (partial.stringCount == 2) {
                 const auto s1 = static_cast<float>(partial.sinState);
                 const auto s2 = static_cast<float>(partial.sinState2);
-                const auto sSum = 0.5f * (s1 + s2);
-                const auto sDiff = 0.5f * (s2 - s1);
+                const auto sSum = string2Scale * (s1 + s2);
+                const auto sDiff = string2Scale * (s2 - s1);
                 const auto effSpread = 0.20f * (0.60f + 0.40f * diffusionFactor);
                 oscL = sSum - effSpread * sDiff;
                 oscR = sSum + effSpread * sDiff;
@@ -326,8 +250,8 @@ public:
                 const auto s2 = static_cast<float>(partial.sinState2);
                 const auto s3 = static_cast<float>(partial.sinState3);
                 // 物理对称同音三弦 Mid-Side 动态空间扩散 (Phase 23-B / Phase 24-C)
-                const auto sSum = (1.0f / 3.0f) * (s1 + s2 + s3);
-                const auto sDiff = (1.0f / 3.0f) * (s3 - s1);
+                const auto sSum = string3Scale * (s1 + s2 + s3);
+                const auto sDiff = string3Scale * (s3 - s1);
                 const auto effSpread = 0.25f * (0.60f + 0.40f * diffusionFactor);
                 oscL = sSum - effSpread * sDiff;
                 oscR = sSum + effSpread * sDiff;
@@ -385,10 +309,11 @@ public:
     }
 
 private:
-    static constexpr int maxPartials = 20;
+    static constexpr int maxPartials = 36;
     static constexpr double kMagicCircleEpsilonMax = 1.995;
     static constexpr double kCoherentBandRatio = 0.477485;
     static constexpr float silentLevelThreshold = 1e-4f;
+    static constexpr float kLowFrequencyRadiationCutoffHz = 70.0f;
 
     struct SpatialDiffusionEngine {
         float diffusionProgress = 1.0f;
@@ -523,12 +448,23 @@ private:
                                                   double partialFrequency, float tc,
                                                   float rolloffDelta = 0.0f) noexcept {
         const auto m = static_cast<float>(partialIndex + 1);
-        // 88 键音区基底幂次滚降: 低音 1.25 -> 高音 2.10 (保证低音丰富，高音突出基频)
-        const auto rolloff = 1.20f + 0.30f * keyPos + 1.20f * (keyPos * keyPos);
+        // 42-2 低音基底滚降：A0 端 0.90，keyPos >= 0.45 后保持现行 1.20 曲线；
+        // C3 过渡区随 smoothstep 缓慢回升，避免 MIDI 48 处产生新台阶。
+        const auto currentRolloff = 1.20f + 0.30f * keyPos + 1.20f * (keyPos * keyPos);
+        const auto bassT = std::clamp(keyPos / 0.45f, 0.0f, 1.0f);
+        const auto bassBlend = bassT * bassT * (3.0f - 2.0f * bassT);
+        const auto lowRolloff = 0.90f + 0.30f * keyPos + 1.20f * (keyPos * keyPos);
+        const auto rolloff = lowRolloff + (currentRolloff - lowRolloff) * bassBlend;
         const auto basePowerRollOff = 1.0f / std::pow(m, rolloff);
 
-        // 琴槌毛毡非线性低通滤波: 截止频率 fc = 2.5 / Tc (Chaigne & Askenfelt 1994)
-        const auto hammerCutoff = 2.5f / std::max(tc, 0.0001f);
+        // 琴槌毛毡非线性低通滤波: 截止频率 fc = 2.5 / Tc (Chaigne & Askenfelt 1994)。
+        // 高音区基频 f1 走 42-3b 下限：随接触硬度平滑抬升，mf 时 C7/C8 的
+        // feltFilter(f1) 回到约 0.75-0.88，v41 -> v98 仍单调增亮；低中音区
+        // 现有 fc 不被压低。
+        const auto rawHammerCutoff = 2.5f / std::max(tc, 0.0001f);
+        const auto fundamental = static_cast<float>(partialFrequency) / m;
+        const auto cutoffFloor = (1.8f + 2.6f * contactHardness * contactHardness) * fundamental;
+        const auto hammerCutoff = std::max(rawHammerCutoff, cutoffFloor);
         // 滚降陡度随力度动态变化: pp 弱音更陡 (滤除高频), ff 强音更缓 (保留金属光泽)。
         // rolloffDelta 是三力度整音的可校准残差，仍作用于同一毛毡低通，不另加高频增益。
         const auto hammerRolloffExp = std::clamp(2.0f - 0.80f * contactHardness + rolloffDelta, 0.80f, 6.0f);
@@ -557,11 +493,19 @@ private:
         return 0.7f + 0.3f * cosineMod;
     }
 
+    [[nodiscard]] static float lowFrequencyRadiationGain(double frequency) noexcept {
+        // 42-2: 一阶平滑辐射效率 f / sqrt(f^2 + f_rad^2)，无状态、无尾音。
+        const auto f = std::max(static_cast<float>(frequency), 1.0f);
+        const auto ratio = f / kLowFrequencyRadiationCutoffHz;
+        return ratio / std::sqrt(1.0f + ratio * ratio);
+    }
+
     [[nodiscard]] static float amplitudeFor(int partialIndex, float keyPos, float contactHardness, float strikingRatio,
                                             double partialFrequency, float tc, float rolloffDelta) noexcept {
         return strikeCombGain(partialIndex, strikingRatio)
             * hammerSpectrumGain(partialIndex, keyPos, contactHardness, partialFrequency, tc, rolloffDelta)
-            * hammerElasticModulation(partialFrequency, tc) * bridgeHillGain(partialFrequency);
+            * hammerElasticModulation(partialFrequency, tc) * bridgeHillGain(partialFrequency)
+            * lowFrequencyRadiationGain(partialFrequency);
     }
 
     [[nodiscard]] static float brightnessBoost(int partialIndex, float brightness, int partialCount) noexcept {
@@ -571,6 +515,17 @@ private:
 
     std::array<Partial, maxPartials> partials;
     int activePartials = 0;
+    // Fixed 1/N string-count scale selected by the 42-1b boundary audit:
+    // average summation keeps the t=0 peak at the single-string reference and
+    // avoids the 1/sqrt(N) attack boost. The steady-state 1/N power drop is
+    // deliberately left for the later register-curve recalibration.
+    float string2Scale = 0.5f;
+    float string3Scale = 1.0f / 3.0f;
+    // MIDI 100-108 keeps only the fundamental detuned. The near-coherent
+    // triad's 1/3 average would otherwise lose level, so this residual-only
+    // scale preserves the approved single-string treble loudness. It is not a
+    // per-note or EQ trim; all other registers keep the 42-1b 1/3 scale.
+    static constexpr float kResidualString3Scale = 0.38f;
     double sampleRate = 0.0;
     PitchGlideEngine pitchGlide;
     SpatialDiffusionEngine spatialDiffusion;

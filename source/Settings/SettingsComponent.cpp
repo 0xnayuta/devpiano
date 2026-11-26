@@ -908,6 +908,8 @@ void SettingsComponent::rebuildPianoStyleCombo() {
     pianoStyleCombo->addItem(TRANS("Warm"), 1 + static_cast<int>(devpiano::audio::PianoStyle::warm));
     pianoStyleCombo->addItem(TRANS("Intimate"), 1 + static_cast<int>(devpiano::audio::PianoStyle::intimate));
     pianoStyleCombo->addItem(TRANS("Vintage"), 1 + static_cast<int>(devpiano::audio::PianoStyle::vintage));
+    pianoStyleCombo->addItem(TRANS("NY Steinway D Classical"),
+                             1 + static_cast<int>(devpiano::audio::PianoStyle::nySteinwayDClassical));
 }
 
 void SettingsComponent::updatePianoStyleFromModel() {
@@ -927,7 +929,10 @@ void SettingsComponent::updatePianoStyleComboFromModel() {
                                                                 .duplexResonance = model->duplexResonance,
                                                                 .lidPosition
                                                                 = static_cast<std::uint8_t>(model->lidPosition),
-                                                                .feltAgeingAmount = model->feltAgeingAmount };
+                                                                .feltAgeingAmount = model->feltAgeingAmount,
+                                                                .reverbSpace
+                                                                = static_cast<std::uint8_t>(model->reverbSpace),
+                                                                .reverbWet = model->reverbWet };
     const auto style = devpiano::audio::identifyPianoStyle(currentParams);
     pianoStyleCombo->setSelectedId(1 + static_cast<int>(style), juce::dontSendNotification);
 }
@@ -951,9 +956,17 @@ void SettingsComponent::applyPianoStyle(devpiano::audio::PianoStyle style) {
     model->duplexResonance = params->duplexResonance;
     model->lidPosition = static_cast<SettingsModel::LidPosition>(params->lidPosition);
     model->feltAgeingAmount = params->feltAgeingAmount;
+    model->reverbSpace = static_cast<devpiano::audio::ReverbSpace>(params->reverbSpace);
+    model->reverbWet = params->reverbWet;
 
     if (lidPositionCombo != nullptr) {
         lidPositionCombo->setSelectedId(1 + static_cast<int>(model->lidPosition), juce::dontSendNotification);
+    }
+    if (reverbSpaceCombo != nullptr) {
+        reverbSpaceCombo->setSelectedId(1 + static_cast<int>(model->reverbSpace), juce::dontSendNotification);
+    }
+    if (reverbWetSlider != nullptr) {
+        reverbWetSlider->setValue(model->reverbWet * 100.0f, juce::dontSendNotification);
     }
     if (stretchTuningToggle != nullptr) {
         stretchTuningToggle->setToggleState(model->stretchTuningEnabled, juce::dontSendNotification);
@@ -973,6 +986,8 @@ void SettingsComponent::applyPianoStyle(devpiano::audio::PianoStyle style) {
     editingState.setProperty("duplexResonance", model->duplexResonance, nullptr);
     editingState.setProperty("lidPosition", 1 + static_cast<int>(model->lidPosition), nullptr);
     editingState.setProperty("feltAgeingAmount", model->feltAgeingAmount, nullptr);
+    editingState.setProperty("reverbSpace", 1 + static_cast<int>(model->reverbSpace), nullptr);
+    editingState.setProperty("reverbWet", model->reverbWet, nullptr);
     editingState.addListener(this);
 
     setDirty(true);

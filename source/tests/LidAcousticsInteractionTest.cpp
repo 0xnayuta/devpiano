@@ -1,5 +1,9 @@
 #include <JuceHeader.h>
 
+#include <array>
+#include <vector>
+
+#include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
 #include "Layout/PerformancePreset.h"
 #include "Settings/SettingsModel.h"
@@ -23,6 +27,9 @@ public:
         testDynamicLidSwitchDuringPlayback();
         testSettingsModelAndStorePersistence();
         testPerformancePresetAcousticRoundTrip();
+        testSampleRateNormalizedDiffusionDelays();
+        testFullOpenAllpassFlatMagnitude();
+        testLidModeSpectralDifference();
     }
 
 private:
@@ -33,14 +40,15 @@ private:
         constexpr int blockSize = 1024;
 
         const auto renderNoteWithLid = [&](PianoSynthVoice::LidPosition lid, float& outRms, float& outDirectPeak) {
-            juce::Synthesiser synth;
+            devpiano::audio::BuiltinSynthesiser synth;
             synth.setCurrentPlaybackSampleRate(sampleRate);
+            synth.setPedalAcousticsEnabled(true);
             synth.addSound(new PianoSynthSound());
             auto* voice = new PianoSynthVoice();
             voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
-            voice->setLidPosition(lid);
+            synth.setWholeBodyLidPosition(lid);
             synth.addVoice(voice);
-            expect(voice->getLidPosition() == lid);
+            expect(synth.getWholeBodyBus().lidPosition == lid);
 
             juce::MidiBuffer midi;
             midi.addEvent(juce::MidiMessage::noteOn(1, 72, 0.8f), 0); // C5, forte
@@ -50,7 +58,7 @@ private:
             synth.renderNextBlock(buffer, midi, 0, blockSize);
 
             outRms = buffer.getRMSLevel(0, 0, blockSize);
-            // 在前 120 个采样点内（首个反射 tap 延迟为 141 采样），输出纯由 gDirect 直达声决定
+            // 在前 120 个采样点内（44.1 kHz 首个反射 tap 约 130 采样），输出纯由 gDirect 直达声决定
             outDirectPeak = buffer.getMagnitude(0, 0, 120);
         };
 
@@ -69,9 +77,100 @@ private:
         expect(rmsHalf > 0.001f);
         expect(rmsClosed > 0.001f);
 
-        // 数值物理不变量：前 120 采样内直达声比例严格遵循 fullOpen(0.82) > halfStick(0.75) > closed(0.68)
-        expect(peakOpen > peakHalf);
-        expect(peakHalf > peakClosed);
+        // 全通扩散器不再用固定 0.82/0.75/0.68 直达抽头；
+        // 开合度由低通与反馈差异体现，整块 RMS 必须保持 fullOpen > half > closed。
+        expect(peakOpen > 0.0f);
+        expect(peakHalf > 0.0f);
+        expect(peakClosed > 0.0f);
+        expect(rmsOpen > rmsHalf);
+        expect(rmsHalf > rmsClosed);
+    }
+
+    void testSampleRateNormalizedDiffusionDelays() {
+        beginTest("PianoLidAcoustics: allpass diffusion delays follow time constants across sample rates");
+
+        struct DelayCase {
+            double sampleRate = 48000.0;
+            std::size_t delay1 = 141;
+            std::size_t delay2 = 507;
+        };
+        const std::array<DelayCase, 5> cases { {
+            { 44100.0, 130, 466 },
+            { 48000.0, 141, 507 },
+            { 96000.0, 282, 1014 },
+            { 192000.0, 564, 2028 },
+            { 384000.0, 1128, 4056 },
+        } };
+
+        for (const auto& c : cases) {
+            devpiano::audio::LidAcoustics lid;
+            lid.setPosition(devpiano::audio::LidPosition::fullOpen, c.sampleRate);
+            expectEquals(lid.delay1, c.delay1, "first allpass delay follows 141/48000 s");
+            expectEquals(lid.delay2, c.delay2, "second allpass delay follows 507/48000 s");
+        }
+    }
+
+    void testFullOpenAllpassFlatMagnitude() {
+        beginTest("PianoLidAcoustics: fullOpen allpass keeps broadband energy flat");
+
+        constexpr double sampleRate = 48000.0;
+        constexpr int totalSamples = 32768;
+        constexpr int measureFrom = 24576;
+        for (const auto frequency : { 1000.0, 3000.0, 6000.0, 10000.0 }) {
+            devpiano::audio::LidAcoustics lid;
+            lid.setPosition(devpiano::audio::LidPosition::fullOpen, sampleRate);
+            lid.reset();
+
+            double inputEnergy = 0.0;
+            double outputEnergy = 0.0;
+            for (auto sample = 0; sample < totalSamples; ++sample) {
+                const auto phase = juce::MathConstants<double>::twoPi * frequency * sample / sampleRate;
+                const auto input = static_cast<float>(std::sin(phase));
+                auto left = input;
+                auto right = input;
+                lid.processStereo(left, right);
+                if (sample >= measureFrom) {
+                    inputEnergy += 2.0 * static_cast<double>(input) * static_cast<double>(input);
+                    outputEnergy += static_cast<double>(left) * left + static_cast<double>(right) * right;
+                }
+            }
+
+            const auto ratio = outputEnergy / inputEnergy;
+            expectWithinAbsoluteError(ratio, 1.0, 0.01,
+                                      "fullOpen allpass must not create frequency-dependent comb notches");
+        }
+    }
+
+    void testLidModeSpectralDifference() {
+        beginTest("PianoLidAcoustics: lid modes retain distinct high-frequency energy");
+
+        constexpr double sampleRate = 48000.0;
+        constexpr int totalSamples = 32768;
+        constexpr int measureFrom = 24576;
+        constexpr double frequency = 8000.0;
+        const auto renderEnergy = [&](devpiano::audio::LidPosition position) {
+            devpiano::audio::LidAcoustics lid;
+            lid.setPosition(position, sampleRate);
+            lid.reset();
+            double outputEnergy = 0.0;
+            for (auto sample = 0; sample < totalSamples; ++sample) {
+                const auto phase = juce::MathConstants<double>::twoPi * frequency * sample / sampleRate;
+                const auto input = static_cast<float>(std::sin(phase));
+                auto left = input;
+                auto right = input;
+                lid.processStereo(left, right);
+                if (sample >= measureFrom) {
+                    outputEnergy += static_cast<double>(left) * left + static_cast<double>(right) * right;
+                }
+            }
+            return outputEnergy;
+        };
+
+        const auto openEnergy = renderEnergy(devpiano::audio::LidPosition::fullOpen);
+        const auto halfEnergy = renderEnergy(devpiano::audio::LidPosition::halfStick);
+        const auto closedEnergy = renderEnergy(devpiano::audio::LidPosition::closed);
+        expect(openEnergy > halfEnergy * 1.2, "fullOpen must preserve more 8 kHz energy than halfStick");
+        expect(halfEnergy > closedEnergy * 1.5, "halfStick must preserve more 8 kHz energy than closed");
     }
 
     void testDynamicLidSwitchDuringPlayback() {
@@ -80,12 +179,13 @@ private:
         constexpr double sampleRate = 44100.0;
         constexpr int blockSize = 256;
 
-        juce::Synthesiser synth;
+        devpiano::audio::BuiltinSynthesiser synth;
         synth.setCurrentPlaybackSampleRate(sampleRate);
+        synth.setPedalAcousticsEnabled(true);
         synth.addSound(new PianoSynthSound());
         auto* voice = new PianoSynthVoice();
         voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
-        voice->setLidPosition(PianoSynthVoice::LidPosition::fullOpen);
+        synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::fullOpen);
         synth.addVoice(voice);
 
         juce::MidiBuffer midi;
@@ -96,11 +196,11 @@ private:
         for (int block = 0; block < 10; ++block) {
             buffer.clear();
             if (block == 2) {
-                voice->setLidPosition(PianoSynthVoice::LidPosition::halfStick);
+                synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::halfStick);
             } else if (block == 5) {
-                voice->setLidPosition(PianoSynthVoice::LidPosition::closed);
+                synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::closed);
             } else if (block == 8) {
-                voice->setLidPosition(PianoSynthVoice::LidPosition::fullOpen);
+                synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::fullOpen);
             }
 
             synth.renderNextBlock(buffer, midi, 0, blockSize);

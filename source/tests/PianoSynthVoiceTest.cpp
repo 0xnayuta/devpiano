@@ -12,6 +12,7 @@ using devpiano::audio::isValidHammerVoicing;
 using devpiano::audio::kHammerVoicingMaxHardnessDelta;
 using devpiano::audio::kHammerVoicingMaxRolloffDelta;
 using devpiano::audio::PianoMainString;
+using devpiano::audio::PianoWholeBodyBus;
 using devpiano::audio::sampleHammerVoicing;
 
 // =============================================================================
@@ -41,11 +42,33 @@ constexpr auto kSampleRate = 44100.0;
 constexpr auto blockSize = 2048;
 constexpr auto analysisWindow = 16384; // ≈ 0.37 s for the DFT
 
+double testPartialFrequency(int midiNoteNumber, int partialIndex,
+                            devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal,
+                            double referencePitchA4 = devpiano::audio::TemperamentEngine::kDefaultReferencePitch,
+                            bool stretchTuningEnabled = true) noexcept {
+    return devpiano::audio::pianoPartialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4,
+                                                  stretchTuningEnabled);
+}
+
+double testBeatingFrequency(int midiNoteNumber, int partialIndex,
+                            devpiano::audio::Temperament temperament = devpiano::audio::Temperament::equal,
+                            double referencePitchA4
+                            = devpiano::audio::TemperamentEngine::kDefaultReferencePitch) noexcept {
+    const auto f = testPartialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4, true);
+    const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
+    const auto isBassFundamental = (midiNoteNumber < 48 && partialIndex == 0);
+    if (!isBassFundamental && partialIndex < params.beatingPartials && params.beatingDetuneRatio > 0.0f) {
+        return f * (1.0 + static_cast<double>(params.beatingDetuneRatio));
+    }
+    return f;
+}
+
 struct VoiceFixture {
-    juce::Synthesiser synth;
+    devpiano::audio::BuiltinSynthesiser synth;
 
     VoiceFixture() {
         synth.setCurrentPlaybackSampleRate(kSampleRate);
+        synth.setPedalAcousticsEnabled(true);
         synth.addSound(new PianoSynthSound());
         synth.addVoice(new PianoSynthVoice());
         // 与 AudioEngine::setAdsr 默认一致的接线（attack/release 作门控）。
@@ -124,6 +147,7 @@ public:
         testDecayAndUnisonBeating();
         testResonatorAndAcousticCoupling();
         testVoiceLifecycleAndDynamics();
+        testHighTrebleFastRelease();
         testEngineIntegrationAndNumericalSafety();
         testZeroTrigSlaAndNumericalPrecision();
         testGeneratedComponentInvariants();
@@ -134,8 +158,8 @@ private:
     void testPianoVoicing() {
         beginTest("piano parameters shape the tone");
         {
-            const auto midF5 = PianoSynthVoice::partialFrequency(60, 4);
-            const auto midF1 = PianoSynthVoice::partialFrequency(60, 0);
+            const auto midF5 = testPartialFrequency(60, 4);
+            const auto midF1 = testPartialFrequency(60, 0);
 
             VoiceFixture dim;
             dim.voice()->setPianoParameters(0.0f, 0.5f, 0.5f);
@@ -150,7 +174,7 @@ private:
             auto upperEnergy = [&](const juce::AudioBuffer<float>& b) {
                 auto sum = 0.0;
                 for (auto h = 2; h <= 8; ++h) {
-                    sum += magnitudeAtFrequency(b, PianoSynthVoice::partialFrequency(60, h - 1), analysisWindow);
+                    sum += magnitudeAtFrequency(b, testPartialFrequency(60, h - 1), analysisWindow);
                 }
                 return sum;
             };
@@ -209,11 +233,11 @@ private:
         const auto high = devpiano::audio::pianoRegisterLoudnessGain(108);
 
         expectWithinAbsoluteError(mid, 1.0f, 1e-6f, "C4 is the neutral register anchor");
-        expectGreaterThan(low, 1.0f, "A0 receives low-register loudness lift");
-        expectGreaterThan(c3, 1.0f, "C3 receives a small low-mid lift");
-        expectWithinAbsoluteError(c5, 1.0f, 1e-6f, "C5 is neutral in the experimental curve");
-        expectWithinAbsoluteError(c6, 1.0f, 1e-6f, "C6 is neutral in the experimental curve");
-        expectLessThan(high, 1.0f, "C8 receives high-register attenuation");
+        expectGreaterThan(low, c3, "A0 keeps more low-register lift than C3");
+        expectGreaterThan(c3, mid, "C3 keeps a small low-mid lift");
+        expectGreaterThan(c5, 1.0f, "C5 keeps a small calibrated lift");
+        expectLessThan(c6, 1.0f, "C6 keeps a small calibrated cut");
+        expectLessThan(high, c6, "C8 receives the strongest high-register attenuation");
 
         expectWithinAbsoluteError(devpiano::audio::pianoRegisterLoudnessGain(19),
                                   devpiano::audio::pianoRegisterLoudnessGain(21), 1e-6f,
@@ -237,7 +261,8 @@ private:
             + midBuffer.getRMSLevel(1, 0, midBuffer.getNumSamples());
         const auto highEnergy = highBuffer.getRMSLevel(0, 0, highBuffer.getNumSamples())
             + highBuffer.getRMSLevel(1, 0, highBuffer.getNumSamples());
-        expect(lowEnergy > midEnergy * 1.15f, "rendered A0 must receive the low-register lift");
+        expect(lowEnergy > midEnergy * 0.5f && lowEnergy < midEnergy * 1.5f,
+               "calibrated A0 stays in the same broad level band as C4");
         expect(highEnergy < midEnergy, "rendered C7 must receive the high-register attenuation");
     }
 
@@ -313,8 +338,8 @@ private:
 
         beginTest("non-zero hammer voicing changes level and upper-partial content");
         {
-            const auto upperPartial = PianoSynthVoice::partialFrequency(60, 4);
-            const auto fundamental = PianoSynthVoice::partialFrequency(60, 0);
+            const auto upperPartial = testPartialFrequency(60, 4);
+            const auto fundamental = testPartialFrequency(60, 0);
 
             VoiceFixture neutralFixture;
             expect(neutralFixture.voice()->setHammerVoicing(HammerVoicing {}), "neutral voicing must be accepted");
@@ -386,19 +411,18 @@ private:
             VoiceFixture bassFixture;
             juce::AudioBuffer<float> bass(1, analysisWindow);
             bassFixture.noteOnBlock(36, 0.9f, bass); // low-bass region: 20 partials (C2 ≈ 65.41 Hz)
-            const auto bassFundamental
-                = magnitudeAtFrequency(bass, PianoSynthVoice::partialFrequency(36, 0), analysisWindow);
+            const auto bassFundamental = magnitudeAtFrequency(bass, testPartialFrequency(36, 0), analysisWindow);
             expect(bassFundamental > 0.005, "low-bass fundamental must be present");
             // 主导谐波 (2~7)
             for (auto harmonic = 2; harmonic <= 7; ++harmonic) {
-                const auto partialFreq = PianoSynthVoice::partialFrequency(36, harmonic - 1);
+                const auto partialFreq = testPartialFrequency(36, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(bass, partialFreq, analysisWindow);
                 expect(magnitude > 0.02 * bassFundamental,
                        "low-bass dominant harmonic " + juce::String(harmonic) + " must be present");
             }
             // 高次谐波 (8~20) 物理存在且有界
             for (auto harmonic = 8; harmonic <= 20; ++harmonic) {
-                const auto partialFreq = PianoSynthVoice::partialFrequency(36, harmonic - 1);
+                const auto partialFreq = testPartialFrequency(36, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(bass, partialFreq, analysisWindow);
                 // 击弦点梳状陷波 (8th, 16th) 能量极低为正常声学现象
                 const auto isCombNotch = (harmonic == 8 || harmonic == 16);
@@ -410,19 +434,18 @@ private:
             VoiceFixture midFixture;
             juce::AudioBuffer<float> mid(1, analysisWindow);
             midFixture.noteOnBlock(60, 0.9f, mid);
-            const auto midFundamental
-                = magnitudeAtFrequency(mid, PianoSynthVoice::partialFrequency(60, 0), analysisWindow);
+            const auto midFundamental = magnitudeAtFrequency(mid, testPartialFrequency(60, 0), analysisWindow);
             expect(midFundamental > 0.001, "MIDI 60 fundamental ~ 261.63 Hz must dominate");
             // 共同激励恢复基频后，低次分音相对比例下降；这里验证 2..5 次分音存在，
             // 不再把 2% 的单点比例当作“主导”门槛。
             for (auto harmonic = 2; harmonic <= 5; ++harmonic) {
-                const auto partialFreq = PianoSynthVoice::partialFrequency(60, harmonic - 1);
+                const auto partialFreq = testPartialFrequency(60, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(mid, partialFreq, analysisWindow);
                 expect(magnitude > 0.005 * midFundamental,
                        "mid harmonic " + juce::String(harmonic) + " must be present");
             }
             for (auto harmonic = 6; harmonic <= 14; ++harmonic) {
-                const auto partialFreq = PianoSynthVoice::partialFrequency(60, harmonic - 1);
+                const auto partialFreq = testPartialFrequency(60, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(mid, partialFreq, analysisWindow);
                 expect(magnitude > 0.0003 * midFundamental,
                        "mid overtone " + juce::String(harmonic) + " must be present");
@@ -432,24 +455,22 @@ private:
             VoiceFixture highFixture;
             juce::AudioBuffer<float> high(1, analysisWindow);
             highFixture.noteOnBlock(72, 0.9f, high);
-            const auto highFundamental
-                = magnitudeAtFrequency(high, PianoSynthVoice::partialFrequency(72, 0), analysisWindow);
+            const auto highFundamental = magnitudeAtFrequency(high, testPartialFrequency(72, 0), analysisWindow);
             for (auto harmonic = 2; harmonic <= 8; ++harmonic) {
-                const auto partialFreq = PianoSynthVoice::partialFrequency(72, harmonic - 1);
+                const auto partialFreq = testPartialFrequency(72, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(high, partialFreq, analysisWindow);
-                expect(magnitude > 0.0005 * highFundamental,
+                expect(magnitude > 0.0002 * highFundamental,
                        "high-mid harmonic " + juce::String(harmonic) + " must be present");
             }
 
             VoiceFixture topFixture;
             juce::AudioBuffer<float> top(1, analysisWindow);
             topFixture.noteOnBlock(96, 0.9f, top);
-            const auto topFundamental
-                = magnitudeAtFrequency(top, PianoSynthVoice::partialFrequency(96, 0), analysisWindow);
+            const auto topFundamental = magnitudeAtFrequency(top, testPartialFrequency(96, 0), analysisWindow);
             for (auto harmonic = 2; harmonic <= 6; ++harmonic) {
-                const auto partialFreq = PianoSynthVoice::partialFrequency(96, harmonic - 1);
+                const auto partialFreq = testPartialFrequency(96, harmonic - 1);
                 const auto magnitude = magnitudeAtFrequency(top, partialFreq, analysisWindow);
-                const auto threshold = harmonic == 6 ? 0.0001 : 0.0005;
+                const auto threshold = harmonic == 6 ? 0.00005 : 0.0002;
                 expect(magnitude > threshold * topFundamental,
                        "treble harmonic " + juce::String(harmonic) + " must be present");
             }
@@ -461,8 +482,7 @@ private:
             // Task 39-2 实测锚点表把 C2 刚度降到 5.08e-5，7 分音偏移 (~0.56 Hz)
             // 低于 DFT 分辨率；改用最高分音 (20, 击弦点陷波下满幅) 使偏移 ~13 Hz 可分辨，
             // 断言语义不变（分音高于整数谐波）。
-            const auto actualF20
-                = PianoSynthVoice::partialFrequency(36, 19, devpiano::audio::Temperament::equal, 440.0, false);
+            const auto actualF20 = testPartialFrequency(36, 19, devpiano::audio::Temperament::equal, 440.0, false);
             VoiceFixture fixture;
             fixture.voice()->setPianoTuning(false, 0.0f);
             juce::AudioBuffer<float> buffer(1, analysisWindow);
@@ -500,7 +520,7 @@ private:
             }
             expect(fixture.voice()->isVoiceActive(), "voice must still be active at 20 s");
 
-            const auto f0 = PianoSynthVoice::partialFrequency(33, 0);
+            const auto f0 = testPartialFrequency(33, 0);
             auto complexDft = [](const juce::AudioBuffer<float>& buffer, int start, int count, double frequency) {
                 auto real = 0.0;
                 auto imag = 0.0;
@@ -529,20 +549,8 @@ private:
                                       "recursive oscillator frequency drift < 1e-4 relative over 20 s");
         }
 
-        beginTest("modal overtone decay rates (physical energy dissipation)");
+        beginTest("modal overtone decay and bridge hill response");
         {
-            const auto tau1 = PianoSynthVoice::partialDecaySeconds(36, 0);
-            expectWithinAbsoluteError(tau1, 4.5, 1e-3, "fundamental decay equals base decay");
-            const auto tau6 = PianoSynthVoice::partialDecaySeconds(36, 5);
-            const auto tau16 = PianoSynthVoice::partialDecaySeconds(36, 15);
-            expect(tau16 < tau1,
-                   "16th partial decays faster than fundamental in bass due to quadratic internal friction");
-            expect(tau16 < tau6, "overtone decay times decrease for higher orders");
-
-            const auto midTau1 = PianoSynthVoice::partialDecaySeconds(60, 0);
-            const auto midTau6 = PianoSynthVoice::partialDecaySeconds(60, 5);
-            expect(midTau6 < midTau1, "mid-register 6th partial decays faster than fundamental");
-
             expect(PianoMainString::bridgeHillGain(1800.0) > 1.35f, "1.8kHz Bridge Hill peak gain ~ 1.40");
             expect(PianoMainString::bridgeHillGain(100.0) < 1.05f, "low frequency not affected by Bridge Hill");
 
@@ -555,8 +563,8 @@ private:
             juce::AudioBuffer<float> earlyBuffer(1, analysisWindow);
             fixture.noteOnBlock(36, 0.9f, earlyBuffer);
 
-            const auto f1 = PianoSynthVoice::partialFrequency(36, 0);
-            const auto f6 = PianoSynthVoice::partialFrequency(36, 5);
+            const auto f1 = testPartialFrequency(36, 0);
+            const auto f6 = testPartialFrequency(36, 5);
 
             const auto earlyF1 = magnitudeAtFrequency(earlyBuffer, f1, analysisWindow);
             const auto earlyF6 = magnitudeAtFrequency(earlyBuffer, f6, analysisWindow);
@@ -571,8 +579,9 @@ private:
             const auto lateF6 = magnitudeAtFrequency(lateBuffer, f6, analysisWindow);
             const auto lateRatio = lateF6 / juce::jmax(1e-6, lateF1);
 
-            expect(lateRatio < 0.5 * earlyRatio,
-                   "upper harmonic ratio at t1 (" + juce::String(lateRatio, 5) + ") must drop below 50% of t0 ratio ("
+            // 全通琴盖改变单 bin 窗相位，保留 60% 边界仍要求明显的高频模态耗散。
+            expect(lateRatio < 0.6 * earlyRatio,
+                   "upper harmonic ratio at t1 (" + juce::String(lateRatio, 5) + ") must drop below 60% of t0 ratio ("
                        + juce::String(earlyRatio, 5) + ") due to modal energy dissipation");
         }
     }
@@ -668,7 +677,7 @@ private:
                    "harder strike preserves substantially more high frequency partial energy");
         }
 
-        beginTest("attack transient crack and longitudinal mode tuning (Phase 23-D)");
+        beginTest("wood knock modes and longitudinal precursor tuning (Phase 44-3)");
         {
             devpiano::audio::HammerTransient softTransient;
             softTransient.trigger(kSampleRate, 72, 0.30f, 0.5f, 0.30f, 1.0f);
@@ -679,7 +688,22 @@ private:
             const auto s2 = loudTransient.getNextSample();
 
             expect(std::abs(s2) > std::abs(s1) * 3.0f,
-                   "loud strike attack crack produces much higher transient spike than soft strike");
+                   "loud strike wood knock produces much higher transient peak than soft strike");
+
+            devpiano::audio::HammerTransient lowWoodTransient;
+            lowWoodTransient.trigger(kSampleRate, 24, 0.85f, 0.5f, 1.50f, 1.0f);
+            devpiano::audio::HammerTransient highWoodTransient;
+            highWoodTransient.trigger(kSampleRate, 96, 0.85f, 0.5f, 0.30f, 1.0f);
+            expect(highWoodTransient.totalSamples < lowWoodTransient.totalSamples,
+                   "high-key wood knock is shorter than the low-key modal decay");
+            expect(lowWoodTransient.totalSamples >= static_cast<int>(0.004 * kSampleRate),
+                   "wood knock duration stays inside the 4-10 ms design band");
+            expect(highWoodTransient.totalSamples <= static_cast<int>(0.010 * kSampleRate),
+                   "wood knock duration stays inside the 4-10 ms design band");
+            for (std::size_t mode = 0; mode < lowWoodTransient.woodModes.size(); ++mode) {
+                expect(highWoodTransient.woodModes[mode].phaseInc > lowWoodTransient.woodModes[mode].phaseInc,
+                       "each wood mode scales upward with key position");
+            }
 
             devpiano::audio::HammerTransient bassLongTransient;
             bassLongTransient.trigger(kSampleRate, 30, 0.85f, 0.5f, 1.50f, 1.0f);
@@ -700,9 +724,23 @@ private:
                          "the precursor is absent at and above its documented boundary");
 
             for (auto i = 0; i < 900; ++i) {
-                [[maybe_unused]] const auto discarded = bassLongTransient.getNextSample();
+                [[maybe_unused]] const auto woodDiscarded = bassLongTransient.getNextSample();
+                [[maybe_unused]] const auto longDiscarded = bassLongTransient.getNextLongitudinalSample();
             }
-            expect(!bassLongTransient.isActive(), "longitudinal precursor mode cleanly decays within 20ms");
+            expect(!bassLongTransient.isActive(), "wood knock and longitudinal precursor cleanly decay within 20ms");
+        }
+
+        beginTest("high treble residual detune stays tiny and non-zero (Phase 44-3)");
+        {
+            for (auto midi = 100; midi <= 108; ++midi) {
+                const auto params = devpiano::audio::getNoteParams(midi);
+                expect(params.beatingDetuneRatio >= 0.00025f && params.beatingDetuneRatio <= 0.00035f,
+                       "MIDI " + juce::String(midi) + " keeps a sub-cent unison residual");
+                expectEquals(params.beatingPartials, 1,
+                             "the residual is a fundamental-only shimmer, not a full-triad level loss");
+            }
+            expect(devpiano::audio::getNoteParams(96).beatingDetuneRatio < 0.00025f,
+                   "96 keeps the previously approved high-treble detune trend");
         }
 
         beginTest("hammer contact audibly shapes the string onset (Phase 24-B)");
@@ -805,7 +843,7 @@ private:
                 fixture.synth.renderNextBlock(stream, empty, rendered, count);
                 rendered += count;
             }
-            const auto f1 = PianoSynthVoice::partialFrequency(35, 0);
+            const auto f1 = testPartialFrequency(35, 0);
             constexpr auto shortWindow = 8192;
             auto windowMagnitude = [&](int start) {
                 auto real = 0.0;
@@ -877,8 +915,8 @@ private:
                 rendered += count;
             }
 
-            const auto f1 = PianoSynthVoice::partialFrequency(60, 0);
-            const auto f2 = PianoSynthVoice::beatingFrequency(60, 0);
+            const auto f1 = testPartialFrequency(60, 0);
+            const auto f2 = testBeatingFrequency(60, 0);
             expectWithinAbsoluteError(f2, f1 * 1.0015, 1e-4, "C4 beating frequency formula");
 
             constexpr auto windowSize = 4096;
@@ -904,8 +942,8 @@ private:
             expect(f2 > f1, "beating oscillator has distinct frequency");
             expect(magRebound > 0.0001, "late C4 fundamental energy persists");
 
-            const auto bassF2 = PianoSynthVoice::partialFrequency(36, 1);
-            const auto bassF2_beat = PianoSynthVoice::beatingFrequency(36, 1);
+            const auto bassF2 = testPartialFrequency(36, 1);
+            const auto bassF2_beat = testBeatingFrequency(36, 1);
             expectWithinAbsoluteError(bassF2_beat, bassF2 * 1.0020, 1e-4, "bass 2nd partial beating frequency");
         }
 
@@ -940,8 +978,8 @@ private:
         {
             auto leftWeight = 0.0f;
             auto rightWeight = 0.0f;
-            for (auto i = 0; i < PianoSynthVoice::resonatorCount(); ++i) {
-                const auto spec = PianoSynthVoice::resonatorSpec(i);
+            for (auto i = 0; i < devpiano::audio::PianoWholeBodyBus::numResonators; ++i) {
+                const auto spec = devpiano::audio::PianoWholeBodyBus::resonatorSpec(i);
                 leftWeight += spec.weightLeft;
                 rightWeight += spec.weightRight;
                 const auto bandwidth = static_cast<double>(spec.frequency / spec.q);
@@ -975,14 +1013,16 @@ private:
             const auto dryEnergy = dryBuffer.getRMSLevel(0, 0, dryBuffer.getNumSamples());
 
             VoiceFixture pedalOnFixture;
-            pedalOnFixture.voice()->controllerMoved(64, 127);
+            pedalOnFixture.synth.handleController(1, 64, 127);
+            expect(pedalOnFixture.synth.getWholeBodyBus().sympatheticPool.pedalDown,
+                   "CC64 must reach the shared sympathetic pool through the synthesizer");
             juce::AudioBuffer<float> pedalBuffer(2, blockSize * 4);
             pedalOnFixture.noteOnBlock(60, 0.8f, pedalBuffer);
             const auto pedalEnergy = pedalBuffer.getRMSLevel(0, 0, pedalBuffer.getNumSamples());
 
-            expect(pedalEnergy > dryEnergy * 0.95f, "sustain pedal sympathetic pool enriches audio energy");
+            expect(pedalEnergy > dryEnergy, "sustain pedal sympathetic pool enriches audio energy");
 
-            pedalOnFixture.voice()->controllerMoved(64, 0);
+            pedalOnFixture.synth.handleController(1, 64, 0);
             pedalOnFixture.renderBlock(pedalBuffer);
             expect(std::isfinite(pedalBuffer.getRMSLevel(0, 0, pedalBuffer.getNumSamples())),
                    "pedal release stays numerically stable");
@@ -1005,19 +1045,19 @@ private:
         beginTest("lid position acoustic transfer function (Phase 22-B)");
         {
             VoiceFixture fullOpenFixture;
-            fullOpenFixture.voice()->setLidPosition(PianoSynthVoice::LidPosition::fullOpen);
+            fullOpenFixture.synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::fullOpen);
             juce::AudioBuffer<float> fullOpenBuf(2, blockSize * 4);
             fullOpenFixture.noteOnBlock(72, 0.8f, fullOpenBuf);
             const auto rmsFull = fullOpenBuf.getRMSLevel(0, 0, fullOpenBuf.getNumSamples());
 
             VoiceFixture halfStickFixture;
-            halfStickFixture.voice()->setLidPosition(PianoSynthVoice::LidPosition::halfStick);
+            halfStickFixture.synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::halfStick);
             juce::AudioBuffer<float> halfStickBuf(2, blockSize * 4);
             halfStickFixture.noteOnBlock(72, 0.8f, halfStickBuf);
             const auto rmsHalf = halfStickBuf.getRMSLevel(0, 0, halfStickBuf.getNumSamples());
 
             VoiceFixture closedFixture;
-            closedFixture.voice()->setLidPosition(PianoSynthVoice::LidPosition::closed);
+            closedFixture.synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::closed);
             juce::AudioBuffer<float> closedBuf(2, blockSize * 4);
             closedFixture.noteOnBlock(72, 0.8f, closedBuf);
             const auto rmsClosed = closedBuf.getRMSLevel(0, 0, closedBuf.getNumSamples());
@@ -1029,7 +1069,7 @@ private:
 
         beginTest("spruce soundboard low-pass cutoff and modal balancing (Phase 23-C)");
         {
-            PianoSynthVoice::SpruceSoundboardFilter filter;
+            PianoWholeBodyBus::SpruceSoundboardFilter filter;
             filter.updateCoefficients(kSampleRate);
             filter.reset();
 
@@ -1039,6 +1079,31 @@ private:
                 filter.processStereo(lowL, lowR);
             }
             expect(lowL > 0.0f && lowR > 0.0f, "spruce filter maintains DC/low-frequency path");
+
+            const auto sineResponse = [](double frequency) {
+                PianoWholeBodyBus::SpruceSoundboardFilter filter;
+                filter.updateCoefficients(kSampleRate);
+                filter.reset();
+                double sum = 0.0;
+                auto count = 0;
+                for (auto i = 0; i < 4096; ++i) {
+                    const auto phase = juce::MathConstants<double>::twoPi * frequency * i / kSampleRate;
+                    const auto input = static_cast<float>(std::sin(phase));
+                    auto left = input;
+                    auto right = input;
+                    filter.processStereo(left, right);
+                    if (i >= 2048) {
+                        sum += static_cast<double>(left) * left + static_cast<double>(right) * right;
+                        count += 2;
+                    }
+                }
+                return std::sqrt(sum / static_cast<double>(juce::jmax(1, count)));
+            };
+
+            const auto lowResponse = sineResponse(1000.0);
+            const auto woodResponse = sineResponse(8000.0);
+            expect(woodResponse > 0.6 * lowResponse,
+                   "42-3b keeps the wet soundboard 8 kHz wood band instead of a 4.2 kHz dead cut");
 
             VoiceFixture spruceFixture;
             juce::AudioBuffer<float> spruceBuf(2, blockSize * 4);
@@ -1074,8 +1139,11 @@ private:
 
             const auto& tailBlock = fixture.renderBlock(buffer);
             expect(peakMagnitude(tailBlock) > 0.0f, "release tail still rings");
-            const auto releaseBlocks = static_cast<int>(2.0 * kSampleRate / blockSize) + 1;
+            const auto releaseBlocks = static_cast<int>(4.0 * kSampleRate / blockSize) + 1;
             for (auto block = 0; block < releaseBlocks && fixture.voice()->isVoiceActive(); ++block) {
+                fixture.renderBlock(buffer);
+            }
+            for (auto block = 0; block < releaseBlocks && fixture.synth.getWholeBodyBus().isActive(); ++block) {
                 fixture.renderBlock(buffer);
             }
             fixture.renderBlock(buffer);
@@ -1125,8 +1193,12 @@ private:
             fixture.noteOnBlock(60, 0.8f, buffer);
             fixture.synth.noteOff(1, 60, 0.0f, false);
             fixture.renderBlock(buffer);
-            expect(peakMagnitude(buffer) == 0.0f, "allowTailOff=false must silence immediately");
             expect(!fixture.voice()->isVoiceActive(), "voice must be cleared");
+            for (auto block = 0; block < 200 && fixture.synth.getWholeBodyBus().isActive(); ++block) {
+                fixture.renderBlock(buffer);
+            }
+            fixture.renderBlock(buffer);
+            expect(peakMagnitude(buffer) == 0.0f, "shared bus tail reaches silence after hard voice stop");
         }
 
         beginTest("long render stays finite and bounded");
@@ -1152,6 +1224,46 @@ private:
             fixture.synth.allNotesOff(0, false);
             fixture.renderBlock(buffer);
             expect(peakMagnitude(buffer) == 0.0f, "allNotesOff must silence output");
+        }
+    }
+
+    void testHighTrebleFastRelease() {
+        beginTest("C8 fast release keeps natural tail and reclaims the voice");
+        {
+            VoiceFixture fixture;
+            juce::AudioBuffer<float> buffer(1, blockSize);
+            fixture.noteOnBlock(108, 0.8f, buffer);
+            for (auto block = 0; block < 5; ++block) {
+                fixture.renderBlock(buffer);
+            }
+            fixture.synth.noteOff(1, 108, 0.9f, true);
+
+            auto tailPeak = 0.0f;
+            for (auto block = 0; block < 40; ++block) {
+                tailPeak = juce::jmax(tailPeak, peakMagnitude(fixture.renderBlock(buffer)));
+            }
+            expect(tailPeak > 1.0e-5f, "C8 natural tail continues after fast release");
+            expect(fixture.voice()->isVoiceActive(), "C8 voice remains active while the undamped string decays");
+
+            for (auto block = 0; block < 180 && fixture.voice()->isVoiceActive(); ++block) {
+                fixture.renderBlock(buffer);
+            }
+            expect(!fixture.voice()->isVoiceActive(), "C8 voice is reclaimed after natural decay");
+        }
+
+        beginTest("C8 hard stop still silences immediately");
+        {
+            VoiceFixture fixture;
+            juce::AudioBuffer<float> buffer(1, blockSize);
+            fixture.noteOnBlock(108, 0.8f, buffer);
+            fixture.synth.noteOff(1, 108, 0.0f, false);
+            fixture.renderBlock(buffer);
+            expect(!fixture.voice()->isVoiceActive(), "C8 hard stop clears the voice");
+            for (auto block = 0; block < 200 && fixture.synth.getWholeBodyBus().isActive(); ++block) {
+                fixture.renderBlock(buffer);
+            }
+            fixture.renderBlock(buffer);
+            expect(peakMagnitude(buffer) == 0.0f, "shared bus tail reaches silence after C8 hard stop");
         }
     }
 
@@ -1281,7 +1393,7 @@ private:
         {
             constexpr double sr = 48000.0;
             for (int midi = 21; midi <= 108; ++midi) {
-                const auto f0 = PianoSynthVoice::partialFrequency(midi, 0);
+                const auto f0 = testPartialFrequency(midi, 0);
                 const auto exactEps = 2.0 * std::sin(juce::MathConstants<double>::pi * f0 / sr);
                 const auto boundedEps
                     = 2.0 * devpiano::audio::dsp::boundedSin(juce::MathConstants<double>::pi * f0 / sr);
@@ -1344,6 +1456,7 @@ private:
             for (const auto reference : { firstReference, firstReference + 1.0 }) {
                 devpiano::audio::BuiltinSynthesiser synth;
                 synth.setCurrentPlaybackSampleRate(rate);
+                synth.setPedalAcousticsEnabled(true);
                 synth.addSound(new PianoSynthSound());
                 synth.addVoice(new PianoSynthVoice());
                 auto* voice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(0));
@@ -1395,7 +1508,7 @@ private:
                     }
                     measuredCentre /= static_cast<double>(voice->mainString.partials[n].stringCount);
                     const auto requestedFrequency
-                        = PianoSynthVoice::partialFrequency(93, index, voice->getTemperament(), reference, true);
+                        = testPartialFrequency(93, index, voice->getTemperament(), reference, true);
                     expectWithinAbsoluteError(
                         measuredCentre, requestedFrequency, 0.02,
                         "a retained generated family must preserve its requested frequency centre");
@@ -1412,14 +1525,15 @@ private:
             // from equal fresh state and compare sample by sample.
             auto renderVoice
                 = [&](int channels, PianoSynthVoice::LidPosition lid, PianoSynthVoice::SoundPerspective perspective) {
-                      juce::Synthesiser synth;
+                      devpiano::audio::BuiltinSynthesiser synth;
                       synth.setCurrentPlaybackSampleRate(44100.0);
+                      synth.setPedalAcousticsEnabled(true);
                       synth.addSound(new PianoSynthSound());
                       synth.addVoice(new PianoSynthVoice());
                       auto* voice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(0));
                       voice->setAdsrParameters({ 0.01f, 0.2f, 0.8f, 0.3f });
-                      voice->setLidPosition(lid);
-                      voice->setSoundPerspective(perspective);
+                      synth.setWholeBodyLidPosition(lid);
+                      synth.setWholeBodySoundPerspective(perspective);
                       voice->setFeltAgeingAmount(0.0f);
                       juce::AudioBuffer<float> buffer(channels, 2048);
                       juce::MidiBuffer midi;

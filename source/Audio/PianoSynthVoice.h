@@ -12,6 +12,7 @@
 #include "PianoSourceLevels.h"
 #include "PianoTuning.h"
 #include "PianoVoiceResonance.h"
+#include "PianoWholeBodyBus.h"
 #include "TemperamentEngine.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
@@ -25,6 +26,8 @@
 class PianoSynthVoiceTest;
 class PianoTuningAndDuplexTest;
 class PedalAcousticsTest;
+using PianoBusInput = devpiano::audio::PianoBusInput;
+using PianoWholeBodyBus = devpiano::audio::PianoWholeBodyBus;
 // 内置物理建模钢琴合成器（Phase 12~24）：
 // - 空气黏性阻尼与二次方摩擦 (Phase 18-C)：Desvages & Bilbao (2016) 模态耗散模型，呈现中频下凹歌唱性；
 // - 16 峰正交云杉木音板模态 (Phase 19-A)：Bank 2010 / Chabassier 2019 实测物理模态分布；
@@ -76,15 +79,9 @@ public:
     using Temperament = devpiano::audio::Temperament;
     using HammerVoicing = devpiano::audio::HammerVoicing;
     using LidPosition = devpiano::audio::LidPosition;
-    static constexpr auto numResonators = 16;
-    static constexpr auto bodyWetRatio = 0.26f;
 
     PianoSynthVoice() {
         static_cast<void>(devpiano::audio::getPianoStretchRatios());
-        sympatheticPool.updateCoefficients(48000.0);
-        for (auto& resonator : bodyResonators) {
-            resonator.updateCoefficients(48000.0);
-        }
         damperTransient.updateSampleRate(48000.0);
     }
 
@@ -130,27 +127,12 @@ public:
     void setPianoTuning(bool stretchTuningEnabled, float duplexResonance) noexcept {
         pianoStretchTuningEnabled = stretchTuningEnabled;
         duplexPool.setAmount(juce::jlimit(0.0f, 1.0f, duplexResonance));
-        sympatheticPool.updateCoefficients(getSampleRate(), pianoTemperament, pianoReferencePitchA4,
-                                           pianoStretchTuningEnabled);
     }
 
-    void setLidPosition(LidPosition position) noexcept {
-        pianoLidPosition = position;
-        lidAcoustics.setPosition(position, getSampleRate());
+    void setWholeBodyBus(PianoWholeBodyBus* bus) noexcept {
+        wholeBodyBus = bus;
     }
 
-    [[nodiscard]] LidPosition getLidPosition() const noexcept {
-        return pianoLidPosition;
-    }
-
-    void setSoundPerspective(SoundPerspective perspective) noexcept {
-        pianoSoundPerspective = perspective;
-        perspectiveProcessor.setPerspective(perspective, !isVoiceActive());
-    }
-
-    [[nodiscard]] SoundPerspective getSoundPerspective() const noexcept {
-        return pianoSoundPerspective;
-    }
     void setSoftPedalDown(bool down, float amount = 1.0f) noexcept {
         softPedalDown = down;
         softPedalAmount = down ? juce::jlimit(0.0f, 1.0f, amount) : 0.0f;
@@ -165,8 +147,6 @@ public:
     }
     void setTemperament(Temperament temperament) noexcept {
         pianoTemperament = temperament;
-        sympatheticPool.updateCoefficients(getSampleRate(), pianoTemperament, pianoReferencePitchA4,
-                                           pianoStretchTuningEnabled);
     }
 
     [[nodiscard]] Temperament getTemperament() const noexcept {
@@ -175,8 +155,6 @@ public:
 
     void setReferencePitchA4(double pitch) noexcept {
         pianoReferencePitchA4 = TemperamentEngine::clampReferencePitch(pitch);
-        sympatheticPool.updateCoefficients(getSampleRate(), pianoTemperament, pianoReferencePitchA4,
-                                           pianoStretchTuningEnabled);
     }
 
     [[nodiscard]] double getReferencePitchA4() const noexcept {
@@ -208,15 +186,7 @@ public:
         juce::SynthesiserVoice::setCurrentPlaybackSampleRate(newRate);
         if (newRate > 0.0) {
             mainString.prepare(newRate);
-            sympatheticPool.updateCoefficients(newRate, pianoTemperament, pianoReferencePitchA4,
-                                               pianoStretchTuningEnabled);
             duplexPool.reset();
-            lidAcoustics.setPosition(pianoLidPosition, newRate);
-            perspectiveProcessor.prepare(newRate);
-            for (auto& resonator : bodyResonators) {
-                resonator.updateCoefficients(newRate);
-            }
-            spruceSoundboardFilter.updateCoefficients(newRate);
             damperTransient.updateSampleRate(newRate);
         }
     }
@@ -226,10 +196,18 @@ public:
         if (sampleRate <= 0.0) {
             return;
         }
-        perspectiveProcessor.prepare(sampleRate);
+        if (wholeBodyBus != nullptr && noteKeyActive) {
+            wholeBodyBus->noteOffKey(currentPlayingMidiNote);
+            noteKeyActive = false;
+        }
 
         currentPlayingMidiNote = midiNoteNumber;
         noteOutputGain = devpiano::audio::pianoRegisterLoudnessGain(midiNoteNumber);
+        // Mechanical action noise has its own shallow register curve. It is
+        // pre-scaled before the shared string output gain so its net level is
+        // mechanicalOutputGain rather than the string register curve.
+        mechanicalOutputGain = mechanicalRegisterGain(midiNoteNumber);
+        mechanicalPreGain = mechanicalOutputGain / juce::jmax(1e-6f, noteOutputGain);
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto triggerSequence = ++triggerCounter;
         const auto setup = devpiano::audio::computePianoNoteSetup(
@@ -241,8 +219,12 @@ public:
 
         const auto keyPos = setup.keyPos;
         const auto directPan = 0.15f + 0.70f * keyPos;
-        directLeftGain = (1.0f - directPan) * std::numbers::sqrt2_v<float>;
-        directRightGain = directPan * std::numbers::sqrt2_v<float>;
+        // 42-4: 等功率声像；中央 pan=0.5 仍为 0.7071，两端不再有 +1.73 dB 翘曲。
+        // boundedSinCos 在 startNote 一次计算，实时逐采样路径无库函数三角。
+        const auto panAngle = static_cast<double>(directPan) * devpiano::audio::dsp::kHalfPi;
+        const auto pan = devpiano::audio::dsp::boundedSinCos(panAngle);
+        directLeftGain = static_cast<float>(pan.cosVal);
+        directRightGain = static_cast<float>(pan.sinVal);
 
         const auto unaCordaMu = setup.unaCordaMu;
         const auto hammerHardness = setup.hammerHardness;
@@ -254,7 +236,6 @@ public:
         stringStart.stringCount = params.stringCount;
         stringStart.beatingPartials = params.beatingPartials;
         stringStart.beatingDetuneRatio = params.beatingDetuneRatio;
-        stringStart.unisonKeyIndex = std::clamp(midiNoteNumber, 21, 108) - 21;
         stringStart.baseFrequency = setup.baseFrequency;
         stringStart.effectiveInharmonicityB = setup.effectiveInharmonicityB;
         stringStart.keyPos = setup.keyPos;
@@ -275,40 +256,47 @@ public:
         stringStart.b2 = params.b2;
         stringStart.fastDecayRatio = params.fastDecayRatio;
         stringStart.slowWeight = params.slowWeight;
-        const auto unisonScale = mainString.start(stringStart);
+        mainString.start(stringStart);
 
         const auto hammerTransientVel = clampedVelocity * (1.0f - 0.35f * unaCordaMu);
+        // The wood knock and longitudinal precursor are additive mechanical
+        // transients, not part of the coherent string sum. The precursor is
+        // routed separately into the shared body drive; do not inherit the
+        // string unison phase-compensation gain.
         hammerTransient.trigger(sampleRate, midiNoteNumber, hammerTransientVel, hammerHardness, params.stringLength,
-                                unisonScale);
+                                1.0f);
         hammerContactEngine.trigger(sampleRate, effectiveTc);
         mainString.triggerSpatialDiffusion();
         damperTransient.reset();
         mainString.triggerPitchGlide(clampedVelocity);
 
-        for (auto& resonator : bodyResonators) {
-            resonator.reset();
-            resonator.updateCoefficients(sampleRate);
-        }
-        spruceSoundboardFilter.updateCoefficients(sampleRate);
-        spruceSoundboardFilter.reset();
-
-        sympatheticPool.updateCoefficients(sampleRate, pianoTemperament, pianoReferencePitchA4,
-                                           pianoStretchTuningEnabled);
-        sympatheticPool.noteOnKey(midiNoteNumber);
-        lidAcoustics.setPosition(pianoLidPosition, sampleRate);
-        lidAcoustics.reset();
-
         adsrGate.setSampleRate(sampleRate);
         adsrGate.setParameters(configuredAdsr);
         adsrGate.noteOn();
+
+        if (wholeBodyBus != nullptr) {
+            wholeBodyBus->noteOnKey(midiNoteNumber);
+            noteKeyActive = true;
+        }
     }
 
     void stopNote(float velocity, bool allowTailOff) override {
-        sympatheticPool.noteOffKey(currentPlayingMidiNote);
+        if (wholeBodyBus != nullptr && noteKeyActive) {
+            wholeBodyBus->noteOffKey(currentPlayingMidiNote);
+            noteKeyActive = false;
+        }
 
         if (allowTailOff) {
             const auto sampleRate = getSampleRate();
             const auto relVel = velocity > 0.0f ? velocity : 0.6f;
+
+            // 高音无制音器区：松键不进入 ADSR 释放门控，让弦自然衰减至
+            // allPartialsSilent() 后释放声部。木质回弹仍由 DamperTransient
+            // 提供；allowTailOff=false 的 Panic/硬停/偷声部路径保持立即重置。
+            if (currentPlayingMidiNote > 88) {
+                damperTransient.trigger(sampleRate, currentPlayingMidiNote, relVel);
+                return;
+            }
 
             // 离键速度动态调节琴弦 ADSR 释放时间 (Phase 32-B, Dynamic Key Release Damping):
             // 慢离键毛毡缓冲贴弦缓慢，保留微弱余音延展；快离键瞬间强力消音
@@ -329,46 +317,32 @@ public:
         hammerContactEngine.reset();
         damperTransient.reset();
         mainString.reset();
-        for (auto& resonator : bodyResonators) {
-            resonator.reset();
-        }
-        spruceSoundboardFilter.reset();
-        sympatheticPool.reset();
         duplexPool.reset();
-        lidAcoustics.reset();
-        perspectiveProcessor.reset();
         clearCurrentNote();
     }
     void pitchWheelMoved(int) override {
     }
-    // Synchronizes the note-driven sympathetic gate from BuiltinSynthesiser's
-    // channel truth at note start. This is deliberately not a MIDI/controller
-    // event: it does not trigger the whole-piano pedal owner.
-    void setSympatheticPedalDown(bool isDown) noexcept {
-        sympatheticPool.setPedalDown(isDown);
-    }
-
     void controllerMoved(int controllerNumber, int controllerValue) override {
-        // MIDI CC 64 sustain state is applied by BuiltinSynthesiser's single
-        // pedal-control entry point. The Voice only updates its note-driven
-        // sympathetic gate here; the whole-piano pedal owner owns the
-        // mechanical transient and shock.
-        if (controllerNumber == 64) {
-            setSympatheticPedalDown(controllerValue >= 64);
-        } else if (controllerNumber == 67) {
+        // CC64 sustain is aggregated by BuiltinSynthesiser and applied to the
+        // shared whole-piano bus; the voice only handles CC67 una corda.
+        if (controllerNumber == 67) {
             // MIDI CC 67 弱音/移位踏板 (Una Corda / Soft Pedal, Phase 29-B)
             softPedalDown = (controllerValue >= 64);
             softPedalAmount
                 = softPedalDown ? juce::jlimit(0.0f, 1.0f, static_cast<float>(controllerValue) / 127.0f) : 0.0f;
         }
     }
-    void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
+    // Piano voices render into the shared whole-body bus; direct per-voice
+    // rendering is unsupported after Phase 43-1. BuiltinSynthesiser is the
+    // only production caller.
+    void renderNextBlock(juce::AudioBuffer<float>&, int, int) override {
+    }
+
+    void renderToBus(PianoBusInput& input, int startSample, int numSamples) noexcept {
         juce::ScopedNoDenormals noDenormals;
         auto isKeySounding = getCurrentlyPlayingNote() >= 0 && (adsrGate.isActive() || damperTransient.isActive());
         if (!isKeySounding && !duplexPool.isActive()) {
             if (getCurrentlyPlayingNote() >= 0) {
-                lidAcoustics.reset();
-                perspectiveProcessor.reset();
                 clearCurrentNote();
             }
             return;
@@ -379,11 +353,6 @@ public:
             const auto envelope = isKeySounding ? adsrGate.getNextSample() : 0.0f;
             if (isKeySounding && envelope <= 0.0f && !adsrGate.isActive() && !damperTransient.isActive()) {
                 adsrGate.reset();
-                for (auto& resonator : bodyResonators) {
-                    resonator.reset();
-                }
-                spruceSoundboardFilter.reset();
-                sympatheticPool.reset();
                 isKeySounding = false;
             }
             const auto duplexMix = duplexPool.nextMix();
@@ -391,83 +360,38 @@ public:
             if (!isKeySounding) {
                 const auto duplexOut = duplexMix * duplexPool.process(0.0f) * noteOutputGain;
                 if (duplexOut != 0.0f) {
-                    auto outL = duplexOut * directLeftGain;
-                    auto outR = duplexOut * directRightGain;
-                    lidAcoustics.processStereo(outL, outR);
-                    perspectiveProcessor.processStereo(outL, outR);
-
-                    if (outputBuffer.getNumChannels() >= 2) {
-                        outputBuffer.addSample(0, sampleIndex, outL);
-                        outputBuffer.addSample(1, sampleIndex, outR);
-                    } else if (outputBuffer.getNumChannels() == 1) {
-                        // 39-A voice mono: fully processed stereo downmix,
-                        // including lid/perspective tail. No extra copy.
-                        outputBuffer.addSample(0, sampleIndex, 0.5f * (outL + outR));
-                    }
+                    input.add(sampleIndex, duplexOut * directLeftGain, duplexOut * directRightGain, 0.0f);
                 }
                 continue;
             }
 
-            const auto click = hammerTransient.getNextSample();
-            const auto damperThump = damperTransient.getNextSample();
+            // Pre-scale mechanical transients so the shared string output gain
+            // leaves their net level at mechanicalOutputGain.
+            const auto woodKnock = hammerTransient.getNextSample() * mechanicalPreGain;
+            const auto longitudinal = hammerTransient.getNextLongitudinalSample() * mechanicalPreGain * noteOutputGain
+                * kLongitudinalBodyDriveGain;
+            const auto damperThump = damperTransient.getNextSample() * mechanicalPreGain;
             const auto stringSample = mainString.nextSample();
             const auto valueLeft = stringSample.left;
             const auto valueRight = stringSample.right;
-            // Hammer contact micro-damping and release (Phase 24-B, 39-A):
-            // consume the existing HammerContactEngine exactly once per
-            // sounding sample and apply its multiplier only to the string sum,
-            // ahead of ADSR and pre-saturation. Hammer click and damper thump
-            // bypass contact; duration/state are unchanged.
             const auto contactMult = hammerContactEngine.getReleaseMultiplier();
-            const auto preSatLeft = valueLeft * contactMult * envelope + click + damperThump;
-            const auto preSatRight = valueRight * contactMult * envelope + click + damperThump;
-            // 音板与琴桥大动态软饱和 (Phase 22-D, Bilbao 2009)
+            const auto preSatLeft = valueLeft * contactMult * envelope + woodKnock + damperThump;
+            const auto preSatRight = valueRight * contactMult * envelope + woodKnock + damperThump;
             const auto rawLeft = softSaturate(preSatLeft);
             const auto rawRight = softSaturate(preSatRight);
             const auto rawMono = 0.5f * (rawLeft + rawRight);
             const auto duplexOut = duplexPool.process(rawMono);
 
-            // 1. 16 峰物理云杉木音板模态 (Phase 19-A/B)
-            auto resonatorLeftSum = 0.0f;
-            auto resonatorRightSum = 0.0f;
-            for (std::size_t i = 0; i < numResonators; ++i) {
-                const auto& res = bodyResonators[i];
-                const auto resOut = bodyResonators[i].process(rawMono);
-                resonatorLeftSum += res.weightLeft * resOut;
-                resonatorRightSum += res.weightRight * resOut;
-            }
-
-            // 2. 云杉木音板高频粘滞吸收低通滤波 (Phase 23-C, Boutillon & Ege 2013)
-            spruceSoundboardFilter.processStereo(resonatorLeftSum, resonatorRightSum);
-
-            // 3. 延音踏板与单键和弦开放弦交感共鸣 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
-            const auto sympatheticOut = sympatheticPool.process(rawMono * noteOutputGain);
-
-            // 4. 琴桥立体声声像定位与非对称空间投影 (低音在左 0.15 -> 高音在右 0.85)
-
             const auto wet = 0.18f + pianoResonance * 0.16f;
-            auto outLeft = (1.0f - wet) * rawLeft * directLeftGain + wet * resonatorLeftSum;
-            auto outRight = (1.0f - wet) * rawRight * directRightGain + wet * resonatorRightSum;
-            outLeft = (1.0f - duplexMix) * outLeft + duplexMix * duplexOut * directLeftGain;
-            outRight = (1.0f - duplexMix) * outRight + duplexMix * duplexOut * directRightGain;
-            outLeft *= noteOutputGain;
-            outRight *= noteOutputGain;
-            const auto sympatheticMix = (1.0f - duplexMix) * wet * sympatheticOut;
-            outLeft += 0.40f * sympatheticMix;
-            outRight += 0.60f * sympatheticMix;
-
-            // 5. 三角钢琴琴盖反射与近场木质微反射 (Phase 21-B / Phase 22-B, Chabassier 2013/2019)
-            lidAcoustics.processStereo(outLeft, outRight);
-            // 6. 双视角立体声场与声像转换 (Phase 31-A, PerspectiveProcessor: Player vs Audience)
-            perspectiveProcessor.processStereo(outLeft, outRight);
-
-            if (outputBuffer.getNumChannels() >= 2) {
-                outputBuffer.addSample(0, sampleIndex, outLeft);
-                outputBuffer.addSample(1, sampleIndex, outRight);
-            } else if (outputBuffer.getNumChannels() == 1) {
-                // Mono is the final lid/perspective-processed stereo downmix.
-                outputBuffer.addSample(0, sampleIndex, 0.5f * (outLeft + outRight));
-            }
+            const auto duplexGain = 1.0f - duplexMix;
+            const auto dryLeft
+                = (duplexGain * (1.0f - wet) * rawLeft * directLeftGain + duplexMix * duplexOut * directLeftGain)
+                * noteOutputGain;
+            const auto dryRight
+                = (duplexGain * (1.0f - wet) * rawRight * directRightGain + duplexMix * duplexOut * directRightGain)
+                * noteOutputGain;
+            const auto drive = rawMono * noteOutputGain * wet * duplexGain + longitudinal;
+            input.add(sampleIndex, dryLeft, dryRight, drive);
         }
 
         if (isKeySounding && allPartialsSilent()) {
@@ -476,134 +400,23 @@ public:
             hammerContactEngine.reset();
             damperTransient.reset();
             mainString.reset();
-            for (auto& resonator : bodyResonators) {
-                resonator.reset();
-            }
-            spruceSoundboardFilter.reset();
-            if (!sympatheticPool.pedalDown) {
-                sympatheticPool.reset();
-            }
         }
         if (getCurrentlyPlayingNote() >= 0 && !adsrGate.isActive() && !damperTransient.isActive()
             && !duplexPool.isActive()) {
             duplexPool.reset();
-            lidAcoustics.reset();
-            perspectiveProcessor.reset();
             clearCurrentNote();
         }
     }
 
 private:
+    [[nodiscard]] static float mechanicalRegisterGain(int midiNoteNumber) noexcept {
+        const auto keyPos = std::clamp((static_cast<float>(midiNoteNumber) - 21.0f) / 87.0f, 0.0f, 1.0f);
+        return 0.95f + 0.05f * keyPos;
+    }
+
     [[nodiscard]] static float softSaturate(float x) noexcept {
         const auto x2 = std::clamp(x * x, 0.0f, 1.0f);
         return x * (1.0f - 0.12f * x2);
-    }
-
-    [[nodiscard]] static int partialCountForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).partialCount;
-    }
-    [[nodiscard]] static float decaySecondsForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).decaySeconds;
-    }
-    [[nodiscard]] static float decayDampingCForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).decayDampingC;
-    }
-    [[nodiscard]] static double inharmonicityBForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).inharmonicityB;
-    }
-    [[nodiscard]] static float fastDecayRatioForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).fastDecayRatio;
-    }
-    [[nodiscard]] static float slowWeightForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).slowWeight;
-    }
-
-    [[nodiscard]] static double
-    partialDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f, float resonance = 0.5f,
-                        Temperament temperament = Temperament::equal,
-                        double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch) noexcept {
-        const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
-        const auto decayScale = 1.0f + (juce::jlimit(0.0f, 1.0f, resonance) - 0.5f) * 0.6f;
-        const auto baseDecay = static_cast<double>(params.decaySeconds * decayScale);
-        const auto f0 = devpiano::audio::pianoFirstPartialFrequency(midiNoteNumber, temperament, referencePitchA4)
-            / std::sqrt(1.0 + params.inharmonicityB);
-        const auto fn = partialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4);
-        const auto piOverL = juce::MathConstants<double>::pi / static_cast<double>(params.stringLength);
-        const auto k1 = piOverL * piOverL;
-        const auto alpha1 = static_cast<double>(params.b1) + static_cast<double>(params.b2) * k1;
-        const auto m = static_cast<double>(partialIndex + 1);
-        const auto kn = m * m * k1;
-        const auto airTerm = std::sqrt(f0 / std::max(fn, 20.0));
-        const auto alpha_n
-            = static_cast<double>(params.b1) * (0.80 + 0.20 * airTerm) + static_cast<double>(params.b2) * kn;
-        const auto dampingEffect
-            = (alpha_n / juce::jmax(1e-9, alpha1)) * static_cast<double>(1.5f - juce::jlimit(0.0f, 1.0f, brightness));
-        return baseDecay / dampingEffect;
-    }
-
-    [[nodiscard]] static double partialFastDecaySeconds(int midiNoteNumber, int partialIndex, float brightness = 0.5f,
-                                                        float resonance = 0.5f) noexcept {
-        const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
-        return partialDecaySeconds(midiNoteNumber, partialIndex, brightness, resonance)
-            * static_cast<double>(params.fastDecayRatio);
-    }
-    [[nodiscard]] static float bodyWet(float resonance = 0.5f) noexcept {
-        return 0.18f + juce::jlimit(0.0f, 1.0f, resonance) * 0.16f;
-    }
-    [[nodiscard]] static double partialFrequency(int midiNoteNumber, int partialIndex,
-                                                 Temperament temperament = Temperament::equal,
-                                                 double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch,
-                                                 bool stretchTuningEnabled = true) noexcept {
-        return devpiano::audio::pianoPartialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4,
-                                                      stretchTuningEnabled);
-    }
-    [[nodiscard]] static float beatingDetuneRatioForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).beatingDetuneRatio;
-    }
-    [[nodiscard]] static int beatingPartialCountForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).beatingPartials;
-    }
-    [[nodiscard]] static double
-    beatingFrequency(int midiNoteNumber, int partialIndex, Temperament temperament = Temperament::equal,
-                     double referencePitchA4 = TemperamentEngine::kDefaultReferencePitch) noexcept {
-        const auto f = partialFrequency(midiNoteNumber, partialIndex, temperament, referencePitchA4);
-        const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
-        const auto isBassFundamental = (midiNoteNumber < 48 && partialIndex == 0);
-        if (!isBassFundamental && partialIndex < params.beatingPartials && params.beatingDetuneRatio > 0.0f) {
-            return f * (1.0 + static_cast<double>(params.beatingDetuneRatio));
-        }
-        return f;
-    }
-
-    [[nodiscard]] static constexpr int resonatorCount() noexcept {
-        return numResonators;
-    }
-    struct ResonatorSpec {
-        float frequency;
-        float q;
-        float weightLeft;
-        float weightRight;
-    };
-    [[nodiscard]] static ResonatorSpec resonatorSpec(int index) noexcept {
-        constexpr ResonatorSpec specs[numResonators] = {
-            { 48.0f, 6.0f, 0.12f, 0.04f },   { 68.0f, 6.0f, 0.12f, 0.04f },   { 95.0f, 5.5f, 0.11f, 0.05f },
-            { 135.0f, 5.5f, 0.10f, 0.05f },  { 185.0f, 5.0f, 0.09f, 0.06f },  { 250.0f, 4.8f, 0.08f, 0.07f },
-            { 340.0f, 4.5f, 0.08f, 0.08f },  { 460.0f, 4.2f, 0.07f, 0.08f },  { 620.0f, 3.8f, 0.06f, 0.09f },
-            { 820.0f, 3.5f, 0.05f, 0.09f },  { 1080.0f, 3.2f, 0.04f, 0.09f }, { 1380.0f, 3.0f, 0.03f, 0.08f },
-            { 1680.0f, 2.8f, 0.02f, 0.07f }, { 1850.0f, 2.5f, 0.01f, 0.05f }, { 2050.0f, 2.4f, 0.01f, 0.03f },
-            { 2250.0f, 2.2f, 0.01f, 0.03f },
-        };
-        const auto clamped = std::clamp(index, 0, numResonators - 1);
-        return specs[clamped];
-    }
-
-    using VoiceRegion = devpiano::audio::PianoNoteParams;
-
-    [[nodiscard]] static const VoiceRegion& regionForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber);
-    }
-    [[nodiscard]] static float strikingPositionRatioForNote(int midiNoteNumber) noexcept {
-        return devpiano::audio::getNoteParams(midiNoteNumber).strikePosRatio;
     }
 
     [[nodiscard]] bool allPartialsSilent() const noexcept {
@@ -621,13 +434,14 @@ private:
     float pianoHammerHardness = 0.5f;
     float pianoResonance = 0.5f;
     HammerVoicing hammerVoicing = devpiano::audio::kCalibratedHammerVoicing;
-    LidPosition pianoLidPosition = LidPosition::fullOpen;
     Temperament pianoTemperament = Temperament::equal;
     double pianoReferencePitchA4 = TemperamentEngine::kDefaultReferencePitch;
     bool pianoStretchTuningEnabled = true;
     float directLeftGain = 0.7071f;
     float directRightGain = 0.7071f;
     float noteOutputGain = 1.0f;
+    float mechanicalOutputGain = 1.0f;
+    float mechanicalPreGain = 1.0f;
 
     // 琴槌接触微阻尼与脱离物理释放引擎 (Phase 24-B, Hammer Contact-Release Dynamics)
     struct HammerContactEngine {
@@ -668,8 +482,10 @@ private:
 
     devpiano::audio::DamperTransient damperTransient;
 
-    // 延音踏板全局交感共鸣弦池与单键开放弦交感 (Phase 21-A / Phase 22-E, Bank 2010 Sec. VI)
-    devpiano::audio::SympatheticResonancePool sympatheticPool;
+    // Phase 43-1 whole-piano owner. The voice contributes dry/drive samples
+    // and note-key events; it does not own soundboard/sympathetic/lid state.
+    PianoWholeBodyBus* wholeBodyBus = nullptr;
+    bool noteKeyActive = false;
 
     struct DuplexResonance {
         struct Mode {
@@ -781,99 +597,16 @@ private:
     };
     DuplexResonance duplexPool;
 
-    devpiano::audio::LidAcoustics lidAcoustics;
-    PerspectiveProcessor perspectiveProcessor;
-    SoundPerspective pianoSoundPerspective = SoundPerspective::player;
-
-    // 云杉木音板高频粘滞吸收低通滤波器 (Phase 23-C, Boutillon & Ege 2013)
-    struct SpruceSoundboardFilter {
-        float lpLeft = 0.0f;
-        float lpRight = 0.0f;
-        float lpCoeff = 0.0f;
-
-        void updateCoefficients(double sampleRate) noexcept {
-            if (sampleRate <= 0.0) {
-                return;
-            }
-            constexpr float fc = 4200.0f;
-            const auto safeFc = std::min(fc, static_cast<float>(sampleRate * 0.480));
-            lpCoeff = std::exp(-juce::MathConstants<float>::twoPi * safeFc / static_cast<float>(sampleRate));
-        }
-
-        void reset() noexcept {
-            lpLeft = 0.0f;
-            lpRight = 0.0f;
-        }
-
-        void processStereo(float& left, float& right) noexcept {
-            if (lpCoeff > 0.0f) {
-                lpLeft = (1.0f - lpCoeff) * left + lpCoeff * lpLeft;
-                lpRight = (1.0f - lpCoeff) * right + lpCoeff * lpRight;
-                left = lpLeft;
-                right = lpRight;
-            }
-        }
-    };
-    SpruceSoundboardFilter spruceSoundboardFilter;
-
-    struct BodyResonator {
-        float frequency = 110.0f;
-        float q = 6.0f;
-        float weightLeft = 0.40f;
-        float weightRight = 0.40f;
-
-        float c1 = 0.0f;
-        float c2 = 0.0f;
-        float g = 0.0f;
-        float s1 = 0.0f;
-        float s2 = 0.0f;
-
-        double lastSampleRate = 0.0;
-
-        void updateCoefficients(double sampleRate) noexcept {
-            if (sampleRate <= 0.0 || std::abs(sampleRate - lastSampleRate) < 1e-6) {
-                return;
-            }
-            lastSampleRate = sampleRate;
-            const auto theta = juce::MathConstants<double>::twoPi * static_cast<double>(frequency) / sampleRate;
-            const auto bandwidth = static_cast<double>(frequency / q);
-            const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / sampleRate);
-            c1 = static_cast<float>(2.0 * r * devpiano::audio::dsp::boundedCos(theta));
-            c2 = static_cast<float>(-r * r);
-            g = static_cast<float>((1.0 - r * r) * 0.5);
-        }
-
-        void reset() noexcept {
-            s1 = 0.0f;
-            s2 = 0.0f;
-        }
-
-        [[nodiscard]] float process(float in) noexcept {
-            const auto w = in + c1 * s1 + c2 * s2;
-            const auto y = g * (w - s2);
-            s2 = s1;
-            s1 = w;
-            return y;
-        }
-    };
-
-    std::array<BodyResonator, numResonators> bodyResonators = [] {
-        std::array<BodyResonator, numResonators> array {};
-        for (std::size_t i = 0; i < numResonators; ++i) {
-            const auto spec = resonatorSpec(static_cast<int>(i));
-            array[i].frequency = spec.frequency;
-            array[i].q = spec.q;
-            array[i].weightLeft = spec.weightLeft;
-            array[i].weightRight = spec.weightRight;
-        }
-        return array;
-    }();
     bool softPedalDown = false;
     float softPedalAmount = 0.0f;
     int voiceIndex = 0;
     float pianoFeltAgeingAmount = 0.0f;
 
 private:
+    // The longitudinal precursor is an independent bass excitation. Keep it
+    // inside the shared body/sympathetic drive instead of adding it to dry
+    // stereo; 0.65 keeps the isolated metallic ping subordinate to the board.
+    static constexpr float kLongitudinalBodyDriveGain = 0.65f;
     // Explicit test-only observation of private DSP/helper state. Production
     // callers use semantic setters/render and never write these fields.
     friend class ::PianoSynthVoiceTest;

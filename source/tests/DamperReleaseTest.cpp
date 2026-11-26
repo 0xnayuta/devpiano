@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 
+#include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
 
 // ==============================================================================
@@ -38,8 +39,9 @@ private:
     void testFastReleaseGeneratesWoodThumpAndSteepDecay() {
         beginTest("Fast key release generates prominent wood thump with steep decay");
 
-        juce::Synthesiser synth;
+        devpiano::audio::BuiltinSynthesiser synth;
         synth.setCurrentPlaybackSampleRate(48000.0);
+        synth.setPedalAcousticsEnabled(true);
         synth.addSound(new PianoSynthSound());
         auto* voice = new PianoSynthVoice();
         voice->setVoiceIndex(0);
@@ -79,15 +81,17 @@ private:
         // Trigger note 50 release directly on the internal damper transient
         // Fast release: 0.95
         // Slow release: 0.15
-        juce::Synthesiser synthFast;
+        devpiano::audio::BuiltinSynthesiser synthFast;
         synthFast.setCurrentPlaybackSampleRate(48000.0);
+        synthFast.setPedalAcousticsEnabled(true);
         synthFast.addSound(new PianoSynthSound());
         auto* vFast = new PianoSynthVoice();
         vFast->setVoiceIndex(0);
         synthFast.addVoice(vFast);
 
-        juce::Synthesiser synthSlow;
+        devpiano::audio::BuiltinSynthesiser synthSlow;
         synthSlow.setCurrentPlaybackSampleRate(48000.0);
+        synthSlow.setPedalAcousticsEnabled(true);
         synthSlow.addSound(new PianoSynthSound());
         auto* vSlow = new PianoSynthVoice();
         vSlow->setVoiceIndex(0);
@@ -124,8 +128,9 @@ private:
     void testHighRegisterNoDamperFeltHasWoodThump() {
         beginTest("High register notes (>88) bypass felt damper but retain wood key thump");
 
-        juce::Synthesiser synth;
+        devpiano::audio::BuiltinSynthesiser synth;
         synth.setCurrentPlaybackSampleRate(48000.0);
+        synth.setPedalAcousticsEnabled(true);
         synth.addSound(new PianoSynthSound());
         auto* voice = new PianoSynthVoice();
         voice->setVoiceIndex(0);
@@ -152,15 +157,17 @@ private:
     void testDynamicReleaseDampingVelocityScaling() {
         beginTest("Dynamic ADSR release damping extinguishes strings faster on fast release");
 
-        juce::Synthesiser synthFast;
+        devpiano::audio::BuiltinSynthesiser synthFast;
         synthFast.setCurrentPlaybackSampleRate(48000.0);
+        synthFast.setPedalAcousticsEnabled(true);
         synthFast.addSound(new PianoSynthSound());
         auto* vFast = new PianoSynthVoice();
         vFast->setVoiceIndex(0);
         synthFast.addVoice(vFast);
 
-        juce::Synthesiser synthSlow;
+        devpiano::audio::BuiltinSynthesiser synthSlow;
         synthSlow.setCurrentPlaybackSampleRate(48000.0);
+        synthSlow.setPedalAcousticsEnabled(true);
         synthSlow.addSound(new PianoSynthSound());
         auto* vSlow = new PianoSynthVoice();
         vSlow->setVoiceIndex(0);
@@ -205,8 +212,9 @@ private:
     void testNumericalStabilityAndCompleteDecay() {
         beginTest("Damper release decays completely to silence without DC offset or denormals");
 
-        juce::Synthesiser synth;
+        devpiano::audio::BuiltinSynthesiser synth;
         synth.setCurrentPlaybackSampleRate(48000.0);
+        synth.setPedalAcousticsEnabled(true);
         synth.addSound(new PianoSynthSound());
         auto* voice = new PianoSynthVoice();
         voice->setVoiceIndex(0);
@@ -218,8 +226,8 @@ private:
 
         synth.noteOff(1, 40, 0.8f, true);
 
-        // Render for 2 seconds (sufficient for all partials and transients to silence)
-        for (int i = 0; i < 200; ++i) {
+        // Render for 4 seconds (sufficient for bus body/lid and all partials)
+        for (int i = 0; i < 400; ++i) {
             buf.clear();
             synth.renderNextBlock(buf, juce::MidiBuffer(), 0, 512);
         }
@@ -233,8 +241,9 @@ private:
     void testAdsrConfigurationPreservedAcrossNoteLifecycles() {
         beginTest("ADSR: configured parameters are preserved across note lifecycles without override leaks");
 
-        juce::Synthesiser synth;
+        devpiano::audio::BuiltinSynthesiser synth;
         synth.setCurrentPlaybackSampleRate(48000.0);
+        synth.setPedalAcousticsEnabled(true);
         synth.addSound(new PianoSynthSound());
         auto* voice = new PianoSynthVoice();
         voice->setVoiceIndex(0);

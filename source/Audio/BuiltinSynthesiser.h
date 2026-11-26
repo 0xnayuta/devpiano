@@ -1,13 +1,19 @@
 #pragma once
 
 #include "PianoPedalAcoustics.h"
+#include "PianoWholeBodyBus.h"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <memory>
 
 namespace devpiano::audio {
+
+// 实时与离线共用的声部分配：Piano 为 12，Sine 保持 8。
+inline constexpr int kPianoVoiceCount = 12;
+inline constexpr int kSineVoiceCount = 8;
 
 class BuiltinSynthesiser : public juce::Synthesiser {
 public:
@@ -91,9 +97,17 @@ public:
         return pedalAcousticsEnabled;
     }
     void setPedalNoiseLevel(float level) noexcept;
-    void setPedalTuning(Temperament temperament, double referencePitchA4, bool stretchTuningEnabled) noexcept;
-    void setPedalLidPosition(LidPosition position) noexcept;
-    void setPedalSoundPerspective(SoundPerspective perspective) noexcept;
+    void setWholeBodyLidPosition(LidPosition position) noexcept;
+    void setWholeBodySoundPerspective(SoundPerspective perspective) noexcept;
+    void setWholeBodyTuning(Temperament temperament, double referencePitchA4, bool stretchTuningEnabled) noexcept {
+        wholeBodyBus.applyTuning(temperament, referencePitchA4, stretchTuningEnabled);
+    }
+    [[nodiscard]] PianoWholeBodyBus& getWholeBodyBus() noexcept {
+        return wholeBodyBus;
+    }
+    [[nodiscard]] const PianoWholeBodyBus& getWholeBodyBus() const noexcept {
+        return wholeBodyBus;
+    }
     [[nodiscard]] PianoPedalAcoustics& getPedalAcoustics() noexcept {
         return pedalAcoustics;
     }
@@ -101,7 +115,7 @@ public:
         return pedalAcoustics;
     }
     [[nodiscard]] bool isPedalAcousticsActive() const noexcept {
-        return pedalAcoustics.isActive();
+        return pedalAcoustics.isActive() || wholeBodyBus.isActive();
     }
 
     [[nodiscard]] bool isSustainPedalDown(int midiChannel = 1) const noexcept {
@@ -137,6 +151,9 @@ private:
     // whole-piano pedal tail.
     void allNotesOffInternal(int midiChannel, bool allowTailOff, bool preservePedalState) noexcept;
 
+    template <typename FloatType>
+    void renderVoicesImpl(juce::AudioBuffer<FloatType>& outputAudio, int startSample, int numSamples) noexcept;
+
     double currentPlaybackSampleRate = 0.0;
     int minimumSubBlockSize = 1;
     bool subBlockSubdivisionIsStrict = true;
@@ -148,6 +165,12 @@ private:
     std::array<bool, 17> sustainPedalByChannel {};
     std::array<bool, 17> sostenutoPedalByChannel {};
     PianoPedalAcoustics pedalAcoustics;
+    // 总线持有琴盖延迟线（4x4096 采样）与完整模态状态，堆上创建避免
+    // AudioEngine 内联占用；引用保持既有调用点，生命周期与合成器一致。
+    std::unique_ptr<PianoWholeBodyBus> wholeBodyBusStorage;
+    PianoWholeBodyBus& wholeBodyBus;
+    // 3-channel input scratch: dry L/R and wet body/sympathetic drive.
+    juce::AudioBuffer<float> busScratch { 3, 2048 };
 };
 
 } // namespace devpiano::audio

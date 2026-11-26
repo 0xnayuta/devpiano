@@ -52,6 +52,7 @@ public:
         {
             devpiano::audio::BuiltinSynthesiser synth;
             synth.setCurrentPlaybackSampleRate(48000.0);
+            synth.setPedalAcousticsEnabled(true);
             synth.addSound(new PianoSynthSound());
             auto* first = new PianoSynthVoice();
             auto* second = new PianoSynthVoice();
@@ -158,6 +159,7 @@ public:
         {
             devpiano::audio::BuiltinSynthesiser synth;
             synth.setCurrentPlaybackSampleRate(44100.0);
+            synth.setPedalAcousticsEnabled(true);
             synth.addSound(new PianoSynthSound());
             auto* v0 = new PianoSynthVoice();
             v0->setVoiceIndex(0);
@@ -189,6 +191,7 @@ public:
         {
             devpiano::audio::BuiltinSynthesiser synth;
             synth.setCurrentPlaybackSampleRate(44100.0);
+            synth.setPedalAcousticsEnabled(true);
             synth.addSound(new PianoSynthSound());
             auto* v0 = new PianoSynthVoice();
             auto* v1 = new PianoSynthVoice();
@@ -232,6 +235,7 @@ public:
         {
             devpiano::audio::BuiltinSynthesiser synth;
             synth.setCurrentPlaybackSampleRate(44100.0);
+            synth.setPedalAcousticsEnabled(true);
             synth.addSound(new PianoSynthSound());
             auto* v0 = new PianoSynthVoice();
             auto* v1 = new PianoSynthVoice();
@@ -265,6 +269,7 @@ public:
         {
             devpiano::audio::BuiltinSynthesiser synth;
             synth.setCurrentPlaybackSampleRate(44100.0);
+            synth.setPedalAcousticsEnabled(true);
             synth.addSound(new PianoSynthSound());
             auto* v0 = new PianoSynthVoice();
             v0->setVoiceIndex(0);
@@ -313,6 +318,7 @@ public:
 
             devpiano::audio::BuiltinSynthesiser synth;
             synth.setCurrentPlaybackSampleRate(44100.0);
+            synth.setPedalAcousticsEnabled(true);
             synth.addSound(new PianoSynthSound());
             auto* voice = new CountingVoice();
             synth.addVoice(voice);

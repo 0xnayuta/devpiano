@@ -1,6 +1,7 @@
 #include <JuceHeader.h>
 
 #include "Audio/AudioEngine.h"
+#include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PerspectiveProcessor.h"
 #include "Audio/PianoSynthVoice.h"
 
@@ -209,14 +210,15 @@ private:
         constexpr int blockSize = 1024;
 
         auto renderVoiceEnergy = [&](SoundPerspective perspective, int midiNote, float& outL, float& outR) {
-            juce::Synthesiser synth;
+            devpiano::audio::BuiltinSynthesiser synth;
             synth.setCurrentPlaybackSampleRate(sampleRate);
+            synth.setPedalAcousticsEnabled(true);
             synth.addSound(new PianoSynthSound());
             auto* voice = new PianoSynthVoice();
             voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
-            voice->setSoundPerspective(perspective);
+            synth.setWholeBodySoundPerspective(perspective);
             synth.addVoice(voice);
-            expect(voice->getSoundPerspective() == perspective);
+            expect(synth.getWholeBodyBus().perspective.getPerspective() == perspective);
 
             juce::MidiBuffer midi;
             midi.addEvent(juce::MidiMessage::noteOn(1, midiNote, 0.8f), 0);

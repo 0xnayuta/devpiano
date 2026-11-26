@@ -5,7 +5,9 @@
 
 namespace devpiano::audio {
 
-BuiltinSynthesiser::BuiltinSynthesiser() {
+BuiltinSynthesiser::BuiltinSynthesiser()
+    : wholeBodyBusStorage(std::make_unique<PianoWholeBodyBus>())
+    , wholeBodyBus(*wholeBodyBusStorage) {
     setMinimumRenderingSubdivisionSize(1, true);
     for (auto& pitchWheel : lastPitchWheelValues) {
         pitchWheel = 0x2000;
@@ -29,6 +31,9 @@ juce::SynthesiserVoice* BuiltinSynthesiser::addVoice(juce::SynthesiserVoice* new
     if (newVoice != nullptr) {
         if (currentPlaybackSampleRate > 0.0) {
             newVoice->setCurrentPlaybackSampleRate(currentPlaybackSampleRate);
+        }
+        if (auto* pianoVoice = dynamic_cast<PianoSynthVoice*>(newVoice)) {
+            pianoVoice->setWholeBodyBus(&wholeBodyBus);
         }
         return voices.add(newVoice);
     }
@@ -69,6 +74,7 @@ void BuiltinSynthesiser::setCurrentPlaybackSampleRate(double newRate) {
             }
         }
         pedalAcoustics.prepare(newRate);
+        wholeBodyBus.prepare(newRate);
     }
 }
 
@@ -100,26 +106,39 @@ void BuiltinSynthesiser::renderNextBlock(juce::AudioBuffer<double>& outputAudio,
     processNextBlock(outputAudio, inputMidi, startSample, numSamples);
 }
 
-void BuiltinSynthesiser::renderVoices(juce::AudioBuffer<float>& buffer, int startSample, int numSamples) {
-    for (auto* voice : voices) {
-        if (voice != nullptr) {
-            voice->renderNextBlock(buffer, startSample, numSamples);
+template <typename FloatType>
+void BuiltinSynthesiser::renderVoicesImpl(juce::AudioBuffer<FloatType>& outputAudio, int startSample,
+                                          int numSamples) noexcept {
+    // The whole-body bus is the only production path for piano voices, so it
+    // must run regardless of the pedal-mechanical switch. The switch gates the
+    // pedal whoosh/thump and shock excitation only.
+    const auto scratchCapacity = busScratch.getNumSamples();
+    for (auto offset = 0; offset < numSamples; offset += scratchCapacity) {
+        const auto count = std::min(scratchCapacity, numSamples - offset);
+        busScratch.clear();
+        PianoBusInput input {
+            busScratch.getWritePointer(0), busScratch.getWritePointer(1), busScratch.getWritePointer(2), count, false,
+        };
+        for (auto* voice : voices) {
+            if (auto* pianoVoice = dynamic_cast<PianoSynthVoice*>(voice)) {
+                pianoVoice->renderToBus(input, 0, count);
+            } else if (voice != nullptr) {
+                voice->renderNextBlock(outputAudio, startSample + offset, count);
+            }
         }
-    }
-    if (pedalAcousticsEnabled) {
-        pedalAcoustics.renderNextBlock(buffer, startSample, numSamples);
+        if (pedalAcousticsEnabled) {
+            pedalAcoustics.renderToBus(input, count);
+        }
+        wholeBodyBus.render(input, outputAudio, startSample + offset, count);
     }
 }
 
+void BuiltinSynthesiser::renderVoices(juce::AudioBuffer<float>& buffer, int startSample, int numSamples) {
+    renderVoicesImpl(buffer, startSample, numSamples);
+}
+
 void BuiltinSynthesiser::renderVoices(juce::AudioBuffer<double>& buffer, int startSample, int numSamples) {
-    for (auto* voice : voices) {
-        if (voice != nullptr) {
-            voice->renderNextBlock(buffer, startSample, numSamples);
-        }
-    }
-    if (pedalAcousticsEnabled) {
-        pedalAcoustics.renderNextBlock(buffer, startSample, numSamples);
-    }
+    renderVoicesImpl(buffer, startSample, numSamples);
 }
 
 template <typename FloatType>
@@ -282,6 +301,7 @@ void BuiltinSynthesiser::noteOn(int midiChannel, int midiNoteNumber, float veloc
         noteOff(midiChannel, midiNoteNumber, 0.0f, true);
         return;
     }
+    wholeBodyBus.setSustainPedal(anySustainDown());
     for (auto* sound : sounds) {
         if (sound != nullptr && sound->appliesToNote(midiNoteNumber) && sound->appliesToChannel(midiChannel)) {
             for (auto* voice : voices) {
@@ -297,12 +317,6 @@ void BuiltinSynthesiser::noteOn(int midiChannel, int midiNoteNumber, float veloc
                 startVoice(voice, sound, midiChannel, midiNoteNumber, velocity);
                 const auto sustainDown = sustainPedalByChannel[static_cast<std::size_t>(midiChannel)];
                 voice->setSustainPedalDown(sustainDown);
-                // startNote has already initialized the note-driven sympathetic
-                // pool. Synchronize its pedal gate from the target channel's
-                // single truth after start, before the first render segment.
-                if (auto* pianoVoice = dynamic_cast<PianoSynthVoice*>(voice)) {
-                    pianoVoice->setSympatheticPedalDown(sustainDown);
-                }
             }
         }
     }
@@ -332,6 +346,7 @@ void BuiltinSynthesiser::allNotesOffInternal(int midiChannel, bool allowTailOff,
         } else if (midiChannel <= 16) {
             sostenutoPedalByChannel[static_cast<std::size_t>(midiChannel)] = false;
         }
+        wholeBodyBus.setSustainPedal(anySustainDown());
     }
 
     for (auto* voice : voices) {
@@ -348,8 +363,19 @@ void BuiltinSynthesiser::allNotesOffInternal(int midiChannel, bool allowTailOff,
         }
     }
 
-    if (pedalAcousticsEnabled && !preservePedalState && !anySustainDown()) {
-        pedalAcoustics.reset();
+    if (!allowTailOff) {
+        auto otherVoiceActive = false;
+        for (auto* voice : voices) {
+            if (voice != nullptr && voice->isVoiceActive()
+                && (midiChannel <= 0 || !voice->isPlayingChannel(midiChannel))) {
+                otherVoiceActive = true;
+                break;
+            }
+        }
+        if (midiChannel <= 0 || (!otherVoiceActive && !anySustainDown())) {
+            wholeBodyBus.reset();
+            pedalAcoustics.reset();
+        }
     }
 }
 
@@ -455,8 +481,15 @@ void BuiltinSynthesiser::applySustainPedal(int midiChannel, int controllerValue)
             lastSustainControllerValues[index] = controllerValue;
             updateVoiceSustainForChannel(ch, controllerValue);
         }
-        if (pedalAcousticsEnabled && anySustainDown() != wasDown) {
-            pedalAcoustics.onSustainEdge(isDown, juce::jlimit(0.2f, 1.0f, maxDelta));
+        if (pedalAcousticsEnabled) {
+            wholeBodyBus.setSustainPedal(anySustainDown());
+            if (anySustainDown() != wasDown) {
+                const auto edgeVelocity = juce::jlimit(0.2f, 1.0f, maxDelta);
+                pedalAcoustics.onSustainEdge(isDown, edgeVelocity);
+                if (isDown) {
+                    wholeBodyBus.triggerPedalShock(edgeVelocity * pedalAcoustics.getPedalNoiseLevel());
+                }
+            }
         }
         return;
     }
@@ -467,8 +500,15 @@ void BuiltinSynthesiser::applySustainPedal(int midiChannel, int controllerValue)
     sustainPedalByChannel[index] = isDown;
     lastSustainControllerValues[index] = controllerValue;
     updateVoiceSustainForChannel(midiChannel, controllerValue);
-    if (pedalAcousticsEnabled && anySustainDown() != wasDown) {
-        pedalAcoustics.onSustainEdge(isDown, sustainVelocity(previousValue, controllerValue));
+    if (pedalAcousticsEnabled) {
+        wholeBodyBus.setSustainPedal(anySustainDown());
+        if (anySustainDown() != wasDown) {
+            const auto edgeVelocity = sustainVelocity(previousValue, controllerValue);
+            pedalAcoustics.onSustainEdge(isDown, edgeVelocity);
+            if (isDown) {
+                wholeBodyBus.triggerPedalShock(edgeVelocity * pedalAcoustics.getPedalNoiseLevel());
+            }
+        }
     }
 }
 
@@ -671,9 +711,12 @@ juce::SynthesiserVoice* BuiltinSynthesiser::findVoiceToSteal(juce::SynthesiserSo
 void BuiltinSynthesiser::setPedalAcousticsEnabled(bool enabled) noexcept {
     pedalAcousticsEnabled = enabled;
     if (!enabled) {
+        // The whole-body bus keeps running; only the mechanical pedal owner is
+        // flushed so a disabled switch cannot truncate piano tail energy.
         pedalAcoustics.reset();
     } else if (currentPlaybackSampleRate > 0.0) {
         pedalAcoustics.prepare(currentPlaybackSampleRate);
+        wholeBodyBus.setSustainPedal(anySustainDown());
     }
 }
 
@@ -681,17 +724,12 @@ void BuiltinSynthesiser::setPedalNoiseLevel(float level) noexcept {
     pedalAcoustics.setPedalNoiseLevel(level);
 }
 
-void BuiltinSynthesiser::setPedalTuning(Temperament temperament, double referencePitchA4,
-                                        bool stretchTuningEnabled) noexcept {
-    pedalAcoustics.setTuning(temperament, referencePitchA4, stretchTuningEnabled);
+void BuiltinSynthesiser::setWholeBodyLidPosition(LidPosition position) noexcept {
+    wholeBodyBus.setLidPosition(position);
 }
 
-void BuiltinSynthesiser::setPedalLidPosition(LidPosition position) noexcept {
-    pedalAcoustics.setLidPosition(position);
-}
-
-void BuiltinSynthesiser::setPedalSoundPerspective(SoundPerspective perspective) noexcept {
-    pedalAcoustics.setSoundPerspective(perspective);
+void BuiltinSynthesiser::setWholeBodySoundPerspective(SoundPerspective perspective) noexcept {
+    wholeBodyBus.setSoundPerspective(perspective);
 }
 
 void BuiltinSynthesiser::setSoftPedal(int midiChannel, bool isDown, float amount) noexcept {

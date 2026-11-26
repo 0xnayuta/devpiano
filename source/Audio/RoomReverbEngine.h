@@ -1,5 +1,7 @@
 #pragma once
 
+#include "PianoDspMath.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -12,7 +14,7 @@
 namespace devpiano::audio {
 
 /**
- * Reverb space presets for physical acoustic room modeling (Phase 31-B).
+ * Reverb space presets for physical acoustic room modeling (Phase 31-B / 44-1).
  */
 enum class ReverbSpace : std::uint8_t {
     studio = 0, ///< Studio: compact space (RT60 ~ 0.6 s), tight reflections, maximum dry note clarity.
@@ -21,24 +23,20 @@ enum class ReverbSpace : std::uint8_t {
 };
 
 /**
- * RoomReverbEngine
+ * RoomReverbEngine (Phase 44-1)
  *
- * Ultra-lightweight mathematical algorithmic room reverberation network.
- * Based on Schroeder-Moorer feedback delay network with prime-length lowpass comb filters
- * and series allpass diffusers.
+ * Stereo early-reflection taps feeding a 4x4 normalized Hadamard feedback delay
+ * network with one-pole damping in every feedback branch. The dry/wet mix uses
+ * constant-power gains from boundedSinCos; wet=0 is an exact bypass.
  *
- * Characteristics:
- * 1. 100% self-contained pure math algorithm (zero external IR sample files).
- * 2. Eight parallel mutually-prime feedback comb filters with one-pole damping per channel.
- * 3. Four series allpass diffusion stages per channel for smooth, flutter-free echo density.
- * 4. Stereo decorrelation via prime delay offsets to provide natural acoustic envelopment.
- * 5. Denormal-protected with zero dynamic memory allocations in the audio thread loop.
- * 6. Extremely low CPU consumption (<= 0.3% single core).
+ * No external IR, no allocation in processStereo, no locks and no library
+ * trigonometric calls in the per-sample loop. Delay and tap lengths are scaled
+ * from the 48 kHz reference by the active sample rate.
  */
 class RoomReverbEngine {
 public:
-    static constexpr int kNumCombFilters = 8;
-    static constexpr int kNumAllPassFilters = 4;
+    static constexpr int kFdnSize = 4;
+    static constexpr int kEarlyTaps = 4;
     static constexpr float kDefaultWetLevel = 0.20f;
 
     RoomReverbEngine() noexcept {
@@ -46,57 +44,40 @@ public:
         currentWet = targetWet;
     }
 
-    void prepare(double sampleRate) noexcept {
-        if (sampleRate <= 0.0) {
+    void prepare(double newSampleRate) noexcept {
+        if (newSampleRate <= 0.0) {
             return;
         }
+        sampleRate = newSampleRate;
 
-        sr = sampleRate;
-
-        // 44.1 kHz reference delay lengths (mutually prime to eliminate flutter and metallic ringing)
-        constexpr std::array<int, kNumCombFilters> kBaseCombDelaysL
-            = { 1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617 };
-        constexpr std::array<int, kNumCombFilters> kBaseCombDelaysR
-            = { 1139, 1211, 1300, 1379, 1445, 1514, 1580, 1640 }; // +23 prime offset
-
-        constexpr std::array<int, kNumAllPassFilters> kBaseAllPassDelaysL = { 556, 441, 341, 225 };
-        constexpr std::array<int, kNumAllPassFilters> kBaseAllPassDelaysR = { 579, 464, 364, 248 }; // +23 prime offset
-
-        for (std::size_t i = 0; i < kNumCombFilters; ++i) {
-            const auto sizeL = std::max(
-                16, static_cast<int>(std::lround(static_cast<double>(kBaseCombDelaysL[i]) * (sampleRate / 44100.0))));
-            const auto sizeR = std::max(
-                16, static_cast<int>(std::lround(static_cast<double>(kBaseCombDelaysR[i]) * (sampleRate / 44100.0))));
-            combL[i].init(sizeL);
-            combR[i].init(sizeR);
+        // Coprime-ish base delays in samples at 48 kHz. They are scaled by the
+        // active rate so RT60 remains a time-domain property.
+        constexpr std::array<int, kFdnSize> kBaseDelays { 1601, 2027, 2371, 2683 };
+        for (std::size_t i = 0; i < kFdnSize; ++i) {
+            const auto samples = std::max(
+                32, static_cast<int>(std::lround(static_cast<double>(kBaseDelays[i]) * sampleRate / 48000.0)));
+            delaySamples[i] = static_cast<std::size_t>(samples);
+            delayLines[i].assign(delaySamples[i], 0.0f);
         }
 
-        for (std::size_t i = 0; i < kNumAllPassFilters; ++i) {
-            const auto sizeL = std::max(
-                8, static_cast<int>(std::lround(static_cast<double>(kBaseAllPassDelaysL[i]) * (sampleRate / 44100.0))));
-            const auto sizeR = std::max(
-                8, static_cast<int>(std::lround(static_cast<double>(kBaseAllPassDelaysR[i]) * (sampleRate / 44100.0))));
-            allPassL[i].init(sizeL);
-            allPassR[i].init(sizeR);
-        }
+        earlySize = std::max(64, static_cast<int>(std::lround(0.050 * sampleRate)));
+        earlyLeft.assign(static_cast<std::size_t>(earlySize), 0.0f);
+        earlyRight.assign(static_cast<std::size_t>(earlySize), 0.0f);
 
         updatePresetParameters();
         reset();
     }
 
     void reset() noexcept {
-        for (auto& c : combL) {
-            c.reset();
+        for (auto& line : delayLines) {
+            std::fill(line.begin(), line.end(), 0.0f);
         }
-        for (auto& c : combR) {
-            c.reset();
-        }
-        for (auto& a : allPassL) {
-            a.reset();
-        }
-        for (auto& a : allPassR) {
-            a.reset();
-        }
+        delayWrite.fill(0);
+        dampingState.fill(0.0f);
+        std::fill(earlyLeft.begin(), earlyLeft.end(), 0.0f);
+        std::fill(earlyRight.begin(), earlyRight.end(), 0.0f);
+        earlyWrite = 0;
+        tailSilent = false;
         snapToTarget();
     }
 
@@ -122,67 +103,112 @@ public:
         return targetWet;
     }
 
-    /**
-     * Processes in-place stereo audio blocks.
-     * Guaranteed real-time safe and zero-allocation.
-     */
     void processStereo(float* leftChannel, float* rightChannel, int numSamples) noexcept {
         if (leftChannel == nullptr || rightChannel == nullptr || numSamples <= 0) {
             return;
         }
-
-        // Fast path: when wet level is zero and smoother reached zero, bypass processing
-        if (targetWet <= 1e-4f && currentWet <= 1e-4f) {
+        if (targetWet <= 1.0e-4f && currentWet <= 1.0e-4f) {
             return;
         }
 
-        constexpr float kSmoothCoeff = 0.998f; // ~500 samples time constant (~11 ms)
-        constexpr float kGainScale = 0.025f;
+        auto hasInput = false;
+        for (auto sample = 0; sample < numSamples; ++sample) {
+            if (leftChannel[sample] != 0.0f || rightChannel[sample] != 0.0f) {
+                hasInput = true;
+                break;
+            }
+        }
+        if (!hasInput) {
+            if (tailSilent || maxTailState() < 1.0e-4f) {
+                tailSilent = true;
+                for (auto sample = 0; sample < numSamples; ++sample) {
+                    leftChannel[sample] = 0.0f;
+                    rightChannel[sample] = 0.0f;
+                }
+                return;
+            }
+        } else {
+            tailSilent = false;
+        }
 
-        for (int i = 0; i < numSamples; ++i) {
-            // Smooth wet ratio transitions
-            if (std::abs(currentWet - targetWet) > 1e-4f) {
+        constexpr float kSmoothCoeff = 0.998f;
+        constexpr float kInputGain = 0.22f;
+        constexpr float kWetOutputGain = 0.55f;
+        constexpr float kEarlyGain = 0.35f;
+
+        for (int sample = 0; sample < numSamples; ++sample) {
+            if (std::abs(currentWet - targetWet) > 1.0e-4f) {
                 currentWet = targetWet + (currentWet - targetWet) * kSmoothCoeff;
             } else {
                 currentWet = targetWet;
             }
 
-            const auto inL = leftChannel[i];
-            const auto inR = rightChannel[i];
+            const auto inL = leftChannel[sample];
+            const auto inR = rightChannel[sample];
 
-            // Mix inputs for stereo diffusion: mid-signal excitation
-            const auto inputMid = (inL + inR) * 0.5f * kGainScale;
+            // Stereo early reflections: keep the bridge/tail L/R geometry.
+            earlyLeft[static_cast<std::size_t>(earlyWrite)] = inL;
+            earlyRight[static_cast<std::size_t>(earlyWrite)] = inR;
+            const auto readEarly = [&](const std::vector<float>& line, double seconds) {
+                const auto delay = std::max(1, static_cast<int>(std::lround(seconds * sampleRate)));
+                const auto index = (earlyWrite + earlySize - delay + earlySize) % earlySize;
+                return line[static_cast<std::size_t>(index)];
+            };
+            const auto earlyL = kEarlyGain
+                * (0.52f * readEarly(earlyLeft, 0.0071) + 0.20f * readEarly(earlyRight, 0.0113)
+                   + 0.11f * readEarly(earlyLeft, 0.0179) + 0.06f * readEarly(earlyRight, 0.0233));
+            const auto earlyR = kEarlyGain
+                * (0.52f * readEarly(earlyRight, 0.0071) + 0.20f * readEarly(earlyLeft, 0.0113)
+                   + 0.11f * readEarly(earlyRight, 0.0179) + 0.06f * readEarly(earlyLeft, 0.0233));
 
-            // 1. Parallel Comb Filtering
-            float outCombL = 0.0f;
-            float outCombR = 0.0f;
-
-            for (std::size_t c = 0; c < kNumCombFilters; ++c) {
-                outCombL += combL[c].process(inputMid, feedback, damping);
-                outCombR += combR[c].process(inputMid, feedback, damping);
+            // Read FDN delay lines and apply frequency-dependent damping.
+            std::array<float, kFdnSize> delayOut {};
+            std::array<float, kFdnSize> damped {};
+            for (std::size_t i = 0; i < kFdnSize; ++i) {
+                const auto index = delayWrite[i];
+                delayOut[i] = delayLines[i][index];
+                dampingState[i] = delayOut[i] * (1.0f - dampingPole) + dampingState[i] * dampingPole;
+                if (std::abs(dampingState[i]) < 1.0e-7f) {
+                    dampingState[i] = 0.0f;
+                }
+                damped[i] = dampingState[i];
             }
 
-            // 2. Series All-Pass Diffusion
-            auto diffusedL = outCombL;
-            auto diffusedR = outCombR;
-
-            for (std::size_t a = 0; a < kNumAllPassFilters; ++a) {
-                diffusedL = allPassL[a].process(diffusedL);
-                diffusedR = allPassR[a].process(diffusedR);
+            // Normalized 4x4 Hadamard feedback and input injection.
+            std::array<float, kFdnSize> feedback { {
+                0.5f * (damped[0] + damped[1] + damped[2] + damped[3]),
+                0.5f * (damped[0] - damped[1] + damped[2] - damped[3]),
+                0.5f * (damped[0] + damped[1] - damped[2] - damped[3]),
+                0.5f * (damped[0] - damped[1] - damped[2] + damped[3]),
+            } };
+            const std::array<float, kFdnSize> injected { {
+                kInputGain * inL,
+                kInputGain * inR,
+                kInputGain * inL,
+                kInputGain * inR,
+            } };
+            for (std::size_t i = 0; i < kFdnSize; ++i) {
+                const auto next = injected[i] + feedback[i] * feedbackGain[i];
+                delayLines[i][delayWrite[i]] = std::abs(next) < 1.0e-7f ? 0.0f : next;
+                if (++delayWrite[i] >= delaySamples[i]) {
+                    delayWrite[i] = 0;
+                }
+            }
+            if (++earlyWrite >= earlySize) {
+                earlyWrite = 0;
             }
 
-            // 3. Dry / Wet Summing with constant power compensation
-            const auto dryGain = 1.0f - 0.5f * currentWet;
-            const auto wetGain = currentWet * 2.8f; // Level compensation for diffused energy
-
-            leftChannel[i] = dryGain * inL + wetGain * diffusedL;
-            rightChannel[i] = dryGain * inR + wetGain * diffusedR;
+            const auto wetLeft = static_cast<float>(kWetOutputGain * 0.5f * (delayOut[0] + delayOut[2]) + earlyL);
+            const auto wetRight = static_cast<float>(kWetOutputGain * 0.5f * (delayOut[1] + delayOut[3]) + earlyR);
+            const auto mix
+                = devpiano::audio::dsp::boundedSinCos(static_cast<double>(currentWet) * devpiano::audio::dsp::kHalfPi);
+            const auto dryGain = static_cast<float>(mix.cosVal);
+            const auto wetGain = static_cast<float>(mix.sinVal);
+            leftChannel[sample] = dryGain * inL + wetGain * wetLeft;
+            rightChannel[sample] = dryGain * inR + wetGain * wetRight;
         }
     }
 
-    /**
-     * Serializes ReverbSpace to a stable identifier string.
-     */
     [[nodiscard]] static constexpr std::string_view toIdentifier(ReverbSpace s) noexcept {
         switch (s) {
         case ReverbSpace::studio:
@@ -195,9 +221,6 @@ public:
         return "chamber";
     }
 
-    /**
-     * Parses a string identifier into ReverbSpace with safe fallback to chamber.
-     */
     [[nodiscard]] static ReverbSpace fromIdentifier(std::string_view id) noexcept {
         if (id == "studio") {
             return ReverbSpace::studio;
@@ -209,124 +232,66 @@ public:
     }
 
 private:
+    [[nodiscard]] float maxTailState() const noexcept {
+        auto maximum = 0.0f;
+        for (const auto& line : delayLines) {
+            for (const auto value : line) {
+                maximum = std::max(maximum, std::abs(value));
+            }
+        }
+        for (const auto value : dampingState) {
+            maximum = std::max(maximum, std::abs(value));
+        }
+        for (const auto value : earlyLeft) {
+            maximum = std::max(maximum, std::abs(value));
+        }
+        for (const auto value : earlyRight) {
+            maximum = std::max(maximum, std::abs(value));
+        }
+        return maximum;
+    }
+
     void updatePresetParameters() noexcept {
+        float presetPoleAt48k = 0.60f;
         switch (space) {
         case ReverbSpace::studio:
-            // RT60 ~ 0.6 s: higher damping, faster decay
-            feedback = 0.76f;
-            damping = 0.45f;
+            presetPoleAt48k = 0.35f;
+            presetFeedback = 0.83f;
             break;
         case ReverbSpace::chamber:
-            // RT60 ~ 1.5 s: balanced wood reflection
-            feedback = 0.86f;
-            damping = 0.28f;
+            presetPoleAt48k = 0.28f;
+            presetFeedback = 0.945f;
             break;
         case ReverbSpace::concertHall:
-            // RT60 ~ 2.4 s: high diffusion, long expansive tail
-            feedback = 0.93f;
-            damping = 0.18f;
+            presetPoleAt48k = 0.20f;
+            presetFeedback = 0.967f;
             break;
         }
+
+        // 一阶阻尼极点在 48 kHz 参考下定义；换采样率时按同一物理截止换算，
+        // 使 44.1/48/96/192 kHz 的高频衰减保持同一条时间常数曲线。
+        dampingPole = static_cast<float>(std::pow(static_cast<double>(presetPoleAt48k), 48000.0 / sampleRate));
+        feedbackGain.fill(presetFeedback);
     }
-    // Lowpass Feedback Comb Filter with denormal protection
-    struct CombFilter {
-        std::vector<float> buffer;
-        std::size_t index = 0;
-        float filterStore = 0.0f;
 
-        void init(int size) {
-            buffer.assign(static_cast<std::size_t>(std::max(1, size)), 0.0f);
-            index = 0;
-            filterStore = 0.0f;
-        }
-
-        void reset() noexcept {
-            std::fill(buffer.begin(), buffer.end(), 0.0f);
-            filterStore = 0.0f;
-            index = 0;
-        }
-
-        [[nodiscard]] float process(float input, float fb, float damp) noexcept {
-            if (buffer.empty()) {
-                return input;
-            }
-
-            const auto output = buffer[index];
-
-            // One-pole lowpass filter in feedback loop
-            filterStore = output * (1.0f - damp) + filterStore * damp;
-
-            // Denormal protection & silence gate (< -120 dB threshold)
-            constexpr float kDenormalThreshold = 1e-6f;
-            if (std::abs(filterStore) < kDenormalThreshold) {
-                filterStore = 0.0f;
-            }
-
-            buffer[index] = input + filterStore * fb;
-
-            if (std::abs(buffer[index]) < kDenormalThreshold) {
-                buffer[index] = 0.0f;
-            }
-
-            if (++index >= buffer.size()) {
-                index = 0;
-            }
-
-            return output;
-        }
-    };
-
-    // All-Pass Filter for rapid echo density diffusion
-    struct AllPassFilter {
-        std::vector<float> buffer;
-        std::size_t index = 0;
-        static constexpr float kFeedback = 0.5f;
-
-        void init(int size) {
-            buffer.assign(static_cast<std::size_t>(std::max(1, size)), 0.0f);
-            index = 0;
-        }
-
-        void reset() noexcept {
-            std::fill(buffer.begin(), buffer.end(), 0.0f);
-            index = 0;
-        }
-
-        [[nodiscard]] float process(float input) noexcept {
-            if (buffer.empty()) {
-                return input;
-            }
-
-            const auto bufOut = buffer[index];
-            const auto output = -input + bufOut;
-
-            buffer[index] = input + bufOut * kFeedback;
-
-            constexpr float kDenormalThreshold = 1e-6f;
-            if (std::abs(buffer[index]) < kDenormalThreshold) {
-                buffer[index] = 0.0f;
-            }
-
-            if (++index >= buffer.size()) {
-                index = 0;
-            }
-
-            return output;
-        }
-    };
-
-    double sr = 44100.0;
     ReverbSpace space = ReverbSpace::chamber;
-    float feedback = 0.86f;
-    float damping = 0.28f;
-
+    double sampleRate = 48000.0;
+    float dampingPole = 0.60f;
     float targetWet = kDefaultWetLevel;
     float currentWet = kDefaultWetLevel;
 
-    std::array<CombFilter, kNumCombFilters> combL;
-    std::array<CombFilter, kNumCombFilters> combR;
-    std::array<AllPassFilter, kNumAllPassFilters> allPassL;
-    std::array<AllPassFilter, kNumAllPassFilters> allPassR;
+    std::array<std::size_t, kFdnSize> delaySamples {};
+    std::array<std::size_t, kFdnSize> delayWrite {};
+    std::array<std::vector<float>, kFdnSize> delayLines;
+    std::array<float, kFdnSize> dampingState {};
+    std::array<float, kFdnSize> feedbackGain {};
+    float presetFeedback = 0.945f;
+
+    std::vector<float> earlyLeft;
+    std::vector<float> earlyRight;
+    int earlySize = 2400;
+    int earlyWrite = 0;
+    bool tailSilent = false;
 };
 
 } // namespace devpiano::audio

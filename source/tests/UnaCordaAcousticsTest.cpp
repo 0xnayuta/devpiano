@@ -33,14 +33,13 @@ private:
         constexpr int blockSize = 1024;
 
         const auto renderNote = [&](bool unaCorda, int noteNumber, float& outRms, float& outDirectPeak) {
-            juce::Synthesiser synth;
+            devpiano::audio::BuiltinSynthesiser synth;
             synth.setCurrentPlaybackSampleRate(sampleRate);
+            synth.setPedalAcousticsEnabled(true);
             synth.addSound(new PianoSynthSound());
             auto* voice = new PianoSynthVoice();
             voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
-            if (unaCorda) {
-                voice->setSoftPedalDown(true, 1.0f);
-            }
+            synth.setSoftPedal(1, unaCorda, unaCorda ? 1.0f : 0.0f);
             synth.addVoice(voice);
 
             juce::MidiBuffer midi;
@@ -187,8 +186,9 @@ private:
         constexpr double sampleRate = 44100.0;
         constexpr int blockSize = 128;
 
-        juce::Synthesiser synth;
+        devpiano::audio::BuiltinSynthesiser synth;
         synth.setCurrentPlaybackSampleRate(sampleRate);
+        synth.setPedalAcousticsEnabled(true);
         synth.addSound(new PianoSynthSound());
         synth.addVoice(new PianoSynthVoice());
 
@@ -226,6 +226,7 @@ private:
 
         devpiano::audio::BuiltinSynthesiser synth;
         synth.setCurrentPlaybackSampleRate(sampleRate);
+        synth.setPedalAcousticsEnabled(true);
         synth.addSound(new PianoSynthSound());
 
         constexpr int voiceCount = 4;
