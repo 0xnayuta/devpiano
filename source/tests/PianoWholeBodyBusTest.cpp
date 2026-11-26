@@ -119,6 +119,8 @@ private:
                 break;
             }
         }
+        // 活动计数是固定时间预算，不等于仍有可听能量；此处只验证状态
+        // 不被声部结束清空，音频尾音由总线其他用例覆盖。
         expect(voiceEnded, "voice releases after the note-off tail");
         expect(busActiveAtVoiceEnd, "shared bus must still be active when the voice ends");
         expect(busDrained, "shared bus tail reaches a bounded end");
