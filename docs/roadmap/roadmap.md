@@ -416,33 +416,32 @@ Phase 40–44 的完整目标、分步任务、实现数据、失败取舍、复
 
 目标：修复快速同音重复时旧弦状态被强制重置、相位表与当前参数不匹配、力度对两段衰减不敏感这三个可感知缺口；不改变主弦模态拓扑、复音数与 NoteOff 身份。
 
-1. **同音 retrigger（行为变更）**：`BuiltinSynthesiser::noteOn` 对同音且 `isKeyDown()` 的 voice 不再 `stopVoice` + 新建，而是调用 `PianoSynthVoice::retriggerNote`；`PianoMainString` 增加“保留 cos/sin/epsilon、叠加新锤能量”的重新激励入口，旧能量按锤毡/制音器吸收系数衰减。目标是轮指/同音三连的真实感与 voice 利用率同时改善。
-2. **相位表独立重优化（离线）**：当前 `kOptPhaseTable[64]` 是 Phase 18-B 从 `danielpodrazka/piano` 的 `3×64` 表采用的第 0 行（MIT），不是 devpiano 独立优化；用离线 mel-STFT loss 对 C2/C4/C8 参考音独立重优化，并比较单行与按音区 3 组。只替换表，不新增运行时计算；若收益不足，保留上游表并保留 MIT 归属。
-3. **力度依赖两段衰减**：`slowWeight` 由固定音区表改为随力度小幅调制（弱音更多 aftersound，强音更多 prompt），总量由现有 L1 归一化吸收；不新增逐键补偿表。
-4. **弦间微小初相差异（可选项）**：在保持同分音同相基线的前提下，给第 2/3 根弦加逐次变化的微小初相偏移；若 A/B 无收益则不做。
+1. **45-1 同音 retrigger（行为变更，需单独批准）**：`BuiltinSynthesiser::noteOn` 对同音且 `isKeyDown()` 的 voice 不再 `stopVoice` + 新建，而是调用 `PianoSynthVoice::retriggerNote`；`PianoMainString` 增加“保留 cos/sin/epsilon、叠加新锤能量”的重新激励入口，旧能量按锤毡/制音器吸收系数衰减。目标是轮指/同音三连的真实感与 voice 利用率同时改善。
+2. **45-3 力度依赖两段衰减（行为变更，需单独批准）**：`slowWeight` 由固定音区表改为随力度小幅调制（弱音更多 aftersound，强音更多 prompt），总量由现有 L1 归一化吸收；不新增逐键补偿表。
+3. **45-2 相位表实验与独立重优化（收尾项，依赖 47-1/45-1/45-3/46-1/46-2）**：当前 `kOptPhaseTable[64]` 是 Phase 18-B 从 `danielpodrazka/piano` 的 `3×64` 表采用的第 0 行（MIT），不是 devpiano 独立优化。候选矩阵为 A = 当前单行、B = 上游三行（恢复每弦独立相位，实验分支）、C1 = 独立重优化单行、C2 = 独立重优化三行；B/C2 需先为 `MainStringStart`/`PianoMainString` 增加每弦相位输入，且与 A/C1 分开提交。B 不是默认：42-1b 的同相单行是已校准基线，恢复三行会改变 t=0 相位/响度/立体声，必须独立批准并全键复测。独立重优化使用合法参考（Salamander CC BY 3.0 或用户提供），不使用来源不可信的旧 Pianoteq WAV；目标为 0–50 ms mel-STFT loss + 起音峰值因子/谱通量。最终默认选择：C1 优于 A 则采用 C1 单行；C2 优于 B 且 B 优于 A 才考虑 C2 三行；若 C 不显著优于 A/B，保留 A（或 B，若 B 已单独通过）。不得把上游表改称 devpiano 实测最优。
 
-进入条件：Phase 40–44 归档完成；用户明确批准行为变更；当前 HEAD 可在 Windows Debug 构建。出口：同音 8 连击/轮指 A/B；NoteOff 身份与录音回放一致；12 复音偷声部不增加；全键 v41/70/98 K 计权 LUFS、True Peak、0–50 ms 起音频谱与相邻半音差；Windows Debug 实机试听 C4–C7 起音“struck vs plucked”。边界：不改主弦模态拓扑、不改复音数、不引入非线性锤求解、不重写波导。
+进入条件：Phase 40–44 归档完成；用户明确批准 45-1/45-3 的行为变更；当前 HEAD 可在 Windows Debug 构建。45-2 不在 Phase 45 先行，须等 47-1、45-1、45-3、46-1、46-2 完成并稳定后启动。出口：45-1/45-3 各自 A/B 与全键 v41/70/98 K 计权 LUFS、True Peak、0–50 ms 起音频谱、相邻半音差、NoteOff 身份、12 复音偷声部；Windows Debug 实机试听 C4–C7 起音“struck vs plucked”；45-2 的 A/B/C1/C2 对比与最终默认选择单独记录，不阻塞 Phase 46-1/46-2。边界：不改主弦模态拓扑、不改复音数、不引入非线性锤求解、不重写波导；45-2 的三行恢复只作为实验分支，不直接改生产默认。
 
-### Phase 46：整琴总线物理密度与空间网络（Whole-Body Modal Density & Spatial Network）[当前候选，依赖 Phase 45]
+### Phase 46：整琴总线物理密度与空间网络（Whole-Body Modal Density & Spatial Network）[当前候选，依赖 Phase 45-1/45-3]
 
 目标：在 Phase 43 已收敛的单一 `PianoWholeBodyBus` 内提升音板模态密度、桥耦合音区差异与 FDN 扩散质量；不引入弦—音板实时闭环。
 
 1. **总线模态密度**：`PianoWholeBodyBus::numResonators` 从 16 增至 24–32，按“低频稀疏、中高频密集”布置；用公开音板模态测量与参考音符频响拟合频率/Q/权重，不直接卷积参考 IR。
 2. **音区桥耦合权重**：Voice 输出 drive 前增加 per-note 音区权重（低音桥/中音桥/高音桥），不改 partial 阶数权重；单独 A/B，避免与模态密度同提交。
-3. **8 线 Householder FDN**：`RoomReverbEngine` 从 4×4 Hadamard 升为 8 线 Householder（`A = I - (2/N)11^T`），保留现有 early taps、等功率干湿与 RT60 参数；每采样仅增加加法与一次乘。
+3. **8 线 Householder FDN**：`RoomReverbEngine` 从 4×4 Hadamard 升为 8 线 Householder（`A = I - (2/N)11^T`），保留现有 early taps、等功率干湿与 RT60 参数；每采样仅增加加法与一次乘。46-3 在 45-2 之后单独 A/B，避免与相位表实验同批改变尾音/空间。
 4. **性能证据**：在用户明确批准后执行一次 Release 测量（p50/p99 frame time、12/16 复音、低音压力），再决定是否需要 SoA/SIMD；不以 Debug 9.73 ms 作为重构依据。
 
-进入条件：Phase 45 声音目标稳定；用户批准总线/FDN 行为变更；Phase 40–44 基线仍可复现。出口：全键 LUFS/True Peak/HF/centroid 不回退；RT60 与尾音 A/B；12 复音 CPU 不超预算；Release 测量结论单独记录。边界：不做弦—音板双向实时闭环、不做 3D 空气 FEM、不重写波导主弦、不改 88 键交感模型。
+进入条件：Phase 45-1/45-3 声音目标稳定；45-2 不作为 46-1/46-2 的前置；用户批准总线/FDN 行为变更；Phase 40–44 基线仍可复现。出口：全键 LUFS/True Peak/HF/centroid 不回退；RT60 与尾音 A/B；12 复音 CPU 不超预算；Release 测量结论单独记录。边界：不做弦—音板双向实时闭环、不做 3D 空气 FEM、不重写波导主弦、不改 88 键交感模型。
 
 ### Phase 47：离线声学校准与参数单源（Offline Acoustic Calibration & Parameter SSOT）[工程层，按需启动]
 
 目标：把 Phase 40/44 的一次性测量沉淀为可复现的开发期工具，并收敛钢琴参数的跨层重复；不进入产品包，不引入远程配置。
 
-1. **离线测量/回归工具**：复用 `WavExportOptions` 与现有导出路径，输入 MIDI/参数，输出 88 键 LUFS、True Peak、0–50 ms 谱、HF/centroid、相邻半音差与 frame time 的 JSON；工具放在开发期脚本/测试侧，不新增产品 UI 或运行时依赖。
+1. **离线测量/回归工具**：复用 `WavExportOptions` 与现有导出路径，输入 MIDI/参数，输出 88 键 LUFS、True Peak、0–50 ms 谱、HF/centroid、相邻半音差与 frame time 的 JSON；工具放在开发期脚本/测试侧，不新增产品 UI 或运行时依赖。该工具是 45-2 的前置，可先于 45-1/45-3 启动。
 2. **参数 descriptor 表**：为钢琴声学参数定义单一 descriptor（id、默认、范围、序列化 key、locale key、UI 控件）；先让下一次新增参数走通全链路，旧字段逐步迁移，不一次性重写 `SettingsModel`/`Preset`。加一个测试确保 descriptor 覆盖 `PianoStyleParameters` 字段。
 3. **参考指标（可选）**：在离线工具中加入与参考录音的 MFCC-L2/谱质心差，作为音色回归，不作为实时 DSP 目标。
 
-进入条件：Phase 45/46 产生重复测量需求，或下一次新增声学参数；不强制排期。出口：工具可复现 Phase 40/44 指标；descriptor 覆盖检查通过；新增一个参数从定义到 UI/预设/持久化走通；不新增通用参数框架。边界：不做远程 SSOT、不做自动迁移链、不把工具打进发布包。
+进入条件：45-2 启动前必须先有 47-1；47-1 可先于 45-1/45-3 启动；47-2 在产生新参数或需要参数收敛时启动，不强制排期。出口：工具可复现 Phase 40/44 指标；descriptor 覆盖检查通过；新增一个参数从定义到 UI/预设/持久化走通；不新增通用参数框架。边界：不做远程 SSOT、不做自动迁移链、不把工具打进发布包。
 
 ### 研究候选与不排期
 
