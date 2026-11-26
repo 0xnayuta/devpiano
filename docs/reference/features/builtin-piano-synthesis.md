@@ -302,8 +302,8 @@ void setReferencePitchA4(double hz);
 以下是 `BuiltinSynthesiser` / `PianoWholeBodyBus` 的控制接口；独立 `PerspectiveProcessor::setPerspective()` 另有可选的 `immediateSnap` 参数：
 
 ```cpp
-void setPedalLidPosition(LidPosition position) noexcept;
-void setPedalSoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
+void setWholeBodyLidPosition(LidPosition position) noexcept;
+void setWholeBodySoundPerspective(devpiano::audio::SoundPerspective perspective) noexcept;
 void setWholeBodyTuning(Temperament temperament, double referencePitchA4, bool stretchTuningEnabled) noexcept;
 ```
 

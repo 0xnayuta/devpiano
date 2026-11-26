@@ -216,7 +216,7 @@ private:
             synth.addSound(new PianoSynthSound());
             auto* voice = new PianoSynthVoice();
             voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
-            synth.setPedalSoundPerspective(perspective);
+            synth.setWholeBodySoundPerspective(perspective);
             synth.addVoice(voice);
             expect(synth.getWholeBodyBus().perspective.getPerspective() == perspective);
 

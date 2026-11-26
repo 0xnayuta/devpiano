@@ -1045,19 +1045,19 @@ private:
         beginTest("lid position acoustic transfer function (Phase 22-B)");
         {
             VoiceFixture fullOpenFixture;
-            fullOpenFixture.synth.setPedalLidPosition(PianoSynthVoice::LidPosition::fullOpen);
+            fullOpenFixture.synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::fullOpen);
             juce::AudioBuffer<float> fullOpenBuf(2, blockSize * 4);
             fullOpenFixture.noteOnBlock(72, 0.8f, fullOpenBuf);
             const auto rmsFull = fullOpenBuf.getRMSLevel(0, 0, fullOpenBuf.getNumSamples());
 
             VoiceFixture halfStickFixture;
-            halfStickFixture.synth.setPedalLidPosition(PianoSynthVoice::LidPosition::halfStick);
+            halfStickFixture.synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::halfStick);
             juce::AudioBuffer<float> halfStickBuf(2, blockSize * 4);
             halfStickFixture.noteOnBlock(72, 0.8f, halfStickBuf);
             const auto rmsHalf = halfStickBuf.getRMSLevel(0, 0, halfStickBuf.getNumSamples());
 
             VoiceFixture closedFixture;
-            closedFixture.synth.setPedalLidPosition(PianoSynthVoice::LidPosition::closed);
+            closedFixture.synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::closed);
             juce::AudioBuffer<float> closedBuf(2, blockSize * 4);
             closedFixture.noteOnBlock(72, 0.8f, closedBuf);
             const auto rmsClosed = closedBuf.getRMSLevel(0, 0, closedBuf.getNumSamples());
@@ -1532,8 +1532,8 @@ private:
                       synth.addVoice(new PianoSynthVoice());
                       auto* voice = dynamic_cast<PianoSynthVoice*>(synth.getVoice(0));
                       voice->setAdsrParameters({ 0.01f, 0.2f, 0.8f, 0.3f });
-                      synth.setPedalLidPosition(lid);
-                      synth.setPedalSoundPerspective(perspective);
+                      synth.setWholeBodyLidPosition(lid);
+                      synth.setWholeBodySoundPerspective(perspective);
                       voice->setFeltAgeingAmount(0.0f);
                       juce::AudioBuffer<float> buffer(channels, 2048);
                       juce::MidiBuffer midi;

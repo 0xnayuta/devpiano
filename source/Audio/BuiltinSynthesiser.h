@@ -97,9 +97,8 @@ public:
         return pedalAcousticsEnabled;
     }
     void setPedalNoiseLevel(float level) noexcept;
-    void setPedalTuning(Temperament temperament, double referencePitchA4, bool stretchTuningEnabled) noexcept;
-    void setPedalLidPosition(LidPosition position) noexcept;
-    void setPedalSoundPerspective(SoundPerspective perspective) noexcept;
+    void setWholeBodyLidPosition(LidPosition position) noexcept;
+    void setWholeBodySoundPerspective(SoundPerspective perspective) noexcept;
     void setWholeBodyTuning(Temperament temperament, double referencePitchA4, bool stretchTuningEnabled) noexcept {
         wholeBodyBus.applyTuning(temperament, referencePitchA4, stretchTuningEnabled);
     }
@@ -165,11 +164,9 @@ private:
     std::array<SoftPedalState, 17> softPedalByChannel {};
     std::array<bool, 17> sustainPedalByChannel {};
     std::array<bool, 17> sostenutoPedalByChannel {};
-    // The lid delay line supports 192 kHz and is therefore kept off the
-    // AudioEngine inline footprint; the reference preserves all existing
-    // call sites and the owner lifetime matches this synthesiser.
-    std::unique_ptr<PianoPedalAcoustics> pedalAcousticsStorage;
-    PianoPedalAcoustics& pedalAcoustics;
+    PianoPedalAcoustics pedalAcoustics;
+    // 总线持有琴盖延迟线（4x4096 采样）与完整模态状态，堆上创建避免
+    // AudioEngine 内联占用；引用保持既有调用点，生命周期与合成器一致。
     std::unique_ptr<PianoWholeBodyBus> wholeBodyBusStorage;
     PianoWholeBodyBus& wholeBodyBus;
     // 3-channel input scratch: dry L/R and wet body/sympathetic drive.

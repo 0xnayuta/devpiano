@@ -91,8 +91,8 @@ double centralPeak(const juce::AudioBuffer<float>& buffer, double rate, double r
 juce::AudioBuffer<float> renderReleasedTail(int partition, float duplex, PianoSynthVoice::LidPosition lid,
                                             PianoSynthVoice::SoundPerspective perspective) {
     PianoFixture fixture(48000.0, false, duplex);
-    fixture.synth.setPedalLidPosition(lid);
-    fixture.synth.setPedalSoundPerspective(perspective);
+    fixture.synth.setWholeBodyLidPosition(lid);
+    fixture.synth.setWholeBodySoundPerspective(perspective);
     fixture.synth.noteOn(2, 84, 0.5f);
     juce::AudioBuffer<float> held(2, 6144);
     fixture.render(held);
@@ -379,8 +379,8 @@ public:
             juce::AudioBuffer<float> monoTail(1, 8192);
             for (const auto channels : { 1, 2 }) {
                 PianoFixture fixture(44100.0, true, 0.15f);
-                fixture.synth.setPedalLidPosition(PianoSynthVoice::LidPosition::closed);
-                fixture.synth.setPedalSoundPerspective(PianoSynthVoice::SoundPerspective::audience);
+                fixture.synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::closed);
+                fixture.synth.setWholeBodySoundPerspective(PianoSynthVoice::SoundPerspective::audience);
                 fixture.voice->setFeltAgeingAmount(0.0f);
                 fixture.synth.noteOn(1, 60, 0.35f);
                 juce::AudioBuffer<float> held(channels, 1024);

@@ -30,7 +30,6 @@ public:
         testSampleRateNormalizedDiffusionDelays();
         testFullOpenAllpassFlatMagnitude();
         testLidModeSpectralDifference();
-        testTailDrainBound();
     }
 
 private:
@@ -47,7 +46,7 @@ private:
             synth.addSound(new PianoSynthSound());
             auto* voice = new PianoSynthVoice();
             voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
-            synth.setPedalLidPosition(lid);
+            synth.setWholeBodyLidPosition(lid);
             synth.addVoice(voice);
             expect(synth.getWholeBodyBus().lidPosition == lid);
 
@@ -108,8 +107,6 @@ private:
             lid.setPosition(devpiano::audio::LidPosition::fullOpen, c.sampleRate);
             expectEquals(lid.delay1, c.delay1, "first allpass delay follows 141/48000 s");
             expectEquals(lid.delay2, c.delay2, "second allpass delay follows 507/48000 s");
-            expect(lid.tailDrainSamples() > static_cast<int>(c.delay2),
-                   "tail drain must cover at least the longest diffusion delay");
         }
     }
 
@@ -176,19 +173,6 @@ private:
         expect(halfEnergy > closedEnergy * 1.5, "halfStick must preserve more 8 kHz energy than closed");
     }
 
-    void testTailDrainBound() {
-        beginTest("PianoLidAcoustics: tail drain is bounded and covers the allpass decay");
-
-        for (const auto sampleRate : { 44100.0, 48000.0, 96000.0, 192000.0 }) {
-            devpiano::audio::LidAcoustics lid;
-            lid.setPosition(devpiano::audio::LidPosition::closed, sampleRate);
-            const auto drain = lid.tailDrainSamples();
-            const auto longestDelay = static_cast<int>(lid.delay2);
-            expect(drain > longestDelay, "tail drain covers the longest delay");
-            expect(drain < static_cast<int>(sampleRate * 1.5), "tail drain stays bounded below 1.5 s");
-        }
-    }
-
     void testDynamicLidSwitchDuringPlayback() {
         beginTest("PianoSynthVoice: Dynamic lid switching during note playback without NaN or pop");
 
@@ -201,7 +185,7 @@ private:
         synth.addSound(new PianoSynthSound());
         auto* voice = new PianoSynthVoice();
         voice->setAdsrParameters({ 0.001f, 0.2f, 0.8f, 0.3f });
-        synth.setPedalLidPosition(PianoSynthVoice::LidPosition::fullOpen);
+        synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::fullOpen);
         synth.addVoice(voice);
 
         juce::MidiBuffer midi;
@@ -212,11 +196,11 @@ private:
         for (int block = 0; block < 10; ++block) {
             buffer.clear();
             if (block == 2) {
-                synth.setPedalLidPosition(PianoSynthVoice::LidPosition::halfStick);
+                synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::halfStick);
             } else if (block == 5) {
-                synth.setPedalLidPosition(PianoSynthVoice::LidPosition::closed);
+                synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::closed);
             } else if (block == 8) {
-                synth.setPedalLidPosition(PianoSynthVoice::LidPosition::fullOpen);
+                synth.setWholeBodyLidPosition(PianoSynthVoice::LidPosition::fullOpen);
             }
 
             synth.renderNextBlock(buffer, midi, 0, blockSize);

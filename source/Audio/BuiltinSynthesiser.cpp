@@ -6,9 +6,7 @@
 namespace devpiano::audio {
 
 BuiltinSynthesiser::BuiltinSynthesiser()
-    : pedalAcousticsStorage(std::make_unique<PianoPedalAcoustics>())
-    , pedalAcoustics(*pedalAcousticsStorage)
-    , wholeBodyBusStorage(std::make_unique<PianoWholeBodyBus>())
+    : wholeBodyBusStorage(std::make_unique<PianoWholeBodyBus>())
     , wholeBodyBus(*wholeBodyBusStorage) {
     setMinimumRenderingSubdivisionSize(1, true);
     for (auto& pitchWheel : lastPitchWheelValues) {
@@ -726,16 +724,11 @@ void BuiltinSynthesiser::setPedalNoiseLevel(float level) noexcept {
     pedalAcoustics.setPedalNoiseLevel(level);
 }
 
-void BuiltinSynthesiser::setPedalTuning(Temperament temperament, double referencePitchA4,
-                                        bool stretchTuningEnabled) noexcept {
-    wholeBodyBus.applyTuning(temperament, referencePitchA4, stretchTuningEnabled);
-}
-
-void BuiltinSynthesiser::setPedalLidPosition(LidPosition position) noexcept {
+void BuiltinSynthesiser::setWholeBodyLidPosition(LidPosition position) noexcept {
     wholeBodyBus.setLidPosition(position);
 }
 
-void BuiltinSynthesiser::setPedalSoundPerspective(SoundPerspective perspective) noexcept {
+void BuiltinSynthesiser::setWholeBodySoundPerspective(SoundPerspective perspective) noexcept {
     wholeBodyBus.setSoundPerspective(perspective);
 }
 

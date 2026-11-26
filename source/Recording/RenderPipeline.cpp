@@ -170,8 +170,8 @@ void applyAcousticSnapshotToBuiltin(devpiano::audio::BuiltinSynthesiser& pianoSy
         }
     }
     pianoSynth.setPedalNoiseLevel(pedalNoise);
-    pianoSynth.setPedalLidPosition(lidPos);
-    pianoSynth.setPedalSoundPerspective(snapshot.soundPerspective);
+    pianoSynth.setWholeBodyLidPosition(lidPos);
+    pianoSynth.setWholeBodySoundPerspective(snapshot.soundPerspective);
     pianoSynth.setWholeBodyTuning(snapshot.temperament, refPitch, snapshot.stretchTuningEnabled);
     if (applyPedalState) {
         pianoSynth.setSoftPedal(0, snapshot.unaCorda, snapshot.unaCorda ? 1.0f : 0.0f);
@@ -219,8 +219,8 @@ void initialiseOfflinePianoSynth(devpiano::audio::BuiltinSynthesiser& pianoSynth
     pianoSynth.setCurrentPlaybackSampleRate(options.sampleRate);
     pianoSynth.setPedalNoiseLevel(options.pedalNoiseLevel);
     pianoSynth.setWholeBodyTuning(options.temperament, options.referencePitchA4, options.stretchTuningEnabled);
-    pianoSynth.setPedalLidPosition(static_cast<devpiano::audio::LidPosition>(options.lidPosition));
-    pianoSynth.setPedalSoundPerspective(options.soundPerspective);
+    pianoSynth.setWholeBodyLidPosition(static_cast<devpiano::audio::LidPosition>(options.lidPosition));
+    pianoSynth.setWholeBodySoundPerspective(options.soundPerspective);
 }
 
 void initialiseOfflineSynths(devpiano::audio::BuiltinSynthesiser& pianoSynth,
