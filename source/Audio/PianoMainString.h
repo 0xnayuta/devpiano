@@ -68,144 +68,14 @@ public:
     // Installs the admitted partial prefix. Pitch glide and diffusion are
     // triggered separately at their original start-note call positions.
     void start(const MainStringStart& start) noexcept {
-        if (sampleRate <= 0.0) {
-            return;
-        }
+        installPartials(start, true);
+    }
 
-        const auto sr = sampleRate;
-        activePartials = std::min(start.requestedPartials, maxPartials);
-
-        // 39-A admission and budget: the highest detuned string of each
-        // partial decides admission against the coherent ceiling, so every
-        // active oscillator stays within the epsilon band. The L1 budget
-        // denominator sums nominal weights over the full requested set, so
-        // pruned weights are not redistributed into survivors (rendered
-        // total simply drops when band-limited). Both passes use the
-        // requested count for the brightness tilt; the fallback first
-        // partial uses the ceiling frequency in numerator and denominator
-        // consistently.
-        const auto coherentCeiling = sr * kCoherentBandRatio;
-        std::array<double, maxPartials> noteFrequencies {};
-        const auto requestedPartials = activePartials;
-        auto admittedCount = 0;
-        for (auto n = 0; n < requestedPartials; ++n) {
-            const auto partialNumber = static_cast<double>(n + 1);
-            const auto inharmonicFactor
-                = std::sqrt(1.0 + start.effectiveInharmonicityB * partialNumber * partialNumber);
-            const auto partialFrequency = start.baseFrequency * partialNumber * inharmonicFactor;
-            noteFrequencies[static_cast<std::size_t>(n)] = partialFrequency;
-            if (n == admittedCount && highestDetunedFrequency(n, start, partialFrequency) < coherentCeiling) {
-                admittedCount = n + 1;
-            }
-        }
-        auto fallbackActive = false;
-        if (admittedCount <= 0) {
-            // Low-rate sounding fallback: keep the first partial only, at the
-            // coherent ceiling.
-            noteFrequencies[0] = coherentCeiling;
-            admittedCount = 1;
-            fallbackActive = true;
-        }
-        activePartials = admittedCount;
-        // One whole-voice L1 scalar keeps the relative modal weights intact.
-        // The static string-count scale is applied at the string-sum stage.
-        auto normSum = 0.0f;
-        for (auto n = 0; n < requestedPartials; ++n) {
-            const auto frequency
-                = (fallbackActive && n == 0) ? coherentCeiling : noteFrequencies[static_cast<std::size_t>(n)];
-            normSum += retainedPartialWeight(n, start.keyPos, start.contactHardness, start.effectiveStrikePos,
-                                             frequency, start.effectiveTc, requestedPartials, start.effectiveBrightness,
-                                             start.hammerVoicingRolloffDelta);
-        }
-        const auto scale = devpiano::audio::peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
-        string3Scale
-            = (start.beatingPartials == 1 && start.beatingDetuneRatio > 0.0f) ? kResidualString3Scale : 1.0f / 3.0f;
-
-        for (auto k = admittedCount; k < maxPartials; ++k) {
-            auto& p = partials[static_cast<std::size_t>(k)];
-            p.level = 0.0f;
-            p.levelFast = 0.0f;
-            p.levelSlow = 0.0f;
-            p.epsilon = 0.0;
-            p.epsilon2 = 0.0;
-            p.epsilon3 = 0.0;
-            p.stringCount = 1;
-            p.decayFastPerSample = 0.0f;
-            p.decaySlowPerSample = 0.0f;
-            p.bloomGain = 1.0f;
-            p.bloomRisePerSample = 0.0f;
-        }
-        for (auto n = 0; n < activePartials; ++n) {
-            auto& partial = partials[static_cast<std::size_t>(n)];
-            const auto m = static_cast<double>(n + 1);
-            const auto partialFrequency = noteFrequencies[static_cast<std::size_t>(n)];
-            partial.stringCount = start.stringCount;
-            // Cross-partial phase dispersion only. Every string of the same
-            // partial starts in phase, matching a single hammer strike; the
-            // detune then evolves the unison beating naturally.
-            const auto phase = devpiano::audio::kOptPhaseTable[static_cast<std::size_t>(n % 64)] + start.jitterPhase;
-
-            // 39-A unit-y Magic Circle init: every active string starts at
-            // its output phase with y = sin(phi) and
-            // x = sqrt(1 - e^2/4) * cos(phi) + e * sin(phi) / 2. The stored
-            // level includes the note-wide unison reference scale and una-corda
-            // attenuation; pruned weights are not redistributed.
-            if (partial.stringCount == 1 || n >= start.beatingPartials || start.beatingDetuneRatio <= 0.0f) {
-                partial.stringCount = 1;
-                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, partialFrequency, sr, phase);
-                partial.epsilon2 = 0.0;
-                partial.epsilon3 = 0.0;
-            } else if (partial.stringCount == 2) {
-                const auto detuneHalf = static_cast<double>(start.beatingDetuneRatio * 0.5f);
-                const auto f1 = partialFrequency * (1.0 - detuneHalf);
-                const auto f2 = partialFrequency * (1.0 + detuneHalf);
-                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr, phase);
-                initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr, phase);
-                partial.epsilon3 = 0.0;
-            } else {
-                const auto detune = static_cast<double>(start.beatingDetuneRatio);
-                const auto f1 = partialFrequency * (1.0 - detune);
-                const auto f2 = partialFrequency;
-                const auto f3 = partialFrequency * (1.0 + detune);
-                initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr, phase);
-                initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr, phase);
-                initMagicCircleState(partial.cosState3, partial.sinState3, partial.epsilon3, f3, sr, phase);
-            }
-            // Una-corda trichord energy (Phase 29-B, unchanged mechanism).
-            const auto trichordAtten
-                = (start.stringCount == 3) ? (1.0f - 0.30f * start.unaCordaMu) : (1.0f - 0.15f * start.unaCordaMu);
-            partial.level = retainedPartialWeight(n, start.keyPos, start.contactHardness, start.effectiveStrikePos,
-                                                  partialFrequency, start.effectiveTc, requestedPartials,
-                                                  start.effectiveBrightness, start.hammerVoicingRolloffDelta)
-                * scale * start.velocityLevel * trichordAtten;
-            if (n >= 2 && start.clampedVelocity > 0.40f) {
-                const auto bloomDepth = 0.35f * (start.clampedVelocity - 0.40f) / 0.60f;
-                partial.bloomGain = 1.0f - bloomDepth;
-                const auto tauBloom = static_cast<double>(
-                    0.008f + 0.016f * (1.0f - static_cast<float>(n) / static_cast<float>(requestedPartials)));
-                partial.bloomRisePerSample = static_cast<float>(1.0 / (tauBloom * sr));
-            } else {
-                partial.bloomGain = 1.0f;
-                partial.bloomRisePerSample = 0.0f;
-            }
-
-            const auto kn = m * m * start.k1;
-            const auto airTerm = std::sqrt(start.baseFrequency / std::max(partialFrequency, 20.0));
-            const auto alpha_n
-                = static_cast<double>(start.b1) * (0.80 + 0.20 * airTerm) + static_cast<double>(start.b2) * kn;
-
-            const auto dampingEffect
-                = (alpha_n / juce::jmax(1e-9, start.alpha1)) * static_cast<double>(1.5f - start.pianoBrightness);
-            const auto unaCordaDamping = 1.0
-                + 0.15 * static_cast<double>(start.unaCordaMu)
-                    * (static_cast<double>(n) / static_cast<double>(requestedPartials));
-            const auto tau_m = (start.baseDecaySeconds / dampingEffect) / unaCordaDamping;
-            const auto tauFast_m = tau_m * static_cast<double>(start.fastDecayRatio);
-            partial.decayFastPerSample = static_cast<float>(std::exp(-1.0 / (tauFast_m * sr)));
-            partial.decaySlowPerSample = static_cast<float>(std::exp(-1.0 / (tau_m * sr)));
-            partial.levelFast = partial.level * (1.0f - start.slowWeight);
-            partial.levelSlow = partial.level * start.slowWeight;
-        }
+    // 同音重击：保留已演化的 cos/sin/epsilon 与弦状态，将旧能量按
+    // 锤毡/制音器吸收系数衰减后叠加新锤能量。仅用于同一音高、同一弦
+    // 拓扑的仍按下音符；活跃分音前缀或弦拓扑变化时回退到完整 start。
+    void retrigger(const MainStringStart& start) noexcept {
+        installPartials(start, false);
     }
 
     void triggerSpatialDiffusion() noexcept {
@@ -500,6 +370,180 @@ private:
         return ratio / std::sqrt(1.0f + ratio * ratio);
     }
 
+    // 安装分音前缀。resetOscillators=true 为完整起音；false 为同音重击，
+    // 保留已演化的 cos/sin/epsilon，只更新幅度包络与衰减参数。
+    void installPartials(const MainStringStart& start, bool resetOscillators) noexcept {
+        if (sampleRate <= 0.0) {
+            return;
+        }
+
+        const auto sr = sampleRate;
+        const auto requestedPartials = std::min(start.requestedPartials, maxPartials);
+
+        // 39-A admission and budget: the highest detuned string of each
+        // partial decides admission against the coherent ceiling, so every
+        // active oscillator stays within the epsilon band. The L1 budget
+        // denominator sums nominal weights over the full requested set, so
+        // pruned weights are not redistributed into survivors (rendered
+        // total simply drops when band-limited). Both passes use the
+        // requested count for the brightness tilt; the fallback first
+        // partial uses the ceiling frequency in numerator and denominator
+        // consistently.
+        const auto coherentCeiling = sr * kCoherentBandRatio;
+        std::array<double, maxPartials> noteFrequencies {};
+        auto admittedCount = 0;
+        for (auto n = 0; n < requestedPartials; ++n) {
+            const auto partialNumber = static_cast<double>(n + 1);
+            const auto inharmonicFactor
+                = std::sqrt(1.0 + start.effectiveInharmonicityB * partialNumber * partialNumber);
+            const auto partialFrequency = start.baseFrequency * partialNumber * inharmonicFactor;
+            noteFrequencies[static_cast<std::size_t>(n)] = partialFrequency;
+            if (n == admittedCount && highestDetunedFrequency(n, start, partialFrequency) < coherentCeiling) {
+                admittedCount = n + 1;
+            }
+        }
+        auto fallbackActive = false;
+        if (admittedCount <= 0) {
+            // Low-rate sounding fallback: keep the first partial only, at the
+            // coherent ceiling.
+            noteFrequencies[0] = coherentCeiling;
+            admittedCount = 1;
+            fallbackActive = true;
+        }
+
+        // 相位状态只能映射到同一组振荡器。音高、弦数、拍频配置或活跃
+        // 前缀改变时完整重建，避免旧 cos/sin/epsilon 被错误复用。
+        if (!resetOscillators
+            && (admittedCount != activePartials || start.baseFrequency != lastBaseFrequency
+                || start.effectiveInharmonicityB != lastEffectiveInharmonicityB || start.stringCount != lastStringCount
+                || start.beatingPartials != lastBeatingPartials
+                || start.beatingDetuneRatio != lastBeatingDetuneRatio)) {
+            resetOscillators = true;
+        }
+        lastBaseFrequency = start.baseFrequency;
+        lastEffectiveInharmonicityB = start.effectiveInharmonicityB;
+        lastStringCount = start.stringCount;
+        lastBeatingPartials = start.beatingPartials;
+        lastBeatingDetuneRatio = start.beatingDetuneRatio;
+
+        activePartials = admittedCount;
+        // One whole-voice L1 scalar keeps the relative modal weights intact.
+        // The static string-count scale is applied at the string-sum stage.
+        auto normSum = 0.0f;
+        for (auto n = 0; n < requestedPartials; ++n) {
+            const auto frequency
+                = (fallbackActive && n == 0) ? coherentCeiling : noteFrequencies[static_cast<std::size_t>(n)];
+            normSum += retainedPartialWeight(n, start.keyPos, start.contactHardness, start.effectiveStrikePos,
+                                             frequency, start.effectiveTc, requestedPartials, start.effectiveBrightness,
+                                             start.hammerVoicingRolloffDelta);
+        }
+        const auto scale = devpiano::audio::peakLevelAtFullVelocity / juce::jmax(1e-6f, normSum);
+        string3Scale
+            = (start.beatingPartials == 1 && start.beatingDetuneRatio > 0.0f) ? kResidualString3Scale : 1.0f / 3.0f;
+
+        for (auto k = admittedCount; k < maxPartials; ++k) {
+            auto& p = partials[static_cast<std::size_t>(k)];
+            p.level = 0.0f;
+            p.levelFast = 0.0f;
+            p.levelSlow = 0.0f;
+            p.decayFastPerSample = 0.0f;
+            p.decaySlowPerSample = 0.0f;
+            p.bloomGain = 1.0f;
+            p.bloomRisePerSample = 0.0f;
+            if (resetOscillators) {
+                p.epsilon = 0.0;
+                p.epsilon2 = 0.0;
+                p.epsilon3 = 0.0;
+                p.stringCount = 1;
+            }
+        }
+        for (auto n = 0; n < activePartials; ++n) {
+            auto& partial = partials[static_cast<std::size_t>(n)];
+            const auto m = static_cast<double>(n + 1);
+            const auto partialFrequency = noteFrequencies[static_cast<std::size_t>(n)];
+            const auto expectedStringCount
+                = (start.stringCount == 1 || n >= start.beatingPartials || start.beatingDetuneRatio <= 0.0f)
+                ? 1
+                : start.stringCount;
+            partial.stringCount = expectedStringCount;
+
+            if (resetOscillators) {
+                // Cross-partial phase dispersion only. Every string of the same
+                // partial starts in phase, matching a single hammer strike; the
+                // detune then evolves the unison beating naturally.
+                const auto phase
+                    = devpiano::audio::kOptPhaseTable[static_cast<std::size_t>(n % 64)] + start.jitterPhase;
+
+                // 39-A unit-y Magic Circle init: every active string starts at
+                // its output phase with y = sin(phi) and
+                // x = sqrt(1 - e^2/4) * cos(phi) + e * sin(phi) / 2. The stored
+                // level includes the note-wide unison reference scale and una-corda
+                // attenuation; pruned weights are not redistributed.
+                if (expectedStringCount == 1) {
+                    initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, partialFrequency, sr,
+                                         phase);
+                    partial.epsilon2 = 0.0;
+                    partial.epsilon3 = 0.0;
+                } else if (expectedStringCount == 2) {
+                    const auto detuneHalf = static_cast<double>(start.beatingDetuneRatio * 0.5f);
+                    const auto f1 = partialFrequency * (1.0 - detuneHalf);
+                    const auto f2 = partialFrequency * (1.0 + detuneHalf);
+                    initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr, phase);
+                    initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr, phase);
+                    partial.epsilon3 = 0.0;
+                } else {
+                    const auto detune = static_cast<double>(start.beatingDetuneRatio);
+                    const auto f1 = partialFrequency * (1.0 - detune);
+                    const auto f2 = partialFrequency;
+                    const auto f3 = partialFrequency * (1.0 + detune);
+                    initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr, phase);
+                    initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr, phase);
+                    initMagicCircleState(partial.cosState3, partial.sinState3, partial.epsilon3, f3, sr, phase);
+                }
+            }
+
+            // Una-corda trichord energy (Phase 29-B, unchanged mechanism).
+            const auto trichordAtten
+                = (start.stringCount == 3) ? (1.0f - 0.30f * start.unaCordaMu) : (1.0f - 0.15f * start.unaCordaMu);
+            const auto strikeLevel
+                = retainedPartialWeight(n, start.keyPos, start.contactHardness, start.effectiveStrikePos,
+                                        partialFrequency, start.effectiveTc, requestedPartials,
+                                        start.effectiveBrightness, start.hammerVoicingRolloffDelta)
+                * scale * start.velocityLevel * trichordAtten;
+            // level 只记录本次激励幅度；实际响度由 levelFast + levelSlow 给出。
+            partial.level = strikeLevel;
+            if (n >= 2 && start.clampedVelocity > 0.40f) {
+                const auto bloomDepth = 0.35f * (start.clampedVelocity - 0.40f) / 0.60f;
+                partial.bloomGain = 1.0f - bloomDepth;
+                const auto tauBloom = static_cast<double>(
+                    0.008f + 0.016f * (1.0f - static_cast<float>(n) / static_cast<float>(requestedPartials)));
+                partial.bloomRisePerSample = static_cast<float>(1.0 / (tauBloom * sr));
+            } else {
+                partial.bloomGain = 1.0f;
+                partial.bloomRisePerSample = 0.0f;
+            }
+
+            const auto kn = m * m * start.k1;
+            const auto airTerm = std::sqrt(start.baseFrequency / std::max(partialFrequency, 20.0));
+            const auto alpha_n
+                = static_cast<double>(start.b1) * (0.80 + 0.20 * airTerm) + static_cast<double>(start.b2) * kn;
+
+            const auto dampingEffect
+                = (alpha_n / juce::jmax(1e-9, start.alpha1)) * static_cast<double>(1.5f - start.pianoBrightness);
+            const auto unaCordaDamping = 1.0
+                + 0.15 * static_cast<double>(start.unaCordaMu)
+                    * (static_cast<double>(n) / static_cast<double>(requestedPartials));
+            const auto tau_m = (start.baseDecaySeconds / dampingEffect) / unaCordaDamping;
+            const auto tauFast_m = tau_m * static_cast<double>(start.fastDecayRatio);
+            partial.decayFastPerSample = static_cast<float>(std::exp(-1.0 / (tauFast_m * sr)));
+            partial.decaySlowPerSample = static_cast<float>(std::exp(-1.0 / (tau_m * sr)));
+            const auto previousFast = resetOscillators ? 0.0f : partial.levelFast;
+            const auto previousSlow = resetOscillators ? 0.0f : partial.levelSlow;
+            partial.levelFast = previousFast * kRetriggerResidualAbsorption + strikeLevel * (1.0f - start.slowWeight);
+            partial.levelSlow = previousSlow * kRetriggerResidualAbsorption + strikeLevel * start.slowWeight;
+        }
+    }
+
     [[nodiscard]] static float amplitudeFor(int partialIndex, float keyPos, float contactHardness, float strikingRatio,
                                             double partialFrequency, float tc, float rolloffDelta) noexcept {
         return strikeCombGain(partialIndex, strikingRatio)
@@ -515,6 +559,12 @@ private:
 
     std::array<Partial, maxPartials> partials;
     int activePartials = 0;
+    // 同音 retrigger 的连续性守卫；仅当这些拓扑值不变时保留相位。
+    double lastBaseFrequency = 0.0;
+    double lastEffectiveInharmonicityB = 0.0;
+    int lastStringCount = 1;
+    int lastBeatingPartials = 0;
+    float lastBeatingDetuneRatio = 0.0f;
     // Fixed 1/N string-count scale selected by the 42-1b boundary audit:
     // average summation keeps the t=0 peak at the single-string reference and
     // avoids the 1/sqrt(N) attack boost. The steady-state 1/N power drop is
@@ -526,6 +576,8 @@ private:
     // scale preserves the approved single-string treble loudness. It is not a
     // per-note or EQ trim; all other registers keep the 42-1b 1/3 scale.
     static constexpr float kResidualString3Scale = 0.38f;
+    // 45-1: 重击时保留旧弦能量的比例，落在建议的 0.4–0.6 区间。
+    static constexpr float kRetriggerResidualAbsorption = 0.50f;
     double sampleRate = 0.0;
     PitchGlideEngine pitchGlide;
     SpatialDiffusionEngine spatialDiffusion;

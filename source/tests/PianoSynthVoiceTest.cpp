@@ -147,6 +147,7 @@ public:
         testDecayAndUnisonBeating();
         testResonatorAndAcousticCoupling();
         testVoiceLifecycleAndDynamics();
+        testSameNoteRetrigger();
         testHighTrebleFastRelease();
         testEngineIntegrationAndNumericalSafety();
         testZeroTrigSlaAndNumericalPrecision();
@@ -1224,6 +1225,96 @@ private:
             fixture.synth.allNotesOff(0, false);
             fixture.renderBlock(buffer);
             expect(peakMagnitude(buffer) == 0.0f, "allNotesOff must silence output");
+        }
+    }
+
+    void testSameNoteRetrigger() {
+        beginTest("same-note retrigger preserves the held voice and oscillator phase");
+        {
+            VoiceFixture fixture;
+            auto* second = new PianoSynthVoice();
+            second->setVoiceIndex(1);
+            fixture.synth.addVoice(second);
+
+            juce::AudioBuffer<float> buffer(1, blockSize);
+            fixture.noteOnBlock(60, 0.35f, buffer);
+
+            auto* voice = fixture.voice();
+            const auto triggerBefore = voice->triggerCounter;
+            const auto sinBefore = voice->mainString.partials[0].sinState;
+            const auto cosBefore = voice->mainString.partials[0].cosState;
+            const auto activeBefore = voice->mainString.activePartials;
+            const auto energyBefore = voice->mainString.partials[0].levelFast + voice->mainString.partials[0].levelSlow;
+
+            fixture.synth.noteOn(1, 60, 0.95f);
+
+            expectEquals(voice->getCurrentlyPlayingNote(), 60);
+            expect(voice->isKeyDown(), "retrigger keeps the same key-down identity");
+            expectEquals(voice->triggerCounter, triggerBefore + 1);
+            expectEquals(voice->mainString.activePartials, activeBefore);
+            expectEquals(voice->mainString.partials[0].sinState, sinBefore);
+            expectEquals(voice->mainString.partials[0].cosState, cosBefore);
+            const auto energyAfter = voice->mainString.partials[0].levelFast + voice->mainString.partials[0].levelSlow;
+            expect(energyAfter > energyBefore, "retrigger must add hammer energy to the residual string state");
+            expect(voice->noteKeyActive, "retrigger must not double-register the bus key");
+            expect(!second->isVoiceActive(), "retrigger must not allocate the free second voice");
+        }
+
+        beginTest("eight same-note strikes reuse one voice without unstable growth");
+        {
+            VoiceFixture fixture;
+            auto* second = new PianoSynthVoice();
+            second->setVoiceIndex(1);
+            fixture.synth.addVoice(second);
+
+            juce::AudioBuffer<float> buffer(1, 8820);
+            fixture.noteOnBlock(60, 0.35f, buffer);
+            auto* voice = fixture.voice();
+            const auto triggerBefore = voice->triggerCounter;
+            constexpr std::array<int, 8> intervalsMs { 30, 60, 120, 200, 30, 60, 120, 200 };
+            constexpr std::array<int, 8> velocities { 41, 70, 98, 41, 70, 98, 41, 98 };
+
+            for (std::size_t strike = 0; strike < intervalsMs.size(); ++strike) {
+                fixture.synth.noteOn(1, 60, static_cast<float>(velocities[strike]) / 127.0f);
+                const auto interval = static_cast<int>(kSampleRate * intervalsMs[strike] / 1000.0);
+                buffer.clear();
+                fixture.synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, interval);
+                const auto peak = peakMagnitude(buffer);
+                expect(std::isfinite(peak), "retrigger output must stay finite");
+                expect(peak < 4.0f, "retrigger output must stay bounded");
+                expect(voice->isVoiceActive(), "the held voice must survive every retrigger");
+                expect(!second->isVoiceActive(), "each retrigger must reuse the same voice");
+            }
+
+            expectEquals(voice->triggerCounter, triggerBefore + static_cast<std::uint32_t>(intervalsMs.size()));
+            expectEquals(voice->getCurrentlyPlayingNote(), 60);
+            expect(voice->isKeyDown());
+        }
+
+        beginTest("same note with key up allocates a fresh voice instead of retriggering");
+        {
+            VoiceFixture fixture;
+            auto* second = new PianoSynthVoice();
+            second->setVoiceIndex(1);
+            fixture.synth.addVoice(second);
+
+            juce::AudioBuffer<float> buffer(1, blockSize);
+            fixture.synth.handleController(1, 64, 127);
+            fixture.synth.noteOn(1, 60, 0.6f);
+            buffer.clear();
+            fixture.synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, buffer.getNumSamples());
+            auto* heldVoice = fixture.voice();
+            const auto heldTrigger = heldVoice->triggerCounter;
+
+            fixture.synth.noteOff(1, 60, 0.5f, true);
+            expect(!heldVoice->isKeyDown());
+            expect(heldVoice->isVoiceActive(), "sustain must keep the released voice alive");
+
+            fixture.synth.noteOn(1, 60, 0.8f);
+            expect(second->isKeyDown(), "a key-up same note must start a fresh voice");
+            expectEquals(second->getCurrentlyPlayingNote(), 60);
+            expectEquals(heldVoice->triggerCounter, heldTrigger);
+            fixture.synth.handleController(1, 64, 0);
         }
     }
 

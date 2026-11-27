@@ -412,11 +412,11 @@ Phase 40–44 的完整目标、分步任务、实现数据、失败取舍、复
 
 现行声学行为以 [内置音源](../reference/features/builtin-piano-synthesis.md) 与 [架构](../reference/architecture.md) 为准。未执行 Release 测量；Debug 单次耗时不得外推为 Release 性能或长期 SLA 认证。
 
-### Phase 45：同音重复状态与起音微观相位（Repetition State & Attack Micro-Phase）[当前候选，未启动]
+### Phase 45：同音重复状态与起音微观相位（Repetition State & Attack Micro-Phase）[45-1 已完成 2026-11-27；45-3 待启动]
 
 目标：修复快速同音重复时旧弦状态被强制重置、相位表与当前参数不匹配、力度对两段衰减不敏感这三个可感知缺口；不改变主弦模态拓扑、复音数与 NoteOff 身份。
 
-1. **45-1 同音 retrigger（行为变更，需单独批准）**：`BuiltinSynthesiser::noteOn` 对同音且 `isKeyDown()` 的 voice 不再 `stopVoice` + 新建，而是调用 `PianoSynthVoice::retriggerNote`；`PianoMainString` 增加“保留 cos/sin/epsilon、叠加新锤能量”的重新激励入口，旧能量按锤毡/制音器吸收系数衰减。目标是轮指/同音三连的真实感与 voice 利用率同时改善。
+1. **45-1 同音 retrigger（行为变更，需单独批准）**：`BuiltinSynthesiser::noteOn` 对同音且 `isKeyDown()` 的 voice 不再 `stopVoice` + 新建，而是调用 `PianoSynthVoice::retriggerNote`；`PianoMainString` 增加“保留 cos/sin/epsilon、叠加新锤能量”的重新激励入口，旧能量按锤毡/制音器吸收系数衰减。目标是轮指/同音三连的真实感与 voice 利用率同时改善。**状态（2026-11-27）**：已完成。旧能量吸收 0.50；120 例单音基线不变；8 连击 v41/70/98 全程 True Peak 0.0871/0.1599/0.2301，复用同一 voice 且第二 voice 空闲；Windows Debug CTest 通过。
 2. **45-3 力度依赖两段衰减（行为变更，需单独批准）**：`slowWeight` 由固定音区表改为随力度小幅调制（弱音更多 aftersound，强音更多 prompt），总量由现有 L1 归一化吸收；不新增逐键补偿表。
 3. **45-2 相位表实验与独立重优化（收尾项，依赖 47-1/45-1/45-3/46-1/46-2）**：当前 `kOptPhaseTable[64]` 是 Phase 18-B 从 `danielpodrazka/piano` 的 `3×64` 表采用的第 0 行（MIT），不是 devpiano 独立优化。候选矩阵为 A = 当前单行、B = 上游三行（恢复每弦独立相位，实验分支）、C1 = 独立重优化单行、C2 = 独立重优化三行；B/C2 需先为 `MainStringStart`/`PianoMainString` 增加每弦相位输入，且与 A/C1 分开提交。B 不是默认：42-1b 的同相单行是已校准基线，恢复三行会改变 t=0 相位/响度/立体声，必须独立批准并全键复测。独立重优化使用合法参考（Salamander CC BY 3.0 或用户提供），不使用来源不可信的旧 Pianoteq WAV；目标为 0–50 ms mel-STFT loss + 起音峰值因子/谱通量。最终默认选择：C1 优于 A 则采用 C1 单行；C2 优于 B 且 B 优于 A 才考虑 C2 三行；若 C 不显著优于 A/B，保留 A（或 B，若 B 已单独通过）。不得把上游表改称 devpiano 实测最优。
 

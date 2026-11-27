@@ -33,6 +33,12 @@ constexpr int kDefaultBitsPerSample = 24;
 // comparable.
 constexpr int kRepresentativeKeys[16] = { 21, 24, 28, 33, 36, 40, 45, 48, 52, 57, 60, 69, 72, 84, 96, 108 };
 
+// 45-1 same-note retrigger protocol: eight C4 strikes at v41/v70/v98,
+// using the 30/60/120/200 ms interval cycle.
+constexpr int kRetriggerNote = 60;
+constexpr int kRetriggerVelocities[3] = { 41, 70, 98 };
+constexpr int kRetriggerIntervalsMs[8] = { 30, 60, 120, 200, 30, 60, 120, 200 };
+
 struct ProbeCase {
     int midi = 60;
     int velocity = 70;
@@ -46,6 +52,7 @@ struct ProbeSettings {
     int blockSize = kDefaultBlockSize;
     int bitsPerSample = kDefaultBitsPerSample;
     bool benchmark = false;
+    bool retrigger = false;
     std::vector<int> keys;
     std::vector<int> velocities;
 };
@@ -98,6 +105,7 @@ void printUsage() {
               << "  --tail <sec>         Extra post-take tail (default: 0.0)\n"
               << "  --block <samples>    Render block size (default: 512)\n"
               << "  --benchmark          Add a 12-voice synthetic block-time benchmark\n"
+              << "  --retrigger          Render eight C4 strikes at v41/v70/v98 (30/60/120/200 ms)\n"
               << "  --help               Show this help\n"
               << "\n"
               << "Default phase40 set: 88 keys at v70 plus 16 representative keys at v41/v98.\n";
@@ -111,6 +119,23 @@ void printUsage() {
                             juce::MidiMessage::noteOn(1, midi, static_cast<juce::uint8>(velocity)) });
     take.events.push_back({ take.lengthSamples, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
                             juce::MidiMessage::noteOff(1, midi) });
+    return take;
+}
+
+[[nodiscard]] RecordingTake makeRetriggerTake(int midi, int velocity, double sampleRate) {
+    constexpr double kPostReleaseSeconds = 0.5;
+    RecordingTake take;
+    take.sampleRate = sampleRate;
+
+    auto position = std::int64_t { 0 };
+    for (const auto intervalMs : kRetriggerIntervalsMs) {
+        take.events.push_back({ position, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                juce::MidiMessage::noteOn(1, midi, static_cast<juce::uint8>(velocity)) });
+        position += static_cast<std::int64_t>(std::llround(intervalMs * sampleRate / 1000.0));
+    }
+    take.events.push_back({ position, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                            juce::MidiMessage::noteOff(1, midi) });
+    take.lengthSamples = position + static_cast<std::int64_t>(std::llround(kPostReleaseSeconds * sampleRate));
     return take;
 }
 
@@ -246,6 +271,8 @@ int runAcousticProbe(const juce::StringArray& args) {
             settings.blockSize = nextValue().getIntValue();
         } else if (argument == "--benchmark") {
             settings.benchmark = true;
+        } else if (argument == "--retrigger") {
+            settings.retrigger = true;
         } else if (argument == "--protocol") {
             const auto protocol = nextValue();
             if (protocol != "phase40") {
@@ -263,7 +290,7 @@ int runAcousticProbe(const juce::StringArray& args) {
         std::cerr << "47-1 currently fixes the probe sample rate at 48000 Hz\n";
         return 1;
     }
-    if (settings.durationSeconds < 1.4) {
+    if (!settings.retrigger && settings.durationSeconds < 1.4) {
         std::cerr << "--duration must be at least 1.4 s for the 1.1-1.3 s window\n";
         return 1;
     }
@@ -288,7 +315,11 @@ int runAcousticProbe(const juce::StringArray& args) {
     }
 
     std::vector<ProbeCase> cases;
-    if (settings.keys.empty() && settings.velocities.empty()) {
+    if (settings.retrigger) {
+        for (const auto velocity : kRetriggerVelocities) {
+            cases.push_back({ kRetriggerNote, velocity });
+        }
+    } else if (settings.keys.empty() && settings.velocities.empty()) {
         for (auto midi = 21; midi <= 108; ++midi) {
             cases.push_back({ midi, 70 });
         }
@@ -327,9 +358,13 @@ int runAcousticProbe(const juce::StringArray& args) {
     std::cout << "Rendering " << cases.size() << " case(s) to " << settings.outputDirectory.getFullPathName() << "\n";
 
     for (const auto& probeCase : cases) {
-        const auto take = makeTake(probeCase.midi, probeCase.velocity, settings.sampleRate, settings.durationSeconds);
-        const auto fileName = "case_" + juce::String(probeCase.midi).paddedLeft('0', 3) + "_v"
-            + juce::String(probeCase.velocity) + ".wav";
+        const auto take = settings.retrigger
+            ? makeRetriggerTake(probeCase.midi, probeCase.velocity, settings.sampleRate)
+            : makeTake(probeCase.midi, probeCase.velocity, settings.sampleRate, settings.durationSeconds);
+        const auto fileName = settings.retrigger ? "retrigger_" + juce::String(probeCase.midi).paddedLeft('0', 3) + "_v"
+                + juce::String(probeCase.velocity) + ".wav"
+                                                 : "case_" + juce::String(probeCase.midi).paddedLeft('0', 3) + "_v"
+                + juce::String(probeCase.velocity) + ".wav";
         const auto file = settings.outputDirectory.getChildFile(fileName);
 
         const auto start = std::chrono::steady_clock::now();
@@ -352,7 +387,17 @@ int runAcousticProbe(const juce::StringArray& args) {
     }
 
     auto* manifest = new juce::DynamicObject();
-    manifest->setProperty("protocol", "phase40");
+    manifest->setProperty("protocol", settings.retrigger ? "phase45-retrigger" : "phase40");
+    manifest->setProperty("retrigger", settings.retrigger);
+    if (settings.retrigger) {
+        manifest->setProperty("retriggerNote", kRetriggerNote);
+        manifest->setProperty("strikeCount", static_cast<int>(std::size(kRetriggerIntervalsMs)));
+        juce::Array<juce::var> intervals;
+        for (const auto intervalMs : kRetriggerIntervalsMs) {
+            intervals.add(intervalMs);
+        }
+        manifest->setProperty("strikeIntervalsMs", juce::var(intervals));
+    }
     manifest->setProperty("sampleRate", settings.sampleRate);
     manifest->setProperty("bitsPerSample", settings.bitsPerSample);
     manifest->setProperty("blockSize", settings.blockSize);

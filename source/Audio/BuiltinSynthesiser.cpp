@@ -304,11 +304,30 @@ void BuiltinSynthesiser::noteOn(int midiChannel, int midiNoteNumber, float veloc
     wholeBodyBus.setSustainPedal(anySustainDown());
     for (auto* sound : sounds) {
         if (sound != nullptr && sound->appliesToNote(midiNoteNumber) && sound->appliesToChannel(midiChannel)) {
+            // 45-1: 同音且按键仍按下时复用该 voice 重新击弦，不先释放再分配。
+            auto* retriggerVoice = static_cast<PianoSynthVoice*>(nullptr);
             for (auto* voice : voices) {
-                if (voice != nullptr && voice->getCurrentlyPlayingNote() == midiNoteNumber
-                    && voice->isPlayingChannel(midiChannel)) {
-                    stopVoice(voice, 1.0f, true);
+                if (voice == nullptr || voice->getCurrentlyPlayingNote() != midiNoteNumber
+                    || !voice->isPlayingChannel(midiChannel)) {
+                    continue;
                 }
+
+                if (voice->isKeyDown()) {
+                    auto* pianoVoice = dynamic_cast<PianoSynthVoice*>(voice);
+                    if (pianoVoice != nullptr && retriggerVoice == nullptr) {
+                        retriggerVoice = pianoVoice;
+                        continue;
+                    }
+                }
+                stopVoice(voice, 1.0f, true);
+            }
+
+            if (retriggerVoice != nullptr) {
+                const auto sustainDown = sustainPedalByChannel[static_cast<std::size_t>(midiChannel)];
+                applySoftPedalToVoice(retriggerVoice, midiChannel);
+                retriggerVoice->retriggerNote(velocity);
+                retriggerVoice->setSustainPedalDown(sustainDown);
+                continue;
             }
 
             auto* voice = findFreeVoice(sound, midiChannel, midiNoteNumber, noteStealing);

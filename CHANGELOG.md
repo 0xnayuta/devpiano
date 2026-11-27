@@ -2,6 +2,8 @@
 
 ### Changed
 
+- **Piano Same-Note Retrigger** — reuse the held voice for a repeated NoteOn on the same note/channel instead of releasing it and allocating again. Preserve the Magic Circle oscillator phase and residual string energy, absorb the old energy by 50%, and retrigger the hammer, contact, diffusion, glide and ADSR paths; NoteOff identity and the whole-body key count stay on the same voice. An 8-strike v41/v70/v98 probe stays bounded (full true peak 0.0871/0.1599/0.2301, below the single-strike 0.236 baseline), the 120-case Phase 40 baseline is unchanged, and Windows Debug CTest passes.
+
 - **JUCE 9.0.4 Upgrade** — pin the JUCE submodule to the 9.0.4 patch release. It brings Windows MIDI disconnection fixes, WASAPI and MessageManager/Timer corrections, VST3 hosting fixes, high-DPI window placement fixes, and the malformed String security patch. The MP3, Opus, and WebP codecs that JUCE enables by default from 9.0.2/9.0.3 are disabled because Devpiano only exports WAV and ships no WebP assets.
 
 - **Piano Same-Partial Phase and String-Count Scale** — start all strings of a partial in phase while keeping cross-partial phase dispersion, retire the 80–100 phase taper and `unisonScale`, and use a fixed `1/N` average string-count scale selected from the 35/36 and 47/48 boundary audit. The 42-1b baseline narrows the full-key v70 K-weighted range from 11.95 dB to 8.07 dB, removes the C3/C4 late/early bloom, and attributes the 96–108 adjacent-semitone zigzag to the fixed three-tap lid.

@@ -40,6 +40,17 @@ For a quick single case:
 ... --acoustic-probe --keys 60 --velocities 41,70,98 --out 'G:\...\acoustic-probe\c4'
 ```
 
+For the 45-1 same-note retrigger protocol (eight C4 strikes at v41/v70/v98
+with 30/60/120/200 ms intervals):
+
+```bash
+... --acoustic-probe --retrigger --out 'G:\...\acoustic-probe\retrigger'
+```
+
+The standard analyzer windows cover the first strike only. Use a short
+per-strike script against the manifest intervals when evaluating all eight
+strikes; the WAVs are deterministic and can also be auditioned directly.
+
 ## Analyze
 
 ```bash
