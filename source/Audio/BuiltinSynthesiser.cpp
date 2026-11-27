@@ -1,6 +1,7 @@
 #include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace devpiano::audio {
@@ -302,21 +303,37 @@ void BuiltinSynthesiser::noteOn(int midiChannel, int midiNoteNumber, float veloc
         return;
     }
     wholeBodyBus.setSustainPedal(anySustainDown());
+    // 同一次 noteOn 内每个 voice 至多重击一次：多层 sound 需要各自的 voice，
+    // 不能把同一个 Piano voice 重复重击。
+    std::array<PianoSynthVoice*, 16> retriggeredVoices {};
+    auto retriggeredCount = std::size_t { 0 };
     for (auto* sound : sounds) {
         if (sound != nullptr && sound->appliesToNote(midiNoteNumber) && sound->appliesToChannel(midiChannel)) {
             // 45-1: 同音且按键仍按下时复用该 voice 重新击弦，不先释放再分配。
             auto* retriggerVoice = static_cast<PianoSynthVoice*>(nullptr);
             for (auto* voice : voices) {
                 if (voice == nullptr || voice->getCurrentlyPlayingNote() != midiNoteNumber
-                    || !voice->isPlayingChannel(midiChannel)) {
+                    || !voice->isPlayingChannel(midiChannel) || !voice->canPlaySound(sound)) {
                     continue;
                 }
 
                 if (voice->isKeyDown()) {
                     auto* pianoVoice = dynamic_cast<PianoSynthVoice*>(voice);
-                    if (pianoVoice != nullptr && retriggerVoice == nullptr) {
-                        retriggerVoice = pianoVoice;
-                        continue;
+                    if (pianoVoice != nullptr) {
+                        auto alreadyRetriggered = false;
+                        for (auto index = std::size_t { 0 }; index < retriggeredCount; ++index) {
+                            if (retriggeredVoices[index] == pianoVoice) {
+                                alreadyRetriggered = true;
+                                break;
+                            }
+                        }
+                        if (alreadyRetriggered) {
+                            continue;
+                        }
+                        if (retriggerVoice == nullptr) {
+                            retriggerVoice = pianoVoice;
+                            continue;
+                        }
                     }
                 }
                 stopVoice(voice, 1.0f, true);
@@ -327,6 +344,9 @@ void BuiltinSynthesiser::noteOn(int midiChannel, int midiNoteNumber, float veloc
                 applySoftPedalToVoice(retriggerVoice, midiChannel);
                 retriggerVoice->retriggerNote(velocity);
                 retriggerVoice->setSustainPedalDown(sustainDown);
+                if (retriggeredCount < retriggeredVoices.size()) {
+                    retriggeredVoices[retriggeredCount++] = retriggerVoice;
+                }
                 continue;
             }
 
