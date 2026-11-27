@@ -995,6 +995,24 @@ private:
         expectWithinAbsoluteError(soft, params.slowWeight * 1.15f, 1e-4f);
         expectWithinAbsoluteError(loud, params.slowWeight * 0.85f, 1e-4f);
         expectWithinAbsoluteError(mid, params.slowWeight, 0.02f);
+
+        // 渲染后 slow 比例仍随力度分离：验证两段衰减确实进入渲染路径，
+        // 而不是只在起音时写入内部字段。
+        const auto renderedSlowRatio = [&](int velocity) {
+            VoiceFixture fixture;
+            juce::AudioBuffer<float> buffer(2, blockSize);
+            fixture.noteOnBlock(60, static_cast<float>(velocity) / 127.0f, buffer);
+            for (auto block = 0; block < 6; ++block) {
+                fixture.renderBlock(buffer);
+            }
+            const auto& partial = fixture.voice()->mainString.partials[0];
+            const auto total = partial.levelFast + partial.levelSlow;
+            return total > 0.0f ? partial.levelSlow / total : 0.0f;
+        };
+        const auto renderedSoft = renderedSlowRatio(41);
+        const auto renderedLoud = renderedSlowRatio(98);
+        expect(std::isfinite(renderedSoft) && std::isfinite(renderedLoud), "rendered decay state must stay finite");
+        expect(renderedSoft > renderedLoud, "rendered two-stage decay preserves the velocity split");
     }
 
     void testResonatorAndAcousticCoupling() {
