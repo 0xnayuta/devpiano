@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+### Fixed
+
+- **Acoustic Probe Re-run Isolation** — phase-experiment WAVs are written through a temporary file and atomically replace the target, and write failures now abort the run. Previously JUCE `FileOutputStream` opened an existing file at its end, so reruns appended a new WAV after the old one and consumers read stale audio.
+- **Acoustic Probe Option Validation** — numeric options require complete integer or finite parsing, MIDI ranges are checked before expansion, and block size, duration and tail are bounded. `NaN`, partial numbers and huge ranges can no longer bypass validation or exhaust memory.
+- **Same-Note Retrigger Sound Scope** — reuse only a held voice that can play the current synthesiser sound and at most once per NoteOn, so layered sounds keep separate voices and are not struck twice.
+- **Phase Experiment Empty Table** — a non-null table with zero rows now falls back to the production phase table instead of being treated as one row.
+
 ### Changed
 
 - **Acoustic Probe Benchmark Matrix** — extend `devpiano_tests --acoustic-probe` with `--benchmark-only`, configurable `--benchmark-polyphony` (1–24) and `--benchmark-notes`, `--bass-stress`, `--benchmark-warmup`, `--benchmark-repeats`, `--benchmark-room`, and `--wet`. The benchmark rebuilds the synth per repeat, discards the note-on transient, and excludes WAV I/O and `buffer.clear()`; the optional Room path adds `RoomReverbEngine::processStereo`. Development-only; not in the product package.
