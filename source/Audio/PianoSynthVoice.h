@@ -30,7 +30,7 @@ using PianoBusInput = devpiano::audio::PianoBusInput;
 using PianoWholeBodyBus = devpiano::audio::PianoWholeBodyBus;
 // 内置物理建模钢琴合成器（Phase 12~24）：
 // - 空气黏性阻尼与二次方摩擦 (Phase 18-C)：Desvages & Bilbao (2016) 模态耗散模型，呈现中频下凹歌唱性；
-// - 16 峰正交云杉木音板模态 (Phase 19-A)：Bank 2010 / Chabassier 2019 实测物理模态分布；
+// - 24 峰正交云杉木音板模态 (Phase 19-A / 46-1)：Bank 2010 / Chabassier 2019 的 16 个锚点加 8 个中高频插值填充；
 // - 琴桥立体声空间辐射 (Phase 19-B)：根据 88 键物理跨度分配声像，消灭单声道耳膜居中压迫感；
 // - 同音三弦独立三振荡器非对称拍频 (Phase 19-C)：3 弦独立微失谐与 STFT 空间初相；
 // - 低音钢弦纵波先驱脉冲 (Phase 20-A, Bank 2005/2010)：v_L ≈ 5100 m/s 极短金属撞击先导声；
@@ -52,7 +52,7 @@ using PianoWholeBodyBus = devpiano::audio::PianoWholeBodyBus;
 // - 同音三弦立体声非对称微失谐与声相展开 (Phase 23-B, Weinreich 1977 JASA)：
 //   将同音多弦振动在物理声相空间微观展开，彻底消除中高音单声道聚焦感，营造开阔立体的空气环绕感；
 // - 云杉木音板高频截止与木质腔体共鸣峰配平 (Phase 23-C, Boutillon & Ege 2013, Giordano 1998)：
-//   4.2kHz 云杉木粘滞内耗低通截止滤波器与 16 峰物理音板模态配平，赋予真实三角钢琴温润深厚的木质感；
+//   8kHz 云杉木粘滞内耗低通截止滤波器与 24 峰物理音板模态配平，赋予真实三角钢琴温润深厚的木质感；
 // - 起音瞬态裂音与低音纵波微调 (Phase 23-D, Attack Transient Crack & Longitudinal Tuning)：
 //   前 3ms 高频冲击裂音 (HF Crack) 与紧凑型低音纵波先导声，对齐真琴 27~30ms 极速起振特性；
 // - 泛音时间滞后膨胀与绽放 (Phase 24-A, Harmonic Blooming)：中高力度高阶分音非线性能量泵浦与上升绽放；

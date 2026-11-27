@@ -125,7 +125,7 @@ flowchart TD
 5. **低音钢弦纵向波先驱脉冲（Longitudinal Precursor Ping，Bank 2005/2010）**：
    - 钢弦内部纵向声速 $v_L = \sqrt{E/\rho} \approx 5100\text{ m/s}$，远快于横波传播速度；
    - 为低音琴键（MIDI 21～55）注入极速衰减（$15\text{ ms}$）的金属张力先导冲击，赋予低音真实的钢铁撞击张力；
-   - 纵波激励不再叠加在直达声上，而是以 0.65 增益送入唯一的 `PianoWholeBodyBus` drive，经 16 峰音板、交感弦池、琴盖和视角处理；它不参与同音弦相干求和，也不继承弦体增益。MIDI 48～55 使用 smoothstep 连续收尾，MIDI 56 起为零；该边界是工程整音值，不是实测纵向模态截止。
+   - 纵波激励不再叠加在直达声上，而是以 0.65 增益送入唯一的 `PianoWholeBodyBus` drive，经 24 峰音板、交感弦池、琴盖和视角处理；它不参与同音弦相干求和，也不继承弦体增益。MIDI 48～55 使用 smoothstep 连续收尾，MIDI 56 起为零；该边界是工程整音值，不是实测纵向模态截止。
 
 6. **泛音时间滞后膨胀与绽放（Harmonic Blooming）**：
    - 强奏时弦体非线性张力将能量持续泵浦至高阶分音；
@@ -149,14 +149,16 @@ flowchart TD
 1. **长短琴桥交界（Bridge Break）**：
    - 低音长琴桥与主琴桥在 MIDI 43/44（G2/G#2）处划分（描述性声学分区）；弦数在 MIDI 48（C3）转入三弦，弦长/阻尼为连续插值、无阶跃；**刚度 B 的原 +43% 阶跃假设已由官方参考实测否定**（43/45/47/48 平滑递增），生产 B 表冻结于 19 节点（17 个官方参考实测锚点 + 96/108 两文献外推节点；26/52/57 由 interp-training 扩充），停止接收入训锚点。
 
-2. **16 峰正交云杉木物理音板模态组（Bank 2010 / Chabassier 2019）**：
-   - 挂载 16 组精确调谐的二阶带通共振滤波器，全频段覆盖云杉木音板核心模态：
+2. **24 峰正交云杉木物理音板模态组（Bank 2010 / Chabassier 2019；46-1）**：
+   - 挂载 24 组精确调谐的二阶带通共振滤波器，全频段覆盖云杉木音板核心模态：
      - `48 Hz / 68 Hz`：音板与背架底箱主呼吸模态；
      - `95 Hz / 135 Hz`：低音长琴桥弯曲模态；
      - `185 Hz / 250 Hz`：音板主板面弯曲与对角线模态；
      - `340 Hz / 460 Hz`：肋木与琴桥交叉耦合模态；
      - `620 Hz / 820 Hz / 1080 Hz`：中高频木质辐射模态；
-     - `1380 Hz / 1680 Hz / 1850 Hz / 2050 Hz / 2250 Hz`：各向异性高频散射模态。
+     - `1380 Hz / 1680 Hz / 1850 Hz / 2050 Hz / 2250 Hz`：各向异性高频散射模态；
+     - `300 / 400 / 540 / 710 / 940 / 1220 / 1510 / 1940 Hz`：46-1 新增的中高频插值填充。低频 <250 Hz 保持 6 峰稀疏，中高频变为 18 峰密集；频率、Q 与左右权重由相邻 Bank/Chabassier 锚点插值并各自归一为 1.0，不是新的实测模态锚点。
+   - 24 峰仍只在共享总线每采样处理一次；声部不复制音板状态。
 
 3. **云杉木 8 kHz 高频粘滞内耗低通滤波器（Spruce Soundboard Filter）**：
    - 模拟天然云杉木纤维对超高频能量的各向异性粘滞吸收，消除电子合成器常见的铁皮金属盒共鸣毛刺，赋予音色深厚温暖的木质感。
@@ -182,7 +184,7 @@ flowchart TD
    - **16 通道踏板物理隔离**：`BuiltinSynthesiser` 独立维护 16 个 MIDI 通道的踏板物理状态矩阵（CC64 延音 `sustainPedalByChannel`、CC66 保持音 `sostenutoPedalByChannel`、CC67 柔音 `softPedalByChannel`）；
    - **CC66 捕获边界**：仅低→高捕获当时仍按住的声部；重复高值不捕获后起音，被抢占声部的新音不继承旧捕获。CC64/66 释放顺序、同采样排序、逐通道隔离和 Panic 均按声部生命周期处理；电脑键盘入口及原目标释放见 [键盘分册](keyboard-mapping.md)。
    - 踩下 CC64 延音踏板时激活 12 半音全开放交感共鸣弦池，使演奏音符的泛音激发全琴未制音琴弦的共振；
-   - **整琴踏板与空间 owner**：`BuiltinSynthesiser` 持有唯一的 `PianoPedalAcoustics`（仅机械扫掠与踏板落木声）与唯一的 `PianoWholeBodyBus`；总线持有 16 峰音板、8 kHz 湿路径、唯一 12 音级交感弦池、琴盖与视角，并接收所有活动声部的 `noteOnKey/noteOffKey`、聚合 `anySustainDown`、音符激励和踏板 shock。跨音符开放弦交感因此正式共享；单声部结束不 reset 总线，只有 Panic / `allNotesOff(0,false)` / CC120（无其他活动声部）/ 采样率重准备 / rebuild 才清空。
+   - **整琴踏板与空间 owner**：`BuiltinSynthesiser` 持有唯一的 `PianoPedalAcoustics`（仅机械扫掠与踏板落木声）与唯一的 `PianoWholeBodyBus`；总线持有 24 峰音板、8 kHz 湿路径、唯一 12 音级交感弦池、琴盖与视角，并接收所有活动声部的 `noteOnKey/noteOffKey`、聚合 `anySustainDown`、音符激励和踏板 shock。跨音符开放弦交感因此正式共享；单声部结束不 reset 总线，只有 Panic / `allNotesOff(0,false)` / CC120（无其他活动声部）/ 采样率重准备 / rebuild 才清空。
    - **踏板机械扫掠声与共鸣冲击**：踩下踏板时激发成对的机械毛毡抬起刮擦与空气呼啸脉冲（`pedalWhoosh`，带通 $1350\text{ Hz}$，$Q=1.25$；抬起带通 $950\text{ Hz}$）以及全琴瞬态弱冲击激发（`pedalResonanceShock`，双共振冲击峰 $58\text{ Hz}$ 与 $116\text{ Hz}$），由 `pedalNoiseLevel`（默认 0.6）线性缩放；
    - 支持**未踩踏板时的单键开放主弦交感（Unpedaled Resonance）**：由持有音符对应音级的开放主弦产生交感振动；Duplex 非发音段见上节，不混称为同一模型；
    - **CC67 弱音/移位踏板物理拟真（Una Corda / Soft Pedal）**：踩下 CC67 踏板时击弦机向右微移，敲击毛毡侧面相对柔软区域（有效硬度衰减至多 25%，接触时间延长至多 20%），中高音区三弦组产生三弦敲两弦（Trichord to Bichord）声能衰减（至多 30% 衰减），呈现柔和朦胧的暗调色泽；
@@ -248,7 +250,7 @@ flowchart TD
 |---|---|:---:|---|
 | **Brightness（亮度）** | `setPianoParameters` / `pianoBrightness` | 0.5 | 调节激振分音倾斜及整体阻尼缩放，不直接改变有效硬度 |
 | **Hammer Hardness（硬度）** | `setPianoParameters` / `pianoHammerHardness` | 0.5 | 只通过同一名义硬度 `h_hammer` 影响接触时间、分音频谱和瞬态核；分音频谱使用 CC67 后的 `h_contact`，不再另设分音硬度倾斜 |
-| **Resonance（共鸣）** | `setPianoParameters` / `pianoResonance` | 0.5 | 调节 16 峰音板共振 Wet 比率（18%~34%）与延音衰减时间缩放 |
+| **Resonance（共鸣）** | `setPianoParameters` / `pianoResonance` | 0.5 | 调节 24 峰音板共振 Wet 比率（18%~34%）与延音衰减时间缩放 |
 | **Pedal Noise（机械噪声）** | `setPedalNoiseLevel` / `pedalNoiseLevel` | 0.6 | 调节延音踏板扫掠呼啸与共鸣冲击的机械动作音量（0..1） |
 | **Felt Ageing（毛毡老化）** | `setFeltAgeingAmount` / `feltAgeingAmount` | 0.0 | 调节琴槌羊毛纤维磨损压实深度，注入微观穿透力与硬化质感（0..1） |
 | **Una Corda（弱音踏板）** | `setSoftPedalDown` / `softPedalDown` | false | 琴槌击弦机侧向位移，毛毡软化与三弦敲两弦声能衰减（MIDI CC 67，电平 0..1） |

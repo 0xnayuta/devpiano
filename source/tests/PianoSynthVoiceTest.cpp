@@ -1001,14 +1001,29 @@ private:
         {
             auto leftWeight = 0.0f;
             auto rightWeight = 0.0f;
+            auto previousFrequency = 0.0f;
+            auto lowModalCount = 0;
+            auto highModalCount = 0;
+            expect(devpiano::audio::PianoWholeBodyBus::numResonators >= 24,
+                   "46-1 modal bank must contain at least 24 modes");
             for (auto i = 0; i < devpiano::audio::PianoWholeBodyBus::numResonators; ++i) {
                 const auto spec = devpiano::audio::PianoWholeBodyBus::resonatorSpec(i);
                 leftWeight += spec.weightLeft;
                 rightWeight += spec.weightRight;
+                expect(spec.frequency > previousFrequency, "soundboard modes must be strictly ascending in frequency");
+                previousFrequency = spec.frequency;
+                expect(spec.q > 0.0f && spec.q < 16.0f, "soundboard mode Q must be finite and stable");
+                if (spec.frequency < 250.0f) {
+                    ++lowModalCount;
+                } else {
+                    ++highModalCount;
+                }
                 const auto bandwidth = static_cast<double>(spec.frequency / spec.q);
                 const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / kSampleRate);
                 expect(r > 0.0 && r < 1.0, "resonator " + juce::String(i) + " pole radius |r| < 1 is strictly stable");
             }
+            expect(lowModalCount < highModalCount,
+                   "46-1 keeps the bass modal region sparse and adds density in the mid/high range");
             expectWithinAbsoluteError(leftWeight, 1.0f, 1e-5f, "left soundboard modal weights sum to 1.0");
             expectWithinAbsoluteError(rightWeight, 1.0f, 1e-5f, "right soundboard modal weights sum to 1.0");
 

@@ -38,7 +38,7 @@ struct PianoBusInput {
 // One whole-piano acoustic tail owner per Piano endpoint. It owns the soundboard,
 // sympathetic strings, lid and perspective once, independent of voice lifetime.
 struct PianoWholeBodyBus {
-    static constexpr int numResonators = 16;
+    static constexpr int numResonators = 24;
 
     struct ResonatorSpec {
         float frequency = 48.0f;
@@ -47,14 +47,25 @@ struct PianoWholeBodyBus {
         float weightRight = 0.04f;
     };
 
+    // 46-1: 24 modes. The original 16 anchors come from Phase 19
+    // (Bank 2010 / Chabassier 2019). The eight 300-1940 Hz fill modes
+    // interpolate frequency, Q and stereo weight between adjacent anchors;
+    // they are an engineering density fill, not new measured modal claims.
+    // Left/right weights are normalized to 1.0 per side.
     [[nodiscard]] static ResonatorSpec resonatorSpec(int index) noexcept {
         constexpr ResonatorSpec specs[numResonators] = {
-            { 48.0f, 6.0f, 0.12f, 0.04f },   { 68.0f, 6.0f, 0.12f, 0.04f },   { 95.0f, 5.5f, 0.11f, 0.05f },
-            { 135.0f, 5.5f, 0.10f, 0.05f },  { 185.0f, 5.0f, 0.09f, 0.06f },  { 250.0f, 4.8f, 0.08f, 0.07f },
-            { 340.0f, 4.5f, 0.08f, 0.08f },  { 460.0f, 4.2f, 0.07f, 0.08f },  { 620.0f, 3.8f, 0.06f, 0.09f },
-            { 820.0f, 3.5f, 0.05f, 0.09f },  { 1080.0f, 3.2f, 0.04f, 0.09f }, { 1380.0f, 3.0f, 0.03f, 0.08f },
-            { 1680.0f, 2.8f, 0.02f, 0.07f }, { 1850.0f, 2.5f, 0.01f, 0.05f }, { 2050.0f, 2.4f, 0.01f, 0.03f },
-            { 2250.0f, 2.2f, 0.01f, 0.03f },
+            { 48.0f, 6.0f, 0.10381f, 0.03205f },    { 68.0f, 6.0f, 0.10381f, 0.03205f },
+            { 95.0f, 5.5f, 0.09516f, 0.04006f },    { 135.0f, 5.5f, 0.08651f, 0.04006f },
+            { 185.0f, 5.0f, 0.07785f, 0.04808f },   { 250.0f, 4.8f, 0.06920f, 0.05609f },
+            { 300.0f, 4.62f, 0.02768f, 0.02404f },  { 340.0f, 4.5f, 0.06920f, 0.06410f },
+            { 400.0f, 4.34f, 0.02595f, 0.02564f },  { 460.0f, 4.2f, 0.06055f, 0.06410f },
+            { 540.0f, 3.99f, 0.02249f, 0.02724f },  { 620.0f, 3.8f, 0.05190f, 0.07212f },
+            { 710.0f, 3.65f, 0.01903f, 0.02885f },  { 820.0f, 3.5f, 0.04325f, 0.07212f },
+            { 940.0f, 3.35f, 0.01557f, 0.02885f },  { 1080.0f, 3.2f, 0.03460f, 0.07212f },
+            { 1220.0f, 3.1f, 0.01211f, 0.02724f },  { 1380.0f, 3.0f, 0.02595f, 0.06410f },
+            { 1510.0f, 2.91f, 0.00865f, 0.02404f }, { 1680.0f, 2.8f, 0.01730f, 0.05609f },
+            { 1850.0f, 2.5f, 0.00865f, 0.04006f },  { 1940.0f, 2.45f, 0.00346f, 0.01282f },
+            { 2050.0f, 2.4f, 0.00865f, 0.02404f },  { 2250.0f, 2.2f, 0.00867f, 0.02404f },
         };
         const auto clamped = std::clamp(index, 0, numResonators - 1);
         return specs[clamped];
