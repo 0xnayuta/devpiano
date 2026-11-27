@@ -179,8 +179,13 @@ public:
     // 45-2 实验 API：不改变生产默认。table 指向 rowCount x 64 个 float，
     // 调用方保证其生命周期覆盖 startNote；null / 0 行恢复生产单行表。
     void setPhaseTableForExperiment(const float* table, int rowCount) noexcept {
+        if (table == nullptr || rowCount <= 0) {
+            experimentalPhaseTable = nullptr;
+            experimentalPhaseRows = 1;
+            return;
+        }
         experimentalPhaseTable = table;
-        experimentalPhaseRows = (table != nullptr) ? std::clamp(rowCount, 1, 3) : 1;
+        experimentalPhaseRows = std::clamp(rowCount, 1, 3);
     }
 
     [[nodiscard]] bool isVoiceActive() const override {
