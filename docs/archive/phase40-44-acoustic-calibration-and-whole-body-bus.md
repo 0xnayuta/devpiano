@@ -4,7 +4,7 @@
 > 归档日期：2026-11-26。来源：归档前的 `docs/roadmap/roadmap.md` 与 `docs/roadmap/current-iteration.md`。
 > 归档范围：Phase 40 的全键响度/频谱证据基线，Phase 41 的低风险声学修复，Phase 42 的低/高音频谱与音区响度重标定，Phase 43 的整琴共享声学总线与 12 复音收敛，Phase 44 的空间/参考音色/微观细节；各阶段的测量数据、提交归属、失败取舍与验证边界。
 > 历史边界：以下保留原记录的日期、数值、结论和未验证范围，不因归档改写。Windows Debug 测量、默认 CTest 与用户实机试听是当时的证据形态，不外推为 Release、硬件矩阵或商业插件认证。
-> 替代关系：项目状态与长期阶段顺序见 [roadmap](../roadmap/roadmap.md)；当前候选阶段（Phase 45–47）与进入条件见 [当前迭代](../roadmap/current-iteration.md)；现行声学行为见 [内置音源](../reference/features/builtin-piano-synthesis.md) 与 [架构](../reference/architecture.md)。本页不维护未来任务。
+> 替代关系：项目状态与长期阶段顺序见 [roadmap](../roadmap/roadmap.md)；Phase 45–46 已归档，Phase 47-2/47-3 候选与进入条件见 [当前迭代](../roadmap/current-iteration.md)；现行声学行为见 [内置音源](../reference/features/builtin-piano-synthesis.md) 与 [架构](../reference/architecture.md)。本页不维护未来任务。
 
 ---
 
@@ -141,5 +141,5 @@ Phase 40 是证据门禁；Phase 41 在 Phase 40 记录 before 基线后可并�
 
 - 当前声学行为、88 键参数来源、12 复音配置与实时契约：[内置音源](../reference/features/builtin-piano-synthesis.md)。
 - 当前模块所有权与 DSP 拓扑：[架构](../reference/architecture.md)。
-- 当前阶段顺序与 Phase 45–47 候选：[roadmap](../roadmap/roadmap.md) 与 [当前迭代](../roadmap/current-iteration.md)。
+- Phase 45–46 归档与 Phase 47-2/47-3 候选：[roadmap](../roadmap/roadmap.md)、[Phase 45–46 归档](phase45-46-piano-acoustics-and-retrigger.md) 与 [当前迭代](../roadmap/current-iteration.md)。
 - 本页只保留 Phase 40–44 的历史事实；不把归档中的已完成状态写成未来计划，也不在归档中追加新任务。

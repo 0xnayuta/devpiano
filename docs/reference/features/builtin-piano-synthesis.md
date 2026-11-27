@@ -157,7 +157,7 @@ flowchart TD
      - `340 Hz / 460 Hz`：肋木与琴桥交叉耦合模态；
      - `620 Hz / 820 Hz / 1080 Hz`：中高频木质辐射模态；
      - `1380 Hz / 1680 Hz / 1850 Hz / 2050 Hz / 2250 Hz`：各向异性高频散射模态；
-     - `300 / 400 / 540 / 710 / 940 / 1220 / 1510 / 1940 Hz`：46-1 新增的中高频插值填充。低频 <250 Hz 保持 6 峰稀疏，中高频变为 18 峰密集；频率、Q 与左右权重由相邻 Bank/Chabassier 锚点插值并各自归一为 1.0，不是新的实测模态锚点。
+     - `300 / 400 / 540 / 710 / 940 / 1220 / 1510 / 1940 Hz`：46-1 新增的中高频插值填充。低频 ≤250 Hz 保持 6 峰稀疏，中高频变为 18 峰密集；频率、Q 与左右权重由相邻 Bank/Chabassier 锚点插值并各自归一为 1.0，不是新的实测模态锚点。
    - 24 峰仍只在共享总线每采样处理一次；声部不复制音板状态。
 
 3. **云杉木 8 kHz 高频粘滞内耗低通滤波器（Spruce Soundboard Filter）**：
@@ -212,7 +212,7 @@ flowchart TD
 5. **立体声早期反射 + 8 线 Householder FDN 房间混响网络（RoomReverbEngine，Phase 44-1 / 46-3）**：
    - 内置纯数学算法立体声混响网络：左右早期反射抽头（7.1/11.3/17.9/23.3 ms）保持琴桥空间定位，随后进入 **8 线 Householder 反馈延迟网络**（$A=I-\frac{2}{N}\mathbf{1}\mathbf{1}^{T}$，$N=8$）；每条反馈支路带一阶频率相关阻尼，阻尼极点按 48 kHz 参考换算到当前采样率，无外部 IR；
    - 48 kHz 基础延迟为 `1601/1861/2027/2237/2371/2539/2683/2903` 样本（均为质数，两两互质），按当前采样率缩放；Householder 反馈每样本只增加一次求和与一次乘法，且保持支路能量；
-   - 提供 **Studio（录音棚 0.6 s）**、**Chamber（室内乐厅 1.5 s）** 与 **Concert Hall（音乐厅 2.4 s）** 三大经典声学空间预设（C++ 枚举 `ReverbSpace::studio`、`chamber`、`concertHall`；文件持久化标识分别为 `studio`、`chamber`、`concert_hall`，旧别名 `hall` 不再映射，未知标识安全回退至 `chamber`）；反馈/阻尼参数未改，8 线模态分布使 48 kHz Schroeder T30 约从旧 4 线的 `1.15/3.98/6.99 s` 变为 `1.22/4.36/7.77 s`（增加约 7–11%），需以 A/B 试听确认尾音长度；
+   - 提供 **Studio（录音棚 0.6 s）**、**Chamber（室内乐厅 1.5 s）** 与 **Concert Hall（音乐厅 2.4 s）** 三大经典声学空间预设（C++ 枚举 `ReverbSpace::studio`、`chamber`、`concertHall`；文件持久化标识分别为 `studio`、`chamber`、`concert_hall`，旧别名 `hall` 不再映射，未知标识安全回退至 `chamber`）；反馈/阻尼参数未改，8 线模态分布使 48 kHz Schroeder T30 约从旧 4 线的 `1.15/3.98/6.99 s` 变为 `1.22/4.36/7.77 s`（增加约 7–11%）；用户 A/B 试听（2026-11-27）未发现明显问题，已接受；
    - 干湿使用 `boundedSinCos` 等功率混合；`reverbWet=0` 精确直通；静音尾部门控清除低于 -80 dB 的残余状态，无 denormal/NaN；
    - **直通与抗下溢保护**：`RoomReverbEngine::processStereo()` 在目标与平滑后的当前 wet 均 `<= 1e-4` 时旁路混响 DSP；实时入口启用 `juce::ScopedNoDenormals`，滤波器内部另有衰减归零保护。
 6. **动态声场空间漫射（Dynamic Spatial Diffusion）**：
