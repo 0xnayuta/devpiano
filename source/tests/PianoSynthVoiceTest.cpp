@@ -1043,6 +1043,23 @@ private:
                    "treble note C7 is panned toward right channel on the bridge");
         }
 
+        beginTest("46-2 per-note bridge drive weights slope from long bass to short treble");
+        {
+            const auto weightFor = [](int midiNoteNumber) {
+                VoiceFixture fixture;
+                fixture.synth.noteOn(1, midiNoteNumber, 0.7f);
+                return fixture.voice()->bridgeDriveWeight;
+            };
+            const auto bass = weightFor(21);
+            const auto middle = weightFor(60);
+            const auto treble = weightFor(108);
+            expectWithinAbsoluteError(bass, 1.10f, 1e-6f);
+            expectWithinAbsoluteError(middle, 1.00f, 1e-6f);
+            expectWithinAbsoluteError(treble, 0.94f, 1e-6f);
+            expectWithinAbsoluteError(weightFor(84), 0.97f, 1e-6f);
+            expect(bass > middle && middle > treble, "bridge drive weight falls continuously from bass to treble");
+        }
+
         beginTest("sustain pedal sympathetic resonance and lid acoustics (Phase 21-A/B)");
         {
             VoiceFixture pedalFixture;

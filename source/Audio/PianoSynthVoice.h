@@ -357,7 +357,9 @@ public:
             const auto dryRight
                 = (duplexGain * (1.0f - wet) * rawRight * directRightGain + duplexMix * duplexOut * directRightGain)
                 * noteOutputGain;
-            const auto drive = rawMono * noteOutputGain * wet * duplexGain + longitudinal;
+            // 46-2: 只缩放进入共享音板/交感/纵波的 drive；直达声、partial
+            // 阶数权重、音区输出增益与声像保持原路径。
+            const auto drive = (rawMono * noteOutputGain * wet * duplexGain + longitudinal) * bridgeDriveWeight;
             input.add(sampleIndex, dryLeft, dryRight, drive);
         }
 
@@ -381,6 +383,19 @@ private:
         return 0.95f + 0.05f * keyPos;
     }
 
+    // 46-2: 低音长桥/中音/高音短桥的三锚点驱动权重。低音略强、高音略弱；
+    // 中间线性插值，音区边界没有离散跳变。该权重是工程桥耦合代理，
+    // 不是实琴逐键测量，也不改变 partial 阶数权重或输出增益。
+    [[nodiscard]] static float bridgeDriveWeightForNote(int midiNoteNumber) noexcept {
+        const auto midi = std::clamp(midiNoteNumber, 21, 108);
+        if (midi <= 60) {
+            const auto position = static_cast<float>(midi - 21) / 39.0f;
+            return 1.10f - 0.10f * position;
+        }
+        const auto position = static_cast<float>(midi - 60) / 48.0f;
+        return 1.00f - 0.06f * position;
+    }
+
     [[nodiscard]] static float softSaturate(float x) noexcept {
         const auto x2 = std::clamp(x * x, 0.0f, 1.0f);
         return x * (1.0f - 0.12f * x2);
@@ -401,6 +416,7 @@ private:
         // mechanicalOutputGain rather than the string register curve.
         mechanicalOutputGain = mechanicalRegisterGain(midiNoteNumber);
         mechanicalPreGain = mechanicalOutputGain / juce::jmax(1e-6f, noteOutputGain);
+        bridgeDriveWeight = bridgeDriveWeightForNote(midiNoteNumber);
         const auto directPan = 0.15f + 0.70f * setup.keyPos;
         // 42-4: 等功率声像；中央 pan=0.5 仍为 0.7071，两端不再有 +1.73 dB 翘曲。
         // boundedSinCos 只在起音/重击时计算，实时逐采样路径无库函数三角。
@@ -476,6 +492,7 @@ private:
     float noteOutputGain = 1.0f;
     float mechanicalOutputGain = 1.0f;
     float mechanicalPreGain = 1.0f;
+    float bridgeDriveWeight = 1.0f;
 
     // 琴槌接触微阻尼与脱离物理释放引擎 (Phase 24-B, Hammer Contact-Release Dynamics)
     struct HammerContactEngine {
