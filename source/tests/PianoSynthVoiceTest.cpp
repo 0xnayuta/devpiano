@@ -1305,7 +1305,7 @@ private:
 
             expectEquals(voice->getCurrentlyPlayingNote(), 60);
             expect(voice->isKeyDown(), "retrigger keeps the same key-down identity");
-            expectEquals(voice->triggerCounter, triggerBefore + 1);
+            expectEquals(static_cast<int>(voice->triggerCounter), static_cast<int>(triggerBefore + 1));
             expectEquals(voice->mainString.activePartials, activeBefore);
             expectEquals(voice->mainString.partials[0].sinState, sinBefore);
             expectEquals(voice->mainString.partials[0].cosState, cosBefore);
@@ -1341,7 +1341,8 @@ private:
                 expect(!second->isVoiceActive(), "each retrigger must reuse the same voice");
             }
 
-            expectEquals(voice->triggerCounter, triggerBefore + static_cast<std::uint32_t>(intervalsMs.size()));
+            expectEquals(static_cast<int>(voice->triggerCounter),
+                         static_cast<int>(triggerBefore + static_cast<std::uint32_t>(intervalsMs.size())));
             expectEquals(voice->getCurrentlyPlayingNote(), 60);
             expect(voice->isKeyDown());
         }
@@ -1368,7 +1369,7 @@ private:
             fixture.synth.noteOn(1, 60, 0.8f);
             expect(second->isKeyDown(), "a key-up same note must start a fresh voice");
             expectEquals(second->getCurrentlyPlayingNote(), 60);
-            expectEquals(heldVoice->triggerCounter, heldTrigger);
+            expectEquals(static_cast<int>(heldVoice->triggerCounter), static_cast<int>(heldTrigger));
             fixture.synth.handleController(1, 64, 0);
         }
     }
@@ -1604,7 +1605,7 @@ private:
 
         VoiceFixture threeStrings;
         auto* voice = threeStrings.voice();
-        voice->setPhaseTableForExperiment(&table[0][0], 3);
+        voice->setPhaseTableForExperiment(table[0].data(), 3);
         threeStrings.synth.noteOn(1, 60, 0.7f);
         const auto& partial = voice->mainString.partials[0];
         expectEquals(partial.stringCount, 3);
@@ -1612,7 +1613,7 @@ private:
         expect(partial.sinState3 < partial.sinState - 0.5f, "row 2 must drive the third string phase independently");
 
         VoiceFixture singleRow;
-        singleRow.voice()->setPhaseTableForExperiment(&table[0][0], 1);
+        singleRow.voice()->setPhaseTableForExperiment(table[0].data(), 1);
         singleRow.synth.noteOn(1, 60, 0.7f);
         const auto& singlePartial = singleRow.voice()->mainString.partials[0];
         expectWithinAbsoluteError(singlePartial.sinState2, singlePartial.sinState, 1e-12,

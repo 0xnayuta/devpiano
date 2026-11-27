@@ -379,7 +379,7 @@ struct BenchmarkRun {
     result->setProperty("runs", juce::var(runValues));
     result->setProperty("summary", juce::var(summary));
     result->setProperty("note", buildNote);
-    return juce::var(result);
+    return { result };
 }
 
 struct PhaseCandidate {
@@ -584,7 +584,7 @@ int runAcousticProbe(const juce::StringArray& args) {
 
     bool benchmarkOptionUsed = false;
     for (auto index = firstOption; index < args.size(); ++index) {
-        const auto argument = args[index];
+        const auto& argument = args[index];
         const auto nextValue = [&]() -> juce::String {
             if (index + 1 >= args.size()) {
                 return {};
@@ -883,7 +883,7 @@ int runAcousticProbe(const juce::StringArray& args) {
     manifest->setProperty("blockSize", settings.blockSize);
     manifest->setProperty("durationSeconds", settings.durationSeconds);
     manifest->setProperty("tailSeconds", settings.tailSeconds);
-    manifest->setProperty("caseCount", static_cast<int>(renderedCases.size()));
+    manifest->setProperty("caseCount", renderedCases.size());
     manifest->setProperty("cases", juce::var(renderedCases));
     if (settings.benchmark) {
         manifest->setProperty("benchmark", makeBenchmark(settings, options));
