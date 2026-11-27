@@ -51,6 +51,34 @@ The standard analyzer windows cover the first strike only. Use a short
 per-strike script against the manifest intervals when evaluating all eight
 strikes; the WAVs are deterministic and can also be auditioned directly.
 
+## Phase 46-4 benchmark matrix
+
+`--benchmark-only` skips WAV rendering and measures only the DSP path. The
+production voice count remains 12; `--benchmark-polyphony` only configures the
+probe's test synth.
+
+```bash
+... --acoustic-probe --benchmark-only \
+  --benchmark-polyphony 16 --bass-stress --wet 0.20 --benchmark-room \
+  --benchmark-seconds 5 --benchmark-warmup 94 --benchmark-repeats 3 \
+  --out 'G:\...\phase46-4\p16-bass-room'
+```
+
+Defaults:
+
+- `--benchmark-polyphony 12`
+- standard notes `48 + 2i`, bass notes `21 + 2i`, for `i` in `[0, polyphony)`
+- `--benchmark-seconds 5.0`
+- `--benchmark-warmup` one second (`ceil(sampleRate / blockSize)` blocks)
+- `--benchmark-repeats 1`
+- `--benchmark-room` off, `--wet 0`
+
+The measured block excludes `buffer.clear()` and WAV export. `--benchmark-room`
+adds `RoomReverbEngine::processStereo` after `BuiltinSynthesiser`; it requires
+`--wet > 0`. Build the Release tree (`build-win-msvc-release`), run each
+configuration in separate processes, and record the CPU model and Windows power
+plan externally. Debug numbers are not a Release SLA.
+
 For the 45-2 phase experiment, `--phase-experiment` reads a JSON file with one
 or three 64-value rows per candidate and renders a direct BuiltinSynthesiser
 attack set:
@@ -88,9 +116,16 @@ ADSR 0.01/0.20/0.80/0.30 s, held note 2.0 s, and no extra tail.
 The 16 representative keys are `21, 24, 28, 33, 36, 40, 45, 48, 52, 57, 60, 69,
 72, 84, 96, 108`. Change them only with a documented protocol revision.
 
+The 46-4 benchmark fixes 48 kHz, block 512, velocity 0.85, and the same neutral
+acoustic settings. Standard register uses `48 + 2i`; bass stress uses `21 + 2i`.
+The note-on transient is discarded for one second before measurement. The
+optional Room path uses the same `ReverbSpace` and `--wet` as the cases.
+
 ## Limitations
 
 - Debug measurements are not a Release SLA.
+- The benchmark excludes WAV file I/O and `buffer.clear()`; it measures the
+  `BuiltinSynthesiser` path plus optional `RoomReverbEngine`.
 - The true-peak path is a 4x windowed-sinc estimate, not a certified meter.
 - The K-weighting and window definitions are the tool's documented protocol;
   they are not a claim of BS.1770 conformance for arbitrary material.

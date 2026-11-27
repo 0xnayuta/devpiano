@@ -2,6 +2,7 @@
 
 #include "Audio/BuiltinSynthesiser.h"
 #include "Audio/PianoSynthVoice.h"
+#include "Audio/RoomReverbEngine.h"
 #include "Export/WavExportOptions.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RenderPipeline.h"
@@ -60,10 +61,24 @@ struct ProbeSettings {
     int blockSize = kDefaultBlockSize;
     int bitsPerSample = kDefaultBitsPerSample;
     bool benchmark = false;
+    bool benchmarkOnly = false;
     bool retrigger = false;
     juce::File phaseExperimentFile;
     std::vector<int> keys;
     std::vector<int> velocities;
+
+    // Phase 46-4 benchmark matrix. The production voice count stays at
+    // kPianoVoiceCount; these values only configure the development probe.
+    int benchmarkPolyphony = kPianoVoiceCount;
+    std::vector<int> benchmarkNotes;
+    bool benchmarkNotesSpecified = false;
+    bool benchmarkPolyphonySpecified = false;
+    bool bassStress = false;
+    double benchmarkSeconds = 5.0;
+    int benchmarkWarmupBlocks = -1; // -1 selects one second at the probe rate.
+    int benchmarkRepeats = 1;
+    bool benchmarkRoom = false;
+    float reverbWet = 0.0f;
 };
 
 std::vector<int> parseIntegerList(const juce::String& text, int minimum, int maximum) {
@@ -113,12 +128,22 @@ void printUsage() {
               << "  --duration <sec>     Held-note duration (default: 2.0)\n"
               << "  --tail <sec>         Extra post-take tail (default: 0.0)\n"
               << "  --block <samples>    Render block size (default: 512)\n"
-              << "  --benchmark          Add a 12-voice synthetic block-time benchmark\n"
+              << "  --benchmark          Add a synthetic block-time benchmark\n"
+              << "  --benchmark-only     Run the benchmark without rendering WAV cases\n"
+              << "  --benchmark-polyphony <n>  Benchmark voices (default: 12, max 24)\n"
+              << "  --benchmark-notes <list>   Benchmark MIDI notes; count must equal polyphony\n"
+              << "  --bass-stress        Use the bass register instead of the mid register\n"
+              << "  --benchmark-seconds <s>    Measured seconds per repeat (default: 5.0)\n"
+              << "  --benchmark-warmup <blocks> Discard blocks after note-on (default: 1 s)\n"
+              << "  --benchmark-repeats <n>    Rebuild and measure n times (default: 1, max 10)\n"
+              << "  --benchmark-room     Include RoomReverbEngine in the measured path\n"
+              << "  --wet <0..1>         Room wet level for cases and benchmark (default: 0)\n"
               << "  --retrigger          Render eight C4 strikes at v41/v70/v98 (30/60/120/200 ms)\n"
               << "  --phase-experiment <json> Render 45-2 phase candidates from a JSON file\n"
               << "  --help               Show this help\n"
               << "\n"
-              << "Default phase40 set: 88 keys at v70 plus 16 representative keys at v41/v98.\n";
+              << "Default phase40 set: 88 keys at v70 plus 16 representative keys at v41/v98.\n"
+              << "Default benchmark notes: 48+2i (mid) or 21+2i (bass) for i in [0, polyphony).\n";
 }
 
 [[nodiscard]] RecordingTake makeTake(int midi, int velocity, double sampleRate, double durationSeconds) {
@@ -166,7 +191,7 @@ void printUsage() {
     options.referencePitchA4 = 440.0;
     options.soundPerspective = devpiano::audio::SoundPerspective::player;
     options.reverbSpace = devpiano::audio::ReverbSpace::chamber;
-    options.reverbWet = 0.0f;
+    options.reverbWet = settings.reverbWet;
     options.lidPosition = SettingsModel::LidPosition::fullOpen;
     options.pedalNoiseLevel = 0.0f;
     options.feltAgeingAmount = 0.0f;
@@ -177,32 +202,92 @@ void printUsage() {
     return options;
 }
 
-[[nodiscard]] juce::var makeBenchmark(const ProbeSettings& settings, const WavExportOptions& options) {
-    constexpr int kBenchmarkPolyphony = 12;
-    constexpr double kBenchmarkSeconds = 5.0;
+[[nodiscard]] std::vector<int> defaultBenchmarkNotes(int polyphony, bool bassStress) {
+    std::vector<int> notes;
+    notes.reserve(static_cast<std::size_t>(polyphony));
+    const auto start = bassStress ? 21 : 48;
+    for (int index = 0; index < polyphony; ++index) {
+        notes.push_back(start + index * 2);
+    }
+    return notes;
+}
 
+[[nodiscard]] double percentileOf(const std::vector<double>& sorted, double fraction) {
+    if (sorted.empty()) {
+        return 0.0;
+    }
+    const auto index
+        = std::min(sorted.size() - 1, static_cast<std::size_t>(fraction * static_cast<double>(sorted.size())));
+    return sorted[index];
+}
+
+[[nodiscard]] double medianOf(std::vector<double> values) {
+    if (values.empty()) {
+        return 0.0;
+    }
+    std::sort(values.begin(), values.end());
+    const auto middle = values.size() / 2;
+    if (values.size() % 2 == 0) {
+        return 0.5 * (values[middle - 1] + values[middle]);
+    }
+    return values[middle];
+}
+
+struct BenchmarkRun {
+    double meanMs = 0.0;
+    double p50Ms = 0.0;
+    double p99Ms = 0.0;
+    double maxMs = 0.0;
+};
+
+[[nodiscard]] BenchmarkRun measureBenchmarkRun(const ProbeSettings& settings, const WavExportOptions& options,
+                                               const std::vector<int>& notes, int warmupBlocks, int blocks) {
     BuiltinSynthesiser synth;
-    devpiano::recording::initialiseOfflinePianoSynth(synth, options, kPianoVoiceCount);
+    devpiano::recording::initialiseOfflinePianoSynth(synth, options, settings.benchmarkPolyphony);
 
-    juce::AudioBuffer<float> buffer(2, settings.blockSize);
-    juce::MidiBuffer noteOnBuffer;
-    for (int index = 0; index < kBenchmarkPolyphony; ++index) {
-        noteOnBuffer.addEvent(juce::MidiMessage::noteOn(1, 48 + index * 2, 0.85f), 0);
+    std::unique_ptr<devpiano::audio::RoomReverbEngine> room;
+    if (settings.benchmarkRoom) {
+        room = std::make_unique<devpiano::audio::RoomReverbEngine>();
+        room->setSpace(options.reverbSpace);
+        room->setWetLevel(settings.reverbWet, true);
+        room->prepare(settings.sampleRate);
     }
 
-    const auto blocks = static_cast<int>(
-        std::ceil(kBenchmarkSeconds * settings.sampleRate / static_cast<double>(settings.blockSize)));
+    juce::AudioBuffer<float> buffer(2, settings.blockSize);
+    const auto processBlock = [&](const juce::MidiBuffer& midi) {
+        synth.renderNextBlock(buffer, midi, 0, settings.blockSize);
+        if (room != nullptr) {
+            room->processStereo(buffer.getWritePointer(0), buffer.getWritePointer(1), settings.blockSize);
+        }
+    };
+
+    const juce::MidiBuffer emptyMidi;
+    // Warm the allocator and code paths before any measured block.
+    for (int block = 0; block < 8; ++block) {
+        buffer.clear();
+        processBlock(emptyMidi);
+    }
+
+    juce::MidiBuffer noteOnMidi;
+    for (const auto midi : notes) {
+        noteOnMidi.addEvent(juce::MidiMessage::noteOn(1, midi, 0.85f), 0);
+    }
+    buffer.clear();
+    processBlock(noteOnMidi);
+
+    // Drop the attack transient so the measured window reflects sustained
+    // polyphony rather than the first hammer contact.
+    for (int block = 0; block < warmupBlocks; ++block) {
+        buffer.clear();
+        processBlock(emptyMidi);
+    }
+
     std::vector<double> blockMilliseconds;
     blockMilliseconds.reserve(static_cast<std::size_t>(blocks));
-
     for (int block = 0; block < blocks; ++block) {
         buffer.clear();
-        juce::MidiBuffer blockMidi;
-        if (block == 0) {
-            blockMidi = noteOnBuffer;
-        }
         const auto start = std::chrono::steady_clock::now();
-        synth.renderNextBlock(buffer, blockMidi, 0, settings.blockSize);
+        processBlock(emptyMidi);
         const auto end = std::chrono::steady_clock::now();
         blockMilliseconds.push_back(std::chrono::duration<double, std::milli>(end - start).count());
     }
@@ -210,27 +295,90 @@ void printUsage() {
 
     auto sorted = blockMilliseconds;
     std::sort(sorted.begin(), sorted.end());
-    const auto percentile = [&sorted](double fraction) {
-        if (sorted.empty()) {
-            return 0.0;
-        }
-        const auto index
-            = std::min(sorted.size() - 1, static_cast<std::size_t>(fraction * static_cast<double>(sorted.size())));
-        return sorted[index];
-    };
-    const auto mean = std::accumulate(blockMilliseconds.begin(), blockMilliseconds.end(), 0.0)
+
+    BenchmarkRun run;
+    run.meanMs = std::accumulate(blockMilliseconds.begin(), blockMilliseconds.end(), 0.0)
         / static_cast<double>(std::max<std::size_t>(1, blockMilliseconds.size()));
+    run.p50Ms = percentileOf(sorted, 0.50);
+    run.p99Ms = percentileOf(sorted, 0.99);
+    run.maxMs = sorted.empty() ? 0.0 : sorted.back();
+    return run;
+}
+
+[[nodiscard]] juce::var makeBenchmark(const ProbeSettings& settings, const WavExportOptions& options) {
+    const auto notes = settings.benchmarkNotes.empty()
+        ? defaultBenchmarkNotes(settings.benchmarkPolyphony, settings.bassStress)
+        : settings.benchmarkNotes;
+    const auto blocks = static_cast<int>(
+        std::ceil(settings.benchmarkSeconds * settings.sampleRate / static_cast<double>(settings.blockSize)));
+    const auto defaultWarmup
+        = static_cast<int>(std::ceil(settings.sampleRate / static_cast<double>(settings.blockSize)));
+    const auto warmupBlocks = settings.benchmarkWarmupBlocks >= 0 ? settings.benchmarkWarmupBlocks : defaultWarmup;
+
+    std::vector<BenchmarkRun> runs;
+    runs.reserve(static_cast<std::size_t>(settings.benchmarkRepeats));
+    for (int repeat = 0; repeat < settings.benchmarkRepeats; ++repeat) {
+        runs.push_back(measureBenchmarkRun(settings, options, notes, warmupBlocks, blocks));
+        const auto& run = runs.back();
+        std::cout << "  benchmark repeat " << (repeat + 1) << "/" << settings.benchmarkRepeats << ": mean "
+                  << juce::String(run.meanMs, 3) << " ms, p50 " << juce::String(run.p50Ms, 3) << " ms, p99 "
+                  << juce::String(run.p99Ms, 3) << " ms, max " << juce::String(run.maxMs, 3) << " ms\n";
+    }
+
+#if JUCE_DEBUG
+    constexpr auto buildType = "Debug";
+    constexpr auto buildNote = "Debug measurements are not a Release SLA.";
+#else
+    constexpr auto buildType = "Release";
+    constexpr auto buildNote = "Release measurement; record CPU model and power plan externally.";
+#endif
+
+    juce::Array<juce::var> noteValues;
+    for (const auto midi : notes) {
+        noteValues.add(juce::var(midi));
+    }
+
+    juce::Array<juce::var> runValues;
+    std::vector<double> means;
+    std::vector<double> p50s;
+    std::vector<double> p99s;
+    std::vector<double> maxes;
+    for (const auto& run : runs) {
+        means.push_back(run.meanMs);
+        p50s.push_back(run.p50Ms);
+        p99s.push_back(run.p99Ms);
+        maxes.push_back(run.maxMs);
+
+        auto* runObject = new juce::DynamicObject();
+        runObject->setProperty("meanMs", run.meanMs);
+        runObject->setProperty("p50Ms", run.p50Ms);
+        runObject->setProperty("p99Ms", run.p99Ms);
+        runObject->setProperty("maxMs", run.maxMs);
+        runValues.add(juce::var(runObject));
+    }
+
+    auto* summary = new juce::DynamicObject();
+    summary->setProperty("meanMs", medianOf(means));
+    summary->setProperty("p50Ms", medianOf(p50s));
+    summary->setProperty("p99Ms", medianOf(p99s));
+    summary->setProperty("maxMs", maxes.empty() ? 0.0 : *std::max_element(maxes.begin(), maxes.end()));
 
     auto* result = new juce::DynamicObject();
-    result->setProperty("polyphony", kBenchmarkPolyphony);
+    result->setProperty("protocol", "phase46-4");
+    result->setProperty("buildType", buildType);
+    result->setProperty("polyphony", settings.benchmarkPolyphony);
+    result->setProperty("notes", juce::var(noteValues));
     result->setProperty("blockSize", settings.blockSize);
-    result->setProperty("seconds", kBenchmarkSeconds);
+    result->setProperty("sampleRate", settings.sampleRate);
+    result->setProperty("seconds", settings.benchmarkSeconds);
     result->setProperty("blocks", blocks);
-    result->setProperty("meanMs", mean);
-    result->setProperty("p50Ms", percentile(0.50));
-    result->setProperty("p99Ms", percentile(0.99));
-    result->setProperty("maxMs", sorted.empty() ? 0.0 : sorted.back());
-    result->setProperty("note", "Debug measurements are not a Release SLA.");
+    result->setProperty("warmupBlocks", warmupBlocks);
+    result->setProperty("repeats", settings.benchmarkRepeats);
+    result->setProperty("room", settings.benchmarkRoom);
+    result->setProperty("reverbWet", settings.reverbWet);
+    result->setProperty("runs", juce::var(runValues));
+    result->setProperty("summary", juce::var(summary));
+    result->setProperty("note", buildNote);
     return juce::var(result);
 }
 
@@ -434,6 +582,7 @@ int runAcousticProbe(const juce::StringArray& args) {
         firstOption = 2;
     }
 
+    bool benchmarkOptionUsed = false;
     for (auto index = firstOption; index < args.size(); ++index) {
         const auto argument = args[index];
         const auto nextValue = [&]() -> juce::String {
@@ -441,6 +590,13 @@ int runAcousticProbe(const juce::StringArray& args) {
                 return {};
             }
             return args[++index];
+        };
+        const auto nextRequiredValue = [&](const char* optionName) -> juce::String {
+            const auto value = nextValue();
+            if (value.isEmpty()) {
+                std::cerr << optionName << " requires a value\n";
+            }
+            return value;
         };
 
         if (argument == "--help" || argument == "-h") {
@@ -466,6 +622,62 @@ int runAcousticProbe(const juce::StringArray& args) {
             settings.blockSize = nextValue().getIntValue();
         } else if (argument == "--benchmark") {
             settings.benchmark = true;
+        } else if (argument == "--benchmark-only") {
+            settings.benchmark = true;
+            settings.benchmarkOnly = true;
+        } else if (argument == "--benchmark-polyphony") {
+            const auto value = nextRequiredValue("--benchmark-polyphony");
+            if (value.isEmpty()) {
+                return 1;
+            }
+            settings.benchmarkPolyphony = value.getIntValue();
+            settings.benchmarkPolyphonySpecified = true;
+            benchmarkOptionUsed = true;
+        } else if (argument == "--benchmark-notes") {
+            const auto value = nextRequiredValue("--benchmark-notes");
+            if (value.isEmpty()) {
+                return 1;
+            }
+            settings.benchmarkNotes = parseIntegerList(value, 21, 108);
+            if (settings.benchmarkNotes.empty()) {
+                std::cerr << "invalid --benchmark-notes list\n";
+                return 1;
+            }
+            settings.benchmarkNotesSpecified = true;
+            benchmarkOptionUsed = true;
+        } else if (argument == "--bass-stress") {
+            settings.bassStress = true;
+            benchmarkOptionUsed = true;
+        } else if (argument == "--benchmark-seconds") {
+            const auto value = nextRequiredValue("--benchmark-seconds");
+            if (value.isEmpty()) {
+                return 1;
+            }
+            settings.benchmarkSeconds = value.getDoubleValue();
+            benchmarkOptionUsed = true;
+        } else if (argument == "--benchmark-warmup") {
+            const auto value = nextRequiredValue("--benchmark-warmup");
+            if (value.isEmpty()) {
+                return 1;
+            }
+            settings.benchmarkWarmupBlocks = value.getIntValue();
+            benchmarkOptionUsed = true;
+        } else if (argument == "--benchmark-repeats") {
+            const auto value = nextRequiredValue("--benchmark-repeats");
+            if (value.isEmpty()) {
+                return 1;
+            }
+            settings.benchmarkRepeats = value.getIntValue();
+            benchmarkOptionUsed = true;
+        } else if (argument == "--benchmark-room") {
+            settings.benchmarkRoom = true;
+            benchmarkOptionUsed = true;
+        } else if (argument == "--wet") {
+            const auto value = nextRequiredValue("--wet");
+            if (value.isEmpty()) {
+                return 1;
+            }
+            settings.reverbWet = value.getFloatValue();
         } else if (argument == "--retrigger") {
             settings.retrigger = true;
         } else if (argument == "--phase-experiment") {
@@ -492,7 +704,8 @@ int runAcousticProbe(const juce::StringArray& args) {
         std::cerr << "47-1 currently fixes the probe sample rate at 48000 Hz\n";
         return 1;
     }
-    if (!settings.retrigger && settings.phaseExperimentFile == juce::File() && settings.durationSeconds < 1.4) {
+    if (!settings.benchmarkOnly && !settings.retrigger && settings.phaseExperimentFile == juce::File()
+        && settings.durationSeconds < 1.4) {
         std::cerr << "--duration must be at least 1.4 s for the 1.1-1.3 s window\n";
         return 1;
     }
@@ -516,35 +729,84 @@ int runAcousticProbe(const juce::StringArray& args) {
         }
     }
 
+    if (benchmarkOptionUsed && !settings.benchmark) {
+        std::cerr << "benchmark options require --benchmark or --benchmark-only\n";
+        return 1;
+    }
+    if (settings.benchmarkOnly && (settings.retrigger || settings.phaseExperimentFile != juce::File())) {
+        std::cerr << "--benchmark-only cannot be combined with --retrigger or --phase-experiment\n";
+        return 1;
+    }
+    if (settings.benchmarkNotesSpecified && settings.bassStress) {
+        std::cerr << "--benchmark-notes and --bass-stress are mutually exclusive\n";
+        return 1;
+    }
+    if (settings.benchmarkNotesSpecified && !settings.benchmarkPolyphonySpecified) {
+        settings.benchmarkPolyphony = static_cast<int>(settings.benchmarkNotes.size());
+    }
+    if (settings.benchmarkPolyphony < 1 || settings.benchmarkPolyphony > 24) {
+        std::cerr << "--benchmark-polyphony must be between 1 and 24\n";
+        return 1;
+    }
+    if (settings.benchmarkSeconds <= 0.0 || settings.benchmarkSeconds > 30.0) {
+        std::cerr << "--benchmark-seconds must be between 0 and 30\n";
+        return 1;
+    }
+    if (settings.benchmarkWarmupBlocks < -1 || settings.benchmarkWarmupBlocks > 10000) {
+        std::cerr << "--benchmark-warmup must be between 0 and 10000 blocks\n";
+        return 1;
+    }
+    if (settings.benchmarkRepeats < 1 || settings.benchmarkRepeats > 10) {
+        std::cerr << "--benchmark-repeats must be between 1 and 10\n";
+        return 1;
+    }
+    if (settings.reverbWet < 0.0f || settings.reverbWet > 1.0f) {
+        std::cerr << "--wet must be between 0 and 1\n";
+        return 1;
+    }
+    if (settings.benchmarkRoom && settings.reverbWet <= 0.0f) {
+        std::cerr << "--benchmark-room requires --wet > 0\n";
+        return 1;
+    }
+    if (settings.benchmarkNotes.empty()) {
+        settings.benchmarkNotes = defaultBenchmarkNotes(settings.benchmarkPolyphony, settings.bassStress);
+    }
+    if (settings.benchmarkNotes.size() != static_cast<std::size_t>(settings.benchmarkPolyphony)) {
+        std::cerr << "--benchmark-notes count must equal --benchmark-polyphony\n";
+        return 1;
+    }
+
     if (settings.phaseExperimentFile != juce::File()) {
         return runPhaseExperiment(settings);
     }
 
     std::vector<ProbeCase> cases;
-    if (settings.retrigger) {
-        for (const auto velocity : kRetriggerVelocities) {
-            cases.push_back({ kRetriggerNote, velocity });
-        }
-    } else if (settings.keys.empty() && settings.velocities.empty()) {
-        for (auto midi = 21; midi <= 108; ++midi) {
-            cases.push_back({ midi, 70 });
-        }
-        for (const auto midi : kRepresentativeKeys) {
-            cases.push_back({ midi, 41 });
-            cases.push_back({ midi, 98 });
-        }
-    } else {
-        if (settings.keys.empty()) {
-            for (auto midi = 21; midi <= 108; ++midi) {
-                settings.keys.push_back(midi);
+    if (!settings.benchmarkOnly) {
+        if (settings.retrigger) {
+            for (const auto velocity : kRetriggerVelocities) {
+                cases.push_back({ kRetriggerNote, velocity });
             }
-        }
-        if (settings.velocities.empty()) {
-            settings.velocities.push_back(70);
-        }
-        for (const auto midi : settings.keys) {
-            for (const auto velocity : settings.velocities) {
-                cases.push_back({ midi, velocity });
+        } else if (settings.keys.empty() && settings.velocities.empty()) {
+            for (auto midi = 21; midi <= 108; ++midi) {
+                cases.push_back({ midi, 70 });
+            }
+            for (const auto midi : kRepresentativeKeys) {
+                cases.push_back({ midi, 41 });
+                cases.push_back({ midi, 98 });
+            }
+        } else {
+            if (settings.keys.empty()) {
+                for (auto midi = 21; midi <= 108; ++midi) {
+                    settings.keys.push_back(midi);
+                }
+            }
+            if (settings.velocities.empty()) {
+                settings.velocities.push_back(70);
+            }
+            for (const auto midi : settings.keys) {
+                for (const auto velocity : settings.velocities) {
+                    cases.push_back({ midi, velocity });
+                }
             }
         }
     }
@@ -561,39 +823,51 @@ int runAcousticProbe(const juce::StringArray& args) {
     }
 
     juce::Array<juce::var> renderedCases;
-    std::cout << "Rendering " << cases.size() << " case(s) to " << settings.outputDirectory.getFullPathName() << "\n";
+    if (settings.benchmarkOnly) {
+        std::cout << "Benchmark-only: skipping WAV cases\n";
+    } else {
+        std::cout << "Rendering " << cases.size() << " case(s) to " << settings.outputDirectory.getFullPathName()
+                  << "\n";
 
-    for (const auto& probeCase : cases) {
-        const auto take = settings.retrigger
-            ? makeRetriggerTake(probeCase.midi, probeCase.velocity, settings.sampleRate)
-            : makeTake(probeCase.midi, probeCase.velocity, settings.sampleRate, settings.durationSeconds);
-        const auto fileName = settings.retrigger ? "retrigger_" + juce::String(probeCase.midi).paddedLeft('0', 3) + "_v"
-                + juce::String(probeCase.velocity) + ".wav"
-                                                 : "case_" + juce::String(probeCase.midi).paddedLeft('0', 3) + "_v"
-                + juce::String(probeCase.velocity) + ".wav";
-        const auto file = settings.outputDirectory.getChildFile(fileName);
+        for (const auto& probeCase : cases) {
+            const auto take = settings.retrigger
+                ? makeRetriggerTake(probeCase.midi, probeCase.velocity, settings.sampleRate)
+                : makeTake(probeCase.midi, probeCase.velocity, settings.sampleRate, settings.durationSeconds);
+            const auto fileName = settings.retrigger ? "retrigger_" + juce::String(probeCase.midi).paddedLeft('0', 3)
+                    + "_v" + juce::String(probeCase.velocity) + ".wav"
+                                                     : "case_" + juce::String(probeCase.midi).paddedLeft('0', 3) + "_v"
+                    + juce::String(probeCase.velocity) + ".wav";
+            const auto file = settings.outputDirectory.getChildFile(fileName);
 
-        const auto start = std::chrono::steady_clock::now();
-        if (!devpiano::exporting::exportTakeAsWavFile(take, file, options)) {
-            std::cerr << "render failed for midi=" << probeCase.midi << " velocity=" << probeCase.velocity << "\n";
-            return 1;
+            const auto start = std::chrono::steady_clock::now();
+            if (!devpiano::exporting::exportTakeAsWavFile(take, file, options)) {
+                std::cerr << "render failed for midi=" << probeCase.midi << " velocity=" << probeCase.velocity << "\n";
+                return 1;
+            }
+            const auto end = std::chrono::steady_clock::now();
+            const auto exportMs = std::chrono::duration<double, std::milli>(end - start).count();
+
+            auto* entry = new juce::DynamicObject();
+            entry->setProperty("midi", probeCase.midi);
+            entry->setProperty("velocity", probeCase.velocity);
+            entry->setProperty("file", fileName);
+            entry->setProperty("exportMs", exportMs);
+            renderedCases.add(juce::var(entry));
+
+            std::cout << "  midi=" << probeCase.midi << " v=" << probeCase.velocity << " " << juce::String(exportMs, 1)
+                      << " ms\n";
         }
-        const auto end = std::chrono::steady_clock::now();
-        const auto exportMs = std::chrono::duration<double, std::milli>(end - start).count();
-
-        auto* entry = new juce::DynamicObject();
-        entry->setProperty("midi", probeCase.midi);
-        entry->setProperty("velocity", probeCase.velocity);
-        entry->setProperty("file", fileName);
-        entry->setProperty("exportMs", exportMs);
-        renderedCases.add(juce::var(entry));
-
-        std::cout << "  midi=" << probeCase.midi << " v=" << probeCase.velocity << " " << juce::String(exportMs, 1)
-                  << " ms\n";
     }
 
     auto* manifest = new juce::DynamicObject();
-    manifest->setProperty("protocol", settings.retrigger ? "phase45-retrigger" : "phase40");
+    if (settings.benchmarkOnly) {
+        manifest->setProperty("protocol", "phase46-4");
+    } else if (settings.retrigger) {
+        manifest->setProperty("protocol", "phase45-retrigger");
+    } else {
+        manifest->setProperty("protocol", "phase40");
+    }
+    manifest->setProperty("benchmarkOnly", settings.benchmarkOnly);
     manifest->setProperty("retrigger", settings.retrigger);
     if (settings.retrigger) {
         manifest->setProperty("retriggerNote", kRetriggerNote);
