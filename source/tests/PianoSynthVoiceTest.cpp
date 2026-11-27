@@ -152,6 +152,7 @@ public:
         testHighTrebleFastRelease();
         testEngineIntegrationAndNumericalSafety();
         testZeroTrigSlaAndNumericalPrecision();
+        testExperimentalPhaseRows();
         testGeneratedComponentInvariants();
         testVoiceMonoDownmix();
     }
@@ -1594,6 +1595,32 @@ private:
             expect(pedalMax > 0.0005f, "pedal whoosh and shock must render audible sound");
         }
     }
+    void testExperimentalPhaseRows() {
+        beginTest("45-2 experimental phase table maps rows to each string");
+        std::array<std::array<float, 64>, 3> table {};
+        table[0].fill(0.0f);
+        table[1].fill(juce::MathConstants<float>::halfPi);
+        table[2].fill(-juce::MathConstants<float>::halfPi);
+
+        VoiceFixture threeStrings;
+        auto* voice = threeStrings.voice();
+        voice->setPhaseTableForExperiment(&table[0][0], 3);
+        threeStrings.synth.noteOn(1, 60, 0.7f);
+        const auto& partial = voice->mainString.partials[0];
+        expectEquals(partial.stringCount, 3);
+        expect(partial.sinState2 > partial.sinState + 0.5f, "row 1 must drive the second string phase independently");
+        expect(partial.sinState3 < partial.sinState - 0.5f, "row 2 must drive the third string phase independently");
+
+        VoiceFixture singleRow;
+        singleRow.voice()->setPhaseTableForExperiment(&table[0][0], 1);
+        singleRow.synth.noteOn(1, 60, 0.7f);
+        const auto& singlePartial = singleRow.voice()->mainString.partials[0];
+        expectWithinAbsoluteError(singlePartial.sinState2, singlePartial.sinState, 1e-12,
+                                  "a single-row experiment table keeps all strings in phase");
+        expectWithinAbsoluteError(singlePartial.sinState3, singlePartial.sinState, 1e-12,
+                                  "a single-row experiment table keeps all strings in phase");
+    }
+
     void testGeneratedComponentInvariants() {
         beginTest("generated fixed-frequency components preserve amplitude and requested frequency");
         for (const auto rate : { 44100.0, 48000.0 }) {

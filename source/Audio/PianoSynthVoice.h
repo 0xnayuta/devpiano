@@ -176,6 +176,13 @@ public:
         return pianoFeltAgeingAmount;
     }
 
+    // 45-2 实验 API：不改变生产默认。table 指向 rowCount x 64 个 float，
+    // 调用方保证其生命周期覆盖 startNote；null / 0 行恢复生产单行表。
+    void setPhaseTableForExperiment(const float* table, int rowCount) noexcept {
+        experimentalPhaseTable = table;
+        experimentalPhaseRows = (table != nullptr) ? std::clamp(rowCount, 1, 3) : 1;
+    }
+
     [[nodiscard]] bool isVoiceActive() const override {
         return getCurrentlyPlayingNote() >= 0;
     }
@@ -447,6 +454,8 @@ private:
         stringStart.clampedVelocity = setup.clampedVelocity;
         stringStart.unaCordaMu = setup.unaCordaMu;
         stringStart.jitterPhase = setup.jitterPhase;
+        stringStart.phaseTable = experimentalPhaseTable;
+        stringStart.phaseTableRows = experimentalPhaseRows;
         stringStart.baseDecaySeconds = setup.baseDecaySeconds;
         stringStart.k1 = setup.k1;
         stringStart.alpha1 = setup.alpha1;
@@ -652,6 +661,8 @@ private:
     float softPedalAmount = 0.0f;
     int voiceIndex = 0;
     float pianoFeltAgeingAmount = 0.0f;
+    const float* experimentalPhaseTable = nullptr;
+    int experimentalPhaseRows = 1;
 
 private:
     // The longitudinal precursor is an independent bass excitation. Keep it

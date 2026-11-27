@@ -41,6 +41,9 @@ struct MainStringStart {
     float clampedVelocity = 0.0f;
     float unaCordaMu = 0.0f;
     float jitterPhase = 0.0f;
+    // 45-2 实验入口：rowCount x 64 的每弦相位表；null 时使用生产单行表。
+    const float* phaseTable = nullptr;
+    int phaseTableRows = 1;
     double baseDecaySeconds = 0.0;
     double k1 = 0.0;
     double alpha1 = 0.0;
@@ -468,11 +471,15 @@ private:
             partial.stringCount = expectedStringCount;
 
             if (resetOscillators) {
-                // Cross-partial phase dispersion only. Every string of the same
-                // partial starts in phase, matching a single hammer strike; the
-                // detune then evolves the unison beating naturally.
-                const auto phase
-                    = devpiano::audio::kOptPhaseTable[static_cast<std::size_t>(n % 64)] + start.jitterPhase;
+                // 45-2: 默认 null 使用生产单行；实验表按字符串选择 row。
+                const auto phaseForString = [&](int row) noexcept {
+                    const auto index = static_cast<std::size_t>(n % 64);
+                    if (start.phaseTable != nullptr && start.phaseTableRows > 0) {
+                        const auto rowIndex = static_cast<std::size_t>(row % std::max(1, start.phaseTableRows));
+                        return start.phaseTable[rowIndex * 64 + index] + start.jitterPhase;
+                    }
+                    return devpiano::audio::kOptPhaseTable[index] + start.jitterPhase;
+                };
 
                 // 39-A unit-y Magic Circle init: every active string starts at
                 // its output phase with y = sin(phi) and
@@ -481,24 +488,29 @@ private:
                 // attenuation; pruned weights are not redistributed.
                 if (expectedStringCount == 1) {
                     initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, partialFrequency, sr,
-                                         phase);
+                                         phaseForString(0));
                     partial.epsilon2 = 0.0;
                     partial.epsilon3 = 0.0;
                 } else if (expectedStringCount == 2) {
                     const auto detuneHalf = static_cast<double>(start.beatingDetuneRatio * 0.5f);
                     const auto f1 = partialFrequency * (1.0 - detuneHalf);
                     const auto f2 = partialFrequency * (1.0 + detuneHalf);
-                    initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr, phase);
-                    initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr, phase);
+                    initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr,
+                                         phaseForString(0));
+                    initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr,
+                                         phaseForString(1));
                     partial.epsilon3 = 0.0;
                 } else {
                     const auto detune = static_cast<double>(start.beatingDetuneRatio);
                     const auto f1 = partialFrequency * (1.0 - detune);
                     const auto f2 = partialFrequency;
                     const auto f3 = partialFrequency * (1.0 + detune);
-                    initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr, phase);
-                    initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr, phase);
-                    initMagicCircleState(partial.cosState3, partial.sinState3, partial.epsilon3, f3, sr, phase);
+                    initMagicCircleState(partial.cosState, partial.sinState, partial.epsilon, f1, sr,
+                                         phaseForString(0));
+                    initMagicCircleState(partial.cosState2, partial.sinState2, partial.epsilon2, f2, sr,
+                                         phaseForString(1));
+                    initMagicCircleState(partial.cosState3, partial.sinState3, partial.epsilon3, f3, sr,
+                                         phaseForString(2));
                 }
             }
 

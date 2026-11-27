@@ -51,6 +51,21 @@ The standard analyzer windows cover the first strike only. Use a short
 per-strike script against the manifest intervals when evaluating all eight
 strikes; the WAVs are deterministic and can also be auditioned directly.
 
+For the 45-2 phase experiment, `--phase-experiment` reads a JSON file with one
+or three 64-value rows per candidate and renders a direct BuiltinSynthesiser
+attack set:
+
+```bash
+... --acoustic-probe --phase-experiment candidates.json \
+  --out 'G:\...\phase-experiment' --keys 36,48,60,72,84,96,108 \
+  --velocities 41,70,98
+```
+
+The direct mode writes 0.5 s WAVs with NoteOff at 0.25 s and no Room reverb.
+Use `tools/phase_optimizer.py` / `tools/phase_eval.py` for the independent
+Salamander comparison; the normal `phase40` path remains the full-key probe.
+See `tools/phase_experiment_README.md` and `tools/phase_candidates.json`.
+
 ## Analyze
 
 ```bash

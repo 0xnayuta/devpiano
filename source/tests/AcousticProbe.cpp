@@ -1,15 +1,19 @@
 #include "AcousticProbe.h"
 
 #include "Audio/BuiltinSynthesiser.h"
+#include "Audio/PianoSynthVoice.h"
 #include "Export/WavExportOptions.h"
 #include "Recording/RecordingEngine.h"
 #include "Recording/RenderPipeline.h"
 #include "Recording/WavFileExporter.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <iostream>
+#include <juce_audio_formats/juce_audio_formats.h>
+#include <memory>
 #include <numeric>
 #include <vector>
 
@@ -39,6 +43,10 @@ constexpr int kRetriggerNote = 60;
 constexpr int kRetriggerVelocities[3] = { 41, 70, 98 };
 constexpr int kRetriggerIntervalsMs[8] = { 30, 60, 120, 200, 30, 60, 120, 200 };
 
+// 45-2 phase experiment defaults: C2-C8 octave anchors at v41/v70/v98.
+constexpr int kPhaseExperimentNotes[7] = { 36, 48, 60, 72, 84, 96, 108 };
+constexpr int kPhaseExperimentVelocities[3] = { 41, 70, 98 };
+
 struct ProbeCase {
     int midi = 60;
     int velocity = 70;
@@ -53,6 +61,7 @@ struct ProbeSettings {
     int bitsPerSample = kDefaultBitsPerSample;
     bool benchmark = false;
     bool retrigger = false;
+    juce::File phaseExperimentFile;
     std::vector<int> keys;
     std::vector<int> velocities;
 };
@@ -106,6 +115,7 @@ void printUsage() {
               << "  --block <samples>    Render block size (default: 512)\n"
               << "  --benchmark          Add a 12-voice synthetic block-time benchmark\n"
               << "  --retrigger          Render eight C4 strikes at v41/v70/v98 (30/60/120/200 ms)\n"
+              << "  --phase-experiment <json> Render 45-2 phase candidates from a JSON file\n"
               << "  --help               Show this help\n"
               << "\n"
               << "Default phase40 set: 88 keys at v70 plus 16 representative keys at v41/v98.\n";
@@ -224,6 +234,191 @@ void printUsage() {
     return juce::var(result);
 }
 
+struct PhaseCandidate {
+    juce::String name;
+    std::array<std::array<float, 64>, 3> rows {};
+    int rowCount = 1;
+};
+
+[[nodiscard]] bool parsePhaseCandidates(const juce::File& file, std::vector<PhaseCandidate>& candidates) {
+    if (!file.existsAsFile()) {
+        std::cerr << "phase candidate file not found: " << file.getFullPathName() << "\n";
+        return false;
+    }
+
+    const auto parsed = juce::JSON::parse(file.loadFileAsString());
+    auto* root = parsed.getDynamicObject();
+    if (root == nullptr) {
+        std::cerr << "phase candidate JSON must be an object\n";
+        return false;
+    }
+    const auto list = root->getProperty("candidates");
+    auto* array = list.getArray();
+    if (array == nullptr) {
+        std::cerr << "phase candidate JSON needs a candidates array\n";
+        return false;
+    }
+
+    for (const auto& item : *array) {
+        auto* object = item.getDynamicObject();
+        if (object == nullptr) {
+            std::cerr << "candidate entries must be objects\n";
+            return false;
+        }
+
+        PhaseCandidate candidate;
+        candidate.name = object->getProperty("name").toString();
+        const auto rowsVar = object->getProperty("rows");
+        auto* rows = rowsVar.getArray();
+        if (rows == nullptr || rows->isEmpty() || rows->size() > 3) {
+            std::cerr << "candidate rows must contain 1..3 rows\n";
+            return false;
+        }
+        candidate.rowCount = rows->size();
+        for (auto rowIndex = 0; rowIndex < candidate.rowCount; ++rowIndex) {
+            auto* row = rows->getReference(rowIndex).getArray();
+            if (row == nullptr || row->size() != 64) {
+                std::cerr << "each candidate row must contain 64 phases\n";
+                return false;
+            }
+            for (auto phaseIndex = 0; phaseIndex < 64; ++phaseIndex) {
+                candidate.rows[static_cast<std::size_t>(rowIndex)][static_cast<std::size_t>(phaseIndex)]
+                    = static_cast<float>(static_cast<double>(row->getReference(phaseIndex)));
+            }
+        }
+        candidates.push_back(candidate);
+    }
+
+    return !candidates.empty();
+}
+
+[[nodiscard]] bool renderPhaseWave(const PhaseCandidate& candidate, int midi, int velocity,
+                                   const ProbeSettings& settings, const juce::File& file) {
+    WavExportOptions options = makeOptions(settings);
+    options.tailSeconds = 0.0;
+
+    BuiltinSynthesiser synth;
+    devpiano::recording::initialiseOfflinePianoSynth(synth, options, kPianoVoiceCount);
+    for (auto index = 0; index < synth.getNumVoices(); ++index) {
+        if (auto* voice = dynamic_cast<::PianoSynthVoice*>(synth.getVoice(index))) {
+            voice->setPhaseTableForExperiment(candidate.rows[0].data(), candidate.rowCount);
+        }
+    }
+
+    const auto totalSamples = static_cast<int>(std::llround(0.5 * settings.sampleRate));
+    const auto releaseSample = totalSamples / 2;
+    juce::AudioBuffer<float> full(2, totalSamples);
+    full.clear();
+    juce::AudioBuffer<float> block(2, settings.blockSize);
+
+    for (auto blockStart = 0; blockStart < totalSamples; blockStart += settings.blockSize) {
+        const auto numSamples = std::min(settings.blockSize, totalSamples - blockStart);
+        block.setSize(2, numSamples, false, false, true);
+        block.clear();
+
+        juce::MidiBuffer midiBuffer;
+        if (blockStart == 0) {
+            midiBuffer.addEvent(
+                juce::MidiMessage::noteOn(1, midi, static_cast<juce::uint8>(std::clamp(velocity, 1, 127))), 0);
+        }
+        if (releaseSample >= blockStart && releaseSample < blockStart + numSamples) {
+            midiBuffer.addEvent(juce::MidiMessage::noteOff(1, midi), releaseSample - blockStart);
+        }
+
+        synth.renderNextBlock(block, midiBuffer, 0, numSamples);
+        for (auto channel = 0; channel < 2; ++channel) {
+            full.copyFrom(channel, blockStart, block, channel, 0, numSamples);
+        }
+    }
+
+    file.getParentDirectory().createDirectory();
+    auto fileStream = std::make_unique<juce::FileOutputStream>(file);
+    if (!fileStream->openedOk()) {
+        std::cerr << "cannot open phase experiment WAV: " << file.getFullPathName() << "\n";
+        return false;
+    }
+    std::unique_ptr<juce::OutputStream> outputStream = std::move(fileStream);
+    juce::WavAudioFormat wavFormat;
+    auto writerOptions = juce::AudioFormatWriterOptions()
+                             .withSampleRate(settings.sampleRate)
+                             .withNumChannels(2)
+                             .withBitsPerSample(settings.bitsPerSample);
+    auto writer = wavFormat.createWriterFor(outputStream, writerOptions);
+    if (writer == nullptr) {
+        std::cerr << "cannot create phase experiment WAV writer\n";
+        return false;
+    }
+    writer->writeFromAudioSampleBuffer(full, 0, totalSamples);
+    writer.reset();
+    return true;
+}
+
+int runPhaseExperiment(const ProbeSettings& settings) {
+    std::vector<PhaseCandidate> candidates;
+    if (!parsePhaseCandidates(settings.phaseExperimentFile, candidates)) {
+        return 1;
+    }
+
+    std::vector<ProbeCase> cases;
+    const auto notes
+        = settings.keys.empty() ? std::vector<int>(kPhaseExperimentNotes, kPhaseExperimentNotes + 7) : settings.keys;
+    const auto velocities = settings.velocities.empty()
+        ? std::vector<int>(kPhaseExperimentVelocities, kPhaseExperimentVelocities + 3)
+        : settings.velocities;
+    for (const auto midi : notes) {
+        for (const auto velocity : velocities) {
+            cases.push_back({ midi, velocity });
+        }
+    }
+
+    if (!settings.outputDirectory.createDirectory()) {
+        std::cerr << "cannot create output directory: " << settings.outputDirectory.getFullPathName() << "\n";
+        return 1;
+    }
+
+    juce::Array<juce::var> rendered;
+    std::cout << "Rendering " << candidates.size() << " phase candidate(s) x " << cases.size() << " case(s) to "
+              << settings.outputDirectory.getFullPathName() << "\n";
+
+    for (std::size_t candidateIndex = 0; candidateIndex < candidates.size(); ++candidateIndex) {
+        const auto& candidate = candidates[candidateIndex];
+        const auto candidateLabel
+            = candidate.name.isNotEmpty() ? candidate.name : "candidate" + juce::String(candidateIndex);
+        for (const auto& probeCase : cases) {
+            const auto fileName = "phase_" + candidateLabel + "_" + juce::String(probeCase.midi).paddedLeft('0', 3)
+                + "_v" + juce::String(probeCase.velocity) + ".wav";
+            const auto file = settings.outputDirectory.getChildFile(fileName);
+            if (!renderPhaseWave(candidate, probeCase.midi, probeCase.velocity, settings, file)) {
+                return 1;
+            }
+
+            auto* entry = new juce::DynamicObject();
+            entry->setProperty("candidate", candidateLabel);
+            entry->setProperty("rows", candidate.rowCount);
+            entry->setProperty("midi", probeCase.midi);
+            entry->setProperty("velocity", probeCase.velocity);
+            entry->setProperty("file", fileName);
+            rendered.add(juce::var(entry));
+        }
+    }
+
+    auto* manifest = new juce::DynamicObject();
+    manifest->setProperty("protocol", "phase45-2");
+    manifest->setProperty("sampleRate", settings.sampleRate);
+    manifest->setProperty("bitsPerSample", settings.bitsPerSample);
+    manifest->setProperty("reference", "Salamander Grand Piano V3, Alexander Holm, CC BY 3.0");
+    manifest->setProperty("render", "BuiltinSynthesiser direct render, 0.5 s, note off at 0.25 s, no Room reverb");
+    manifest->setProperty("cases", juce::var(rendered));
+    const auto manifestFile = settings.outputDirectory.getChildFile("phase_experiment_manifest.json");
+    if (!manifestFile.replaceWithText(juce::JSON::toString(juce::var(manifest), true))) {
+        std::cerr << "cannot write phase experiment manifest\n";
+        return 1;
+    }
+
+    std::cout << "Wrote " << manifestFile.getFullPathName() << "\n";
+    return 0;
+}
+
 } // namespace
 
 int runAcousticProbe(const juce::StringArray& args) {
@@ -273,6 +468,13 @@ int runAcousticProbe(const juce::StringArray& args) {
             settings.benchmark = true;
         } else if (argument == "--retrigger") {
             settings.retrigger = true;
+        } else if (argument == "--phase-experiment") {
+            const auto value = nextValue();
+            if (value.isEmpty()) {
+                std::cerr << "--phase-experiment requires a JSON file\n";
+                return 1;
+            }
+            settings.phaseExperimentFile = juce::File(value);
         } else if (argument == "--protocol") {
             const auto protocol = nextValue();
             if (protocol != "phase40") {
@@ -290,7 +492,7 @@ int runAcousticProbe(const juce::StringArray& args) {
         std::cerr << "47-1 currently fixes the probe sample rate at 48000 Hz\n";
         return 1;
     }
-    if (!settings.retrigger && settings.durationSeconds < 1.4) {
+    if (!settings.retrigger && settings.phaseExperimentFile == juce::File() && settings.durationSeconds < 1.4) {
         std::cerr << "--duration must be at least 1.4 s for the 1.1-1.3 s window\n";
         return 1;
     }
@@ -312,6 +514,10 @@ int runAcousticProbe(const juce::StringArray& args) {
             std::cerr << "invalid --velocities list\n";
             return 1;
         }
+    }
+
+    if (settings.phaseExperimentFile != juce::File()) {
+        return runPhaseExperiment(settings);
     }
 
     std::vector<ProbeCase> cases;
