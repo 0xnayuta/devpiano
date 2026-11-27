@@ -1,0 +1,30 @@
+{
+  "work": "Salamander Grand Piano V3",
+  "instrument": "Yamaha C5",
+  "author": "Alexander Holm",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+  "sources": {
+    "officialPage": "https://sfzinstruments.github.io/pianos/salamander/",
+    "archive": "https://archive.org/details/SalamanderGrandPianoV3",
+    "githubRemap": "https://github.com/sfzinstruments/SalamanderGrandPiano"
+  },
+  "archiveOriginal": {
+    "file": "SalamanderGrandPianoV3_48khz24bit.tar.bz2",
+    "size": 1448107335,
+    "md5": "44c5be2c774aeb968cf9bc09952511dd",
+    "sha1": "90dfa11fa1f812a1cd956f38e66bc82820c918aa",
+    "note": "Archive.org direct download failed TLS negotiation in this environment."
+  },
+  "usedSource": {
+    "type": "Official SFZ Instruments GitHub FLAC remap of the same V3 48 kHz/24-bit work",
+    "note": "Not the danielpodrazka/piano MP3 set; no reference audio is committed."
+  },
+  "selected": {
+    "notes": [36, 48, 60, 72, 84, 96, 108],
+    "layers": {"4": "37-43", "9": "65-72", "13": "97-104"},
+    "localDirectory": "/root/data/salamander-v3-48k24",
+    "hashFile": "SHA256SUMS.samples.txt"
+  },
+  "modification": "Selected FLAC files decoded to mono WAV and trimmed to the 50 ms attack window for analysis."
+}
