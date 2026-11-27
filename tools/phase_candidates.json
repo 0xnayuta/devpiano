@@ -1,4 +1,13 @@
 {
+  "metadata": {
+    "phaseUnits": "radians; each row maps string 0/1/2 and each column maps partial index modulo 64",
+    "metrics": {
+      "mean_spec": "mean squared difference of log-mel magnitudes (log-mel units squared)",
+      "mean_peak": "mean absolute sample peak of the normalized 0.5 s engine render",
+      "mean_peak_factor_ratio": "peak/RMS ratio relative to the Salamander reference",
+      "mean_flux_ratio": "mean positive log-mel temporal flux relative to the Salamander reference"
+    }
+  },
   "source": {
     "reference": "Salamander Grand Piano V3, Alexander Holm, CC BY 3.0",
     "A": "devpiano current kOptPhaseTable row 0; upstream danielpodrazka/piano MIT",

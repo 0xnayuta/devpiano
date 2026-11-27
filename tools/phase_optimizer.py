@@ -19,6 +19,7 @@ import ast
 import json
 import math
 import re
+import sys
 import wave
 from pathlib import Path
 
@@ -29,6 +30,7 @@ SAMPLE_RATE = 48000.0
 ATTACK_SAMPLES = 2400
 MAX_PARTIALS = 36
 PEAK_LEVEL_AT_FULL_VELOCITY = 0.95 * 0.49
+RESIDUAL_STRING3_SCALE = 0.38  # PianoMainString::kResidualString3Scale
 
 NOTE_NAMES = {36: "C2", 48: "C3", 60: "C4", 72: "C5", 84: "C6", 96: "C7", 108: "C8"}
 VELOCITY_LAYERS = {41: 4, 70: 9, 98: 13}
@@ -274,6 +276,8 @@ def build_case(midi: int, velocity: int) -> dict[str, object]:
     setup, frequencies, _ = compute_setup(midi, velocity)
 
     freqs = np.zeros((MAX_PARTIALS, 3), dtype=np.float32)
+    string_counts = np.zeros(MAX_PARTIALS, dtype=np.int32)
+    string_gains = np.ones(MAX_PARTIALS, dtype=np.float32)
     decay_fast = np.ones(MAX_PARTIALS, dtype=np.float32)
     decay_slow = np.ones(MAX_PARTIALS, dtype=np.float32)
     bloom_initial = np.ones(MAX_PARTIALS, dtype=np.float32)
@@ -295,6 +299,13 @@ def build_case(midi: int, velocity: int) -> dict[str, object]:
             count = 1
         else:
             count = int(params["string_count"])
+        string_counts[index] = count
+        if count == 3:
+            string_gains[index] = (
+                RESIDUAL_STRING3_SCALE
+                if params["beating_partials"] == 1 and params["beating_detune"] > 0.0
+                else 1.0 / 3.0
+            )
         for string in range(count):
             if count == 1:
                 ratio = 1.0
@@ -316,6 +327,8 @@ def build_case(midi: int, velocity: int) -> dict[str, object]:
         "midi": midi,
         "velocity": velocity,
         "freqs": freqs,
+        "string_counts": string_counts,
+        "string_gains": string_gains,
         "decay_fast": decay_fast,
         "decay_slow": decay_slow,
         "bloom_initial": bloom_initial,
@@ -327,6 +340,8 @@ def build_case(midi: int, velocity: int) -> dict[str, object]:
 def synth_case(case: dict[str, object], phases: torch.Tensor, level_fast: torch.Tensor,
                level_slow: torch.Tensor) -> torch.Tensor:
     freqs = torch.tensor(case["freqs"], dtype=torch.float32)
+    string_counts = torch.tensor(case["string_counts"], dtype=torch.int64)
+    string_gains = torch.tensor(case["string_gains"], dtype=torch.float32)
     decay_fast = torch.tensor(case["decay_fast"], dtype=torch.float32)
     decay_slow = torch.tensor(case["decay_slow"], dtype=torch.float32)
     bloom_initial = torch.tensor(case["bloom_initial"], dtype=torch.float32)
@@ -344,7 +359,10 @@ def synth_case(case: dict[str, object], phases: torch.Tensor, level_fast: torch.
     env = (level_fast[:, None] * env_fast + level_slow[:, None] * env_slow)[:, None, :]
     bloom = 1.0 - (1.0 - bloom_initial[:, None]) * torch.exp(-t[None, :] / bloom_tau[:, None])
     osc = osc * env * bloom[:, None, :]
-    mixed = osc.sum(dim=(0, 1))
+    # 只合成实际存在的弦，并按生产的 1/3（或 residual）缩放三弦组；
+    # 未使用列的 freq=0 不能继续贡献常量项。
+    string_mask = (torch.arange(3)[None, :] < string_counts[:, None]).to(torch.float32)
+    mixed = ((osc * string_mask[:, :, None]).sum(dim=1) * string_gains[:, None]).sum(dim=0)
 
     tc = max(float(case["tc"]), 1e-4)
     contact = torch.clamp(0.55 + 0.45 * t / tc, max=1.0)
@@ -553,6 +571,11 @@ def main() -> int:
     candidates["C1"] = c1
     candidates["C2"] = c2
     output = {
+        "environment": {
+            "python": sys.version.split()[0],
+            "numpy": np.__version__,
+            "torch": torch.__version__,
+        },
         "source": {
             "reference": "Salamander Grand Piano V3, Alexander Holm, CC BY 3.0",
             "A": "devpiano current kOptPhaseTable row 0; upstream danielpodrazka/piano MIT",

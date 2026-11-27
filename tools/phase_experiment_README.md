@@ -62,7 +62,10 @@ default.
 ## Optimize / evaluate
 
 The optimizer needs PyTorch CPU and NumPy. The workspace venv does not include
-PyTorch; `/usr/bin/python3` from the Ubuntu packages does:
+PyTorch; `/usr/bin/python3` from the Ubuntu packages does. Tested with Python
+3.14.4, NumPy 2.5.3 and PyTorch 2.9.1+debian; the output JSON records the
+actual versions under `environment` so a saved candidate table can be traced
+to its numeric stack:
 
 ```bash
 /usr/bin/python3 tools/phase_optimizer.py \
