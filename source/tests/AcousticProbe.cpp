@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -30,7 +31,9 @@ using devpiano::recording::RecordingTake;
 
 constexpr double kProbeSampleRate = 48000.0;
 constexpr double kDefaultDurationSeconds = 2.0;
+constexpr double kMaxDurationSeconds = 30.0;
 constexpr int kDefaultBlockSize = 512;
+constexpr int kMaxBlockSize = 8192;
 constexpr int kDefaultBitsPerSample = 24;
 
 // Phase 40 representative keys for the low/high velocity scan. The exact
@@ -81,8 +84,18 @@ struct ProbeSettings {
     float reverbWet = 0.0f;
 };
 
+[[nodiscard]] bool parseStrictInt(const juce::String& text, int& value) {
+    const auto trimmed = text.trim();
+    if (trimmed.isEmpty()) {
+        return false;
+    }
+    const auto utf8 = trimmed.toStdString();
+    const auto result = std::from_chars(utf8.data(), utf8.data() + utf8.size(), value);
+    return result.ec == std::errc {} && result.ptr == utf8.data() + utf8.size();
+}
+
 std::vector<int> parseIntegerList(const juce::String& text, int minimum, int maximum) {
-    std::vector<int> parsed;
+    std::vector<int> unique;
     for (auto token : juce::StringArray::fromTokens(text, ",", "")) {
         token = token.trim();
         if (token.isEmpty()) {
@@ -90,26 +103,31 @@ std::vector<int> parseIntegerList(const juce::String& text, int minimum, int max
         }
         const auto range = juce::StringArray::fromTokens(token, "-", "");
         if (range.size() == 2) {
-            auto first = range[0].getIntValue();
-            auto last = range[1].getIntValue();
+            int first = 0;
+            int last = 0;
+            if (!parseStrictInt(range[0], first) || !parseStrictInt(range[1], last)) {
+                return {};
+            }
             if (first > last) {
                 std::swap(first, last);
             }
+            // 先校验端点，再展开，避免误输入的超大范围耗尽内存。
+            if (first < minimum || last > maximum) {
+                return {};
+            }
             for (auto value = first; value <= last; ++value) {
-                parsed.push_back(value);
+                if (std::find(unique.begin(), unique.end(), value) == unique.end()) {
+                    unique.push_back(value);
+                }
             }
         } else {
-            parsed.push_back(token.getIntValue());
-        }
-    }
-
-    std::vector<int> unique;
-    for (const auto value : parsed) {
-        if (value < minimum || value > maximum) {
-            return {};
-        }
-        if (std::find(unique.begin(), unique.end(), value) == unique.end()) {
-            unique.push_back(value);
+            int value = 0;
+            if (!parseStrictInt(token, value) || value < minimum || value > maximum) {
+                return {};
+            }
+            if (std::find(unique.begin(), unique.end(), value) == unique.end()) {
+                unique.push_back(value);
+            }
         }
     }
     return unique;
@@ -480,24 +498,35 @@ struct PhaseCandidate {
     }
 
     file.getParentDirectory().createDirectory();
-    auto fileStream = std::make_unique<juce::FileOutputStream>(file);
-    if (!fileStream->openedOk()) {
-        std::cerr << "cannot open phase experiment WAV: " << file.getFullPathName() << "\n";
+    // 先写临时文件再原子替换：FileOutputStream 打开已存在文件时会 seek 到末尾，
+    // 直接写目标会让重跑的 WAV 叠加上一轮数据。
+    juce::TemporaryFile temporaryFile(file);
+    {
+        auto fileStream = std::make_unique<juce::FileOutputStream>(temporaryFile.getFile());
+        if (!fileStream->openedOk()) {
+            std::cerr << "cannot open phase experiment WAV: " << temporaryFile.getFile().getFullPathName() << "\n";
+            return false;
+        }
+        std::unique_ptr<juce::OutputStream> outputStream = std::move(fileStream);
+        juce::WavAudioFormat wavFormat;
+        auto writerOptions = juce::AudioFormatWriterOptions()
+                                 .withSampleRate(settings.sampleRate)
+                                 .withNumChannels(2)
+                                 .withBitsPerSample(settings.bitsPerSample);
+        auto writer = wavFormat.createWriterFor(outputStream, writerOptions);
+        if (writer == nullptr) {
+            std::cerr << "cannot create phase experiment WAV writer\n";
+            return false;
+        }
+        if (!writer->writeFromAudioSampleBuffer(full, 0, totalSamples)) {
+            std::cerr << "cannot write phase experiment WAV: " << file.getFullPathName() << "\n";
+            return false;
+        }
+    }
+    if (!temporaryFile.overwriteTargetFileWithTemporary()) {
+        std::cerr << "cannot replace phase experiment WAV: " << file.getFullPathName() << "\n";
         return false;
     }
-    std::unique_ptr<juce::OutputStream> outputStream = std::move(fileStream);
-    juce::WavAudioFormat wavFormat;
-    auto writerOptions = juce::AudioFormatWriterOptions()
-                             .withSampleRate(settings.sampleRate)
-                             .withNumChannels(2)
-                             .withBitsPerSample(settings.bitsPerSample);
-    auto writer = wavFormat.createWriterFor(outputStream, writerOptions);
-    if (writer == nullptr) {
-        std::cerr << "cannot create phase experiment WAV writer\n";
-        return false;
-    }
-    writer->writeFromAudioSampleBuffer(full, 0, totalSamples);
-    writer.reset();
     return true;
 }
 
@@ -598,6 +627,26 @@ int runAcousticProbe(const juce::StringArray& args) {
             }
             return value;
         };
+        const auto parseDoubleOption = [&](const char* optionName, double& target) {
+            const auto value = nextRequiredValue(optionName);
+            const auto parsed = value.getDoubleValue();
+            if (value.isEmpty() || !std::isfinite(parsed)) {
+                std::cerr << optionName << " requires a finite number\n";
+                return false;
+            }
+            target = parsed;
+            return true;
+        };
+        const auto parseIntegerOption = [&](const char* optionName, int& target) {
+            const auto value = nextRequiredValue(optionName);
+            int parsed = 0;
+            if (!parseStrictInt(value, parsed)) {
+                std::cerr << optionName << " requires an integer\n";
+                return false;
+            }
+            target = parsed;
+            return true;
+        };
 
         if (argument == "--help" || argument == "-h") {
             printUsage();
@@ -615,22 +664,26 @@ int runAcousticProbe(const juce::StringArray& args) {
         } else if (argument == "--velocities") {
             velocitiesText = nextValue();
         } else if (argument == "--duration") {
-            settings.durationSeconds = nextValue().getDoubleValue();
+            if (!parseDoubleOption("--duration", settings.durationSeconds)) {
+                return 1;
+            }
         } else if (argument == "--tail") {
-            settings.tailSeconds = nextValue().getDoubleValue();
+            if (!parseDoubleOption("--tail", settings.tailSeconds)) {
+                return 1;
+            }
         } else if (argument == "--block") {
-            settings.blockSize = nextValue().getIntValue();
+            if (!parseIntegerOption("--block", settings.blockSize)) {
+                return 1;
+            }
         } else if (argument == "--benchmark") {
             settings.benchmark = true;
         } else if (argument == "--benchmark-only") {
             settings.benchmark = true;
             settings.benchmarkOnly = true;
         } else if (argument == "--benchmark-polyphony") {
-            const auto value = nextRequiredValue("--benchmark-polyphony");
-            if (value.isEmpty()) {
+            if (!parseIntegerOption("--benchmark-polyphony", settings.benchmarkPolyphony)) {
                 return 1;
             }
-            settings.benchmarkPolyphony = value.getIntValue();
             settings.benchmarkPolyphonySpecified = true;
             benchmarkOptionUsed = true;
         } else if (argument == "--benchmark-notes") {
@@ -649,35 +702,29 @@ int runAcousticProbe(const juce::StringArray& args) {
             settings.bassStress = true;
             benchmarkOptionUsed = true;
         } else if (argument == "--benchmark-seconds") {
-            const auto value = nextRequiredValue("--benchmark-seconds");
-            if (value.isEmpty()) {
+            if (!parseDoubleOption("--benchmark-seconds", settings.benchmarkSeconds)) {
                 return 1;
             }
-            settings.benchmarkSeconds = value.getDoubleValue();
             benchmarkOptionUsed = true;
         } else if (argument == "--benchmark-warmup") {
-            const auto value = nextRequiredValue("--benchmark-warmup");
-            if (value.isEmpty()) {
+            if (!parseIntegerOption("--benchmark-warmup", settings.benchmarkWarmupBlocks)) {
                 return 1;
             }
-            settings.benchmarkWarmupBlocks = value.getIntValue();
             benchmarkOptionUsed = true;
         } else if (argument == "--benchmark-repeats") {
-            const auto value = nextRequiredValue("--benchmark-repeats");
-            if (value.isEmpty()) {
+            if (!parseIntegerOption("--benchmark-repeats", settings.benchmarkRepeats)) {
                 return 1;
             }
-            settings.benchmarkRepeats = value.getIntValue();
             benchmarkOptionUsed = true;
         } else if (argument == "--benchmark-room") {
             settings.benchmarkRoom = true;
             benchmarkOptionUsed = true;
         } else if (argument == "--wet") {
-            const auto value = nextRequiredValue("--wet");
-            if (value.isEmpty()) {
+            double wet = 0.0;
+            if (!parseDoubleOption("--wet", wet)) {
                 return 1;
             }
-            settings.reverbWet = value.getFloatValue();
+            settings.reverbWet = static_cast<float>(wet);
         } else if (argument == "--retrigger") {
             settings.retrigger = true;
         } else if (argument == "--phase-experiment") {
@@ -709,8 +756,20 @@ int runAcousticProbe(const juce::StringArray& args) {
         std::cerr << "--duration must be at least 1.4 s for the 1.1-1.3 s window\n";
         return 1;
     }
-    if (settings.blockSize <= 0 || settings.bitsPerSample != kDefaultBitsPerSample) {
-        std::cerr << "invalid block size or bit depth\n";
+    if (settings.blockSize <= 0 || settings.blockSize > kMaxBlockSize) {
+        std::cerr << "--block must be between 1 and " << kMaxBlockSize << "\n";
+        return 1;
+    }
+    if (settings.bitsPerSample != kDefaultBitsPerSample) {
+        std::cerr << "invalid bit depth\n";
+        return 1;
+    }
+    if (settings.durationSeconds > kMaxDurationSeconds) {
+        std::cerr << "--duration must not exceed 30 s\n";
+        return 1;
+    }
+    if (settings.tailSeconds < 0.0 || settings.tailSeconds > kMaxDurationSeconds) {
+        std::cerr << "--tail must be between 0 and 30 s\n";
         return 1;
     }
 
