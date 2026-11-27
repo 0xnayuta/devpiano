@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39、Phase 39.5、R0–R11 与 Phase 40–44 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护已完成阶段的历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 40–44 已完成（2026-11-25）并归档（2026-11-26），完整记录见 [Phase 40–44 归档](../archive/phase40-44-acoustic-calibration-and-whole-body-bus.md)。当前无进行中阶段；Phase 45-1/45-2/45-3 已完成（2026-11-27）；Phase 46-1/46-2/46-3 已完成（2026-11-27）；**Phase 46-4 与 47-2/47-3 仍为候选**，进入须用户明确批准。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；Phase 39.5 与 R0–R11 已完成并归档；E3 有限尾音维护任务已实现并独立记录（见 §4）。
+> 当前状态：Phase 40–44 已完成（2026-11-25）并归档（2026-11-26），完整记录见 [Phase 40–44 归档](../archive/phase40-44-acoustic-calibration-and-whole-body-bus.md)。当前无进行中阶段；Phase 45-1/45-2/45-3 已完成（2026-11-27）；Phase 46-1/46-2/46-3/46-4 已完成（2026-11-27）；**Phase 47-2/47-3 仍为候选**，进入须用户明确批准。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；Phase 39.5 与 R0–R11 已完成并归档；E3 有限尾音维护任务已实现并独立记录（见 §4）。
 
 ## 0. 归档入口
 
@@ -14,7 +14,7 @@
 
 ## 1. 当前候选阶段（Phase 45–47）
 
-Phase 45-1/45-2/45-3 已完成（2026-11-27）；Phase 46-1/46-2/46-3 已完成，46-4 与 47-2/47-3 仍为候选。执行顺序为 47-1（已完成）→ 45-1（已完成）→ 45-3（已完成）→ 46-1（已完成）→ 46-2（已完成）→ 45-2（已完成）→ 46-3（已完成）；46-4 需用户明确批准 Release，47-2 按需。45-2 是跨阶段收尾项，不作为 46-1/46-2 的前置；46-3 在 45-2 之后单独 A/B。不得把三个阶段的 DSP 改动合并到同一提交或同一 A/B。
+Phase 45-1/45-2/45-3 已完成（2026-11-27）；Phase 46-1/46-2/46-3/46-4 已完成（2026-11-27）；47-2/47-3 仍为候选。执行顺序为 47-1（已完成）→ 45-1（已完成）→ 45-3（已完成）→ 46-1（已完成）→ 46-2（已完成）→ 45-2（已完成）→ 46-3（已完成）→ 46-4（已完成）；47-2 按需。45-2 是跨阶段收尾项，不作为 46-1/46-2 的前置；46-3 在 45-2 之后单独 A/B。不得把三个阶段的 DSP 改动合并到同一提交或同一 A/B。
 
 ### Phase 45：同音重复状态与起音微观相位（Repetition State & Attack Micro-Phase）[45-1/45-2/45-3 已完成 2026-11-27]
 
@@ -34,7 +34,7 @@ Phase 45-1/45-2/45-3 已完成（2026-11-27）；Phase 46-1/46-2/46-3 已完成�
    - `PianoMainString` 新增“重新激励”入口：保留 `cos/sin/epsilon`，重新计算每个 partial 的 `levelFast/levelSlow`/decay/bloom；旧 level 乘锤毡/制音器吸收系数（建议 0.4–0.6），再叠加新锤能量。新音高/新 voice 仍走现有 `start`。
    - NoteOff 身份不变：同一 voice、同一 MIDI note；`PlaybackIdentityTracker` 语义不变。不得为同音重复新增第二个持久 voice。
    - 验证：同音 8 连击（v41/70/98；间隔 30/60/120/200 ms）、轮指片段；逐次 LUFS/True Peak；12 复音偷声部计数不增加；录音回放 NoteOff 配对；Panic/踏板/采样率重准备。
-   **状态（2026-11-27）**：已完成。`BuiltinSynthesiser::noteOn` 对同音且 `isKeyDown()` 的 voice 复用 `PianoSynthVoice::retriggerNote`；`PianoMainString::retrigger` 保留 `cos/sin/epsilon`，旧能量按 0.50 吸收后叠加新锤能量。Windows Debug CTest 通过；120 例单音基线仍精确 PASS（v70 极差 0.650 dB、相邻最大 0.275 dB、v98 True Peak 0.236）；8 连击探针 v41/70/98 全程 True Peak 0.0871/0.1599/0.2301，未超过单音 0.236；8 连击复用同一 voice，第二 voice 始终空闲，总线按键计数不重复。证据在 `G:\source\projects\devpiano\build-win-msvc\acoustic-probe\phase45-1` 与 `phase45-1-retrigger`。
+   **状态（2026-11-27）**：已完成。`BuiltinSynthesiser::noteOn` 对同音且 `isKeyDown()` 的 voice 复用 `PianoSynthVoice::retriggerNote`；`PianoMainString::retrigger` 保留 `cos/sin/epsilon`，旧能量按 0.50 吸收后叠加新锤能量。Windows Debug CTest 通过；120 例单音基线仍精确 PASS（v70 极差 0.650 dB、相邻最大 0.275 dB、v98 True Peak 0.236）；8 连击探针 v41/70/98 全程 True Peak 0.0871/0.1599/0.2301，未超过单音 0.236；8 连击复用同一 voice，第二 voice 始终空闲，总线按键计数不重复。证据在 `G:\source\projects\devpiano\build-win-msvc\acoustic-probe\phase45-1` 与 `phase45-1-retrigger`。用户人工试听（2026-11-27）：同音重击、力度/间隔矩阵与踏板组合未发现明显问题，可接受。
 2. **45-3 力度依赖两段衰减（行为变更，需单独批准）**：
    - 在 `computePianoNoteSetup` 中让 `slowWeight` 随力度小幅调制（弱音更多 aftersound，强音更多 prompt）；建议 v41 +15%、v98 −15%，由现有 L1 归一化吸收。
    - 不新增逐键补偿表；不改 `fastDecayRatio` 的现有音区结构。
@@ -55,7 +55,7 @@ Phase 45-1/45-2/45-3 已完成（2026-11-27）；Phase 46-1/46-2/46-3 已完成�
 
 **失败/回退**：45-1 若响度累积不可控或 ADSR 重新触发产生爆音，回退到“复用 voice 但仍重置弦状态”或保持现有 stop+new 路径；45-3 若全键 LUFS 回退超过 Phase 44 基线，回退固定 `slowWeight`；45-2 的 B 若导致 t=0 峰值/响度/立体声回退，回退单行；C1/C2 若收益不足，保留 A。
 
-### Phase 46：整琴总线物理密度与空间网络（Whole-Body Modal Density & Spatial Network）[46-1/46-2/46-3 已完成 2026-11-27；46-4 待批准]
+### Phase 46：整琴总线物理密度与空间网络（Whole-Body Modal Density & Spatial Network）[46-1/46-2/46-3/46-4 已完成 2026-11-27]
 
 **目标**：在 Phase 43 已收敛的单一 `PianoWholeBodyBus` 内提升音板模态密度、桥耦合音区差异与 FDN 扩散质量；不引入弦—音板实时闭环。
 
@@ -66,14 +66,28 @@ Phase 45-1/45-2/45-3 已完成（2026-11-27）；Phase 46-1/46-2/46-3 已完成�
 2. **46-2 音区桥耦合权重**：`PianoSynthVoice::renderToBus` 的 drive 增加 per-note 音区权重（低音桥/中音桥/高音桥），不改 partial 阶数权重；与 46-1 分开提交、分开 A/B。
    **状态（2026-11-27）**：已完成。`drive` 乘 A0/C4/C8 三锚点连续权重 1.10/1.00/0.94；只缩放湿音板/交感/纵波驱动，直达声、partial 阶数权重、音区输出增益与声像不变。120 例 v70 参考 PASS（极差 0.628 dB、相邻最大 0.283 dB、True Peak 0.235）；逐键 LUFS 最大 ±0.028 dB，低频平均 +0.018 dB、高频平均 −0.010 dB；HF/centroid 与 late/early 基本不变。Debug 12 复音 p50/p99 5.08/7.40 ms（46-1 5.31/7.43 ms）。证据在 `G:\source\projects\devpiano\build-win-msvc\acoustic-probe\phase46-2`。
 3. **46-3 8 线 Householder FDN**：`RoomReverbEngine` 从 4×4 Hadamard 升为 8 线 Householder（`A = I - (2/N)11^T`），保留现有 early taps、等功率干湿与 RT60 参数；每采样仅增加加法与一次乘。先确认 8 条延迟线长度互质且 RT60 换算仍按 48 kHz 参考。46-3 在 45-2 之后单独 A/B。
-   **状态（2026-11-27）**：已完成。8 条 48 kHz 基础延迟为 `1601/1861/2027/2237/2371/2539/2683/2903`（互质质数）；Householder 变换使用一次求和+一次乘法并保持支路能量。early taps、等功率干湿、feedback/damping 参数未改。旧峰值阈值尾音测试改为 Schroeder T30；48 kHz T30 约 `1.22/4.36/7.77 s`（旧 4 线 `1.15/3.98/6.99 s`，增加约 7–11%），跨 44.1/48/96 kHz 测试通过；120 例无 Room 基线 PASS（0.628/0.283/0.235）；O2 单立体声流处理约 64 ns/sample（旧 4 线约 52 ns/sample），约 33 µs/512 块；无 Room 的 12 复音基线 p50/p99 4.90/7.34 ms。证据在 `acoustic-probe\phase46-3`。需人工 A/B 尾音长度与空间感。
-4. **46-4 性能证据（需用户明确批准 Release）**：测 p50/p99 frame time、12/16 复音、低音压力；再决定是否需要 SoA/SIMD。不以 Debug 9.73 ms 作为重构依据；不把 Release 测量写成默认门禁。
+   **状态（2026-11-27）**：已完成。8 条 48 kHz 基础延迟为 `1601/1861/2027/2237/2371/2539/2683/2903`（互质质数）；Householder 变换使用一次求和+一次乘法并保持支路能量。early taps、等功率干湿、feedback/damping 参数未改。旧峰值阈值尾音测试改为 Schroeder T30；48 kHz T30 约 `1.22/4.36/7.77 s`（旧 4 线 `1.15/3.98/6.99 s`，增加约 7–11%），跨 44.1/48/96 kHz 测试通过；120 例无 Room 基线 PASS（0.628/0.283/0.235）；O2 单立体声流处理约 64 ns/sample（旧 4 线约 52 ns/sample），约 33 µs/512 块；无 Room 的 12 复音基线 p50/p99 4.90/7.34 ms。证据在 `acoustic-probe\phase46-3`。用户人工试听（2026-11-27）：Studio/Chamber/Concert Hall 尾音长度与空间感未发现明显问题，可接受。
+4. **46-4 性能证据（Release）**：测 p50/p99 frame time、12/16 复音、低音压力；再决定是否需要 SoA/SIMD。不以 Debug 9.73 ms 作为重构依据；不把 Release 测量写成默认门禁。
+   **状态（2026-11-27）**：已完成。Windows MSVC Release（`build-win-msvc-release`）、48 kHz/24-bit、block 512、warmup 94 blocks、5 s × 3 repeats、每配置 5 个独立进程；AMD Ryzen 5 5600X，Windows Ultimate Performance。基准只测 `BuiltinSynthesiser`（可选 `RoomReverbEngine`），不含 WAV I/O、`buffer.clear()`、AudioDevice/插件/limiter。5 进程 p50/p99 中位数与最大 max（ms）：
+
+   | 配置 | p50 | p99 | max |
+   |---|---:|---:|---:|
+   | 12 中音 dry | 0.531 | 0.978 | 1.823 |
+   | 12 中音 Room | 0.560 | 1.032 | 2.170 |
+   | 12 低音 dry | 0.795 | 1.539 | 5.311 |
+   | 12 低音 Room | 0.826 | 1.589 | 5.938 |
+   | 16 中音 dry | 0.654 | 1.199 | 4.252 |
+   | 16 中音 Room | 0.684 | 1.239 | 4.179 |
+   | 16 低音 dry | 1.004 | 1.929 | 4.277 |
+   | 16 低音 Room | 1.028 | 1.968 | 2.093 |
+
+   **决策**：12 复音保留为产品默认；16 复音在 Release 下仍有充足余量（最差 p99 1.97 ms，约 18% 周期），但不改 `kPianoVoiceCount`，如需启用须单独批准并复测偷声部/尾音。Room 路径在 12/16 复音下 p50 仅增加约 0.02–0.04 ms、p99 增加约 0.04–0.05 ms，与 46-3 的 O2 单流 64 ns/sample 一致。少数进程出现 4–6 ms 的 max 离群（Windows 调度），p99 稳定，最大 max 5.94 ms 仍低于 10.67 ms 周期。Release 余量远高于 SoA/SIMD 门槛，**不做 SoA/SIMD**，性能线关闭。工具新增 `--benchmark-only`、`--benchmark-polyphony`、`--benchmark-notes`、`--bass-stress`、`--benchmark-warmup`、`--benchmark-repeats`、`--benchmark-room`、`--wet`；证据在 `G:\source\projects\devpiano\build-win-msvc-release\acoustic-probe\phase46-4`。
 
 **进入条件**：45-1/45-3 声音目标稳定；45-2 不作为 46-1/46-2 的前置；用户批准总线/FDN 行为变更；Phase 40–44 基线仍可复现。
 
 **实施边界**：不做弦—音板双向实时闭环、不做 3D 空气 FEM、不重写波导主弦、不改 88 键交感模型、不改变总线所有权与尾音契约。
 
-**验证与出口**：全键 LUFS/True Peak/HF/centroid 不回退；RT60 与尾音 A/B；12 复音 CPU 不超预算；Release 测量结论单独记录；46-1/46-2/46-3 各自单独 A/B，不合并提交。
+**验证与出口**：全键 LUFS/True Peak/HF/centroid 不回退；RT60 与尾音 A/B；12 复音 CPU 不超预算；Release 测量结论单独记录；46-1/46-2/46-3 各自单独 A/B，不合并提交；46-4 测量单独记录。
 
 **失败/回退**：模态密度若只增加CPU不改善频谱，回退 16 模态；桥权重若破坏音区平衡，回退中性权重；FDN 若尾音密度无改善或 RT60 漂移，回退 4×4 Hadamard。
 
@@ -107,8 +121,8 @@ Phase 45-1/45-2/45-3 已完成（2026-11-27）；Phase 46-1/46-2/46-3 已完成�
 
 ## 3. 恢复规则与实施顺序
 
-- Phase 45-1/45-2/45-3 已完成（2026-11-27）；Phase 46-1/46-2/46-3 已完成，46-4 与 47-2/47-3 尚未启动。本页只维护规划与进入条件，不把未启动项写成已实现。
-- 实施顺序：47-1（已完成 2026-11-27）→ 45-1（已完成 2026-11-27）→ 45-3（已完成 2026-11-27）→ 46-1（已完成 2026-11-27）→ 46-2（已完成 2026-11-27）→ 45-2（已完成 2026-11-27）→ 46-3（已完成 2026-11-27）；46-4 需用户明确批准 Release，47-2 按需。45-2 是跨阶段收尾项，不阻塞 46-1/46-2；46-3 在 45-2 之后单独 A/B。45-1/45-3/46-1/46-2/46-3 各自单独提交，46-4 需用户明确批准 Release。
+- Phase 45-1/45-2/45-3 已完成（2026-11-27）；Phase 46-1/46-2/46-3/46-4 已完成（2026-11-27）；47-2/47-3 尚未启动。本页只维护规划与进入条件，不把未启动项写成已实现。
+- 实施顺序：47-1（已完成 2026-11-27）→ 45-1（已完成 2026-11-27）→ 45-3（已完成 2026-11-27）→ 46-1（已完成 2026-11-27）→ 46-2（已完成 2026-11-27）→ 45-2（已完成 2026-11-27）→ 46-3（已完成 2026-11-27）→ 46-4（已完成 2026-11-27）；47-2 按需。45-2 是跨阶段收尾项，不阻塞 46-1/46-2；46-3 在 45-2 之后单独 A/B。45-1/45-3/46-1/46-2/46-3 各自单独提交；46-4 测量单独记录，Release 测量不作为默认门禁。
 - 测试按风险驱动：Phase 45 保留 NoteOff 身份、录音回放、复音/偷声部与 ADSR 生命周期回归；Phase 46 保留尾音/总线所有权、实时/离线一致性与 12 复音边界；Phase 47 只保留工具回放与 descriptor 覆盖检查。声音目标以离线测量 + Windows Debug 实机试听为主，不把文案、默认值回读或单次更响当测试目的；一次性探针在证据归档后移除。
 - 默认仅 Windows Debug 验证；Release 仅在用户明确要求时执行。构建、测试、实时/离线、文件保护和验证纪律仍按 [quickstart](../guides/quickstart.md)、[acceptance](../reference/acceptance.md) 与 [AGENTS.md](../../AGENTS.md)。
 - Phase 39 不补记为通过；已消费的独立验证、采集和判决不重放、不补批或放宽。未来外部参考校准须另立新任务。
