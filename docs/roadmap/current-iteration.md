@@ -78,7 +78,7 @@ Phase 45–47 均未启动。执行顺序为 47-1 → 45-1 → 45-3 → 46-1 →
 **任务与顺序**：
 
 1. **47-1 离线测量/回归工具**：复用 `WavExportOptions` 与现有导出路径，输入 MIDI/参数，输出 88 键 LUFS、True Peak、0–50 ms 谱、HF/centroid、相邻半音差与 frame time 的 JSON；工具放在开发期脚本/测试侧，不新增产品 UI 或运行时依赖。先用 Phase 40/44 已记录数值做回放校验。该工具是 45-2 的前置，可先于 45-1/45-3 启动。
-   **状态（2026-11-27）**：已完成。`devpiano_tests --acoustic-probe` 渲染 120 例 48 kHz/24-bit WAV（88 键 v70 + 16 代表键 v41/v98），`tools/acoustic_probe.py` 输出 LUFS/True Peak/起音/RMS/HF/centroid/相邻差与 12 复音 benchmark。Phase 44-3 Standard 回放校验 PASS：v70 LUFS 极差 0.650 dB、相邻最大 0.275 dB、v98 True Peak 0.236；Debug 12 复音 p50/p99/max 4.41/5.88/7.33 ms。证据在 `G:\source\projects\devpiano\build-win-msvc\acoustic-probe\phase40`；工具不进入产品包。
+   **状态（2026-11-27）**：已完成。`devpiano_tests --acoustic-probe` 渲染 120 例 48 kHz/24-bit WAV（88 键 v70 + 16 代表键 v41/v98），`tools/acoustic_probe.py` 输出 LUFS/True Peak/起音/RMS/HF/centroid/相邻差与 12 复音 benchmark。Phase 44-3 Standard 回放校验 PASS：v70 LUFS 极差 0.650 dB、相邻最大 0.275 dB、v98 True Peak 0.236；Debug 12 复音 p50 4.41 ms、p99 约 5.7–5.9 ms、max 约 7.3 ms（单次运行，非 SLA）。证据在 `G:\source\projects\devpiano\build-win-msvc\acoustic-probe\phase40`；工具不进入产品包。
 2. **47-2 参数 descriptor 表**：为钢琴声学参数定义单一 descriptor（id、默认、范围、序列化 key、locale key、UI 控件）；先让下一次新增参数走通全链路，旧字段逐步迁移，不一次性重写 `SettingsModel`/`Preset`。加一个测试确保 descriptor 覆盖 `PianoStyleParameters` 字段。
 3. **47-3 参考指标（可选）**：在离线工具中加入与参考录音的 MFCC-L2/谱质心差，作为音色回归，不作为实时 DSP 目标。
 
