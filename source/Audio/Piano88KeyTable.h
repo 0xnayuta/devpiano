@@ -27,6 +27,10 @@ struct PianoNoteParams {
 
 //==============================================================================
 /// 消除 t=0 所有正弦分音同相机械聚焦造成的狄拉克脉冲式波峰，赋予真实敲击相位色散。
+/// Phase 18-B 直接采用 danielpodrazka/piano 的 3x64 初始相位表（MIT，Copyright
+/// 2025-2026 Daniel Podrazka；见 THIRD-PARTY-NOTICES.md），Phase 42-1b 仅保留第 0 行
+/// 供所有同音弦使用。Phase 45-2 独立对照 A/B/C1/C2 后保留本行；C1/C2 未采用，
+/// 生产默认未改。B/C1/C2 实验值见 `tools/phase_candidates.json`。
 inline constexpr float kOptPhaseTable[64]
     = { 4.0132f, 2.4928f, 1.6716f, 0.8096f, 0.9535f, 5.3968f, 3.8574f, 2.4742f, 4.9981f, 1.8611f, 3.7908f,
         5.9255f, 0.6455f, 0.3276f, 5.8913f, 5.4893f, 4.6771f, 1.2357f, 3.2581f, 2.7561f, 0.8428f, 4.0558f,

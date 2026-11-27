@@ -588,6 +588,8 @@ if (BUILD_TESTS)
 
         # 测试代码
         source/tests/TestRunner.cpp
+        source/tests/AcousticProbe.cpp
+        source/tests/AcousticProbe.h
         source/tests/TestHelpers.h
         source/tests/KeyMapTypesTest.cpp
         source/tests/MidiFileImporterTest.cpp

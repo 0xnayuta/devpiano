@@ -12,7 +12,7 @@
 - [`reference/project-scope.md`](reference/project-scope.md)：了解项目定位、核心能力与明确非目标。
 - [`reference/brand-guidelines.md`](reference/brand-guidelines.md)：品牌标识标准、Logo 几何网格、字标、双蓝职责与图形语言规范。
 - [`reference/architecture.md`](reference/architecture.md)：理解当前 JUCE 架构、DSP 物理建模、JIVE 声明式 UI 与模块职责。
-- [`roadmap/roadmap.md`](roadmap/roadmap.md)：了解项目演进历史、当前全阶段完成状态与路线图。
+- [`roadmap/roadmap.md`](roadmap/roadmap.md)：了解项目演进历史、当前阶段状态与路线图。
 - [`guides/quickstart.md`](guides/quickstart.md)：快速配置 WSL + Windows 镜像构建环境与常用命令速查。
 
 ### 2. 日常开发与工程纪律
@@ -63,7 +63,7 @@
 
 ### 5. 历史档案（`archive/`）
 
-- [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表，含 Phase 35/36、[Phase 37/38 完成记录](archive/phase37-38-piano-calibration-and-keyboard-performance.md)、[Phase 39 历史归档](archive/phase39-acoustic-baseline-and-voicing-calibration.md)、[Phase 39.5 历史归档](archive/phase39-5-jive-core-pruning-and-v2-selective-port.md) 与 [R0–R11 结构整理归档](archive/r0-r11-physical-piano-source-refactor.md)；原任务、直接证据和修复归属不再占用当前迭代入口。
+- [`archive/README.md`](archive/README.md)：历史归档索引与现行替代关系表，含 Phase 35/36、[Phase 37/38 完成记录](archive/phase37-38-piano-calibration-and-keyboard-performance.md)、[Phase 39 历史归档](archive/phase39-acoustic-baseline-and-voicing-calibration.md)、[Phase 39.5 历史归档](archive/phase39-5-jive-core-pruning-and-v2-selective-port.md)、[R0–R11 结构整理归档](archive/r0-r11-physical-piano-source-refactor.md) 与 [Phase 40–44 声学/总线归档](archive/phase40-44-acoustic-calibration-and-whole-body-bus.md)；原任务、直接证据和修复归属不再占用当前迭代入口。
 
 ---
 

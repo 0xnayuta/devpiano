@@ -113,7 +113,7 @@ flowchart TD
 
 3. **固定微初相色散矩阵（Micro-Phase Dispersion Table）**：
    - 避免 $t=0$ 所有分音同相聚焦；
-   - 内嵌固定 64 点跨分音初始相位表（`kOptPhaseTable`）；同一分音的所有同音弦共享该相位，使一次琴槌击弦的三根弦同相起振；不包含 STFT 最优相位训练输入或认证声明，不将其包装成实测最优相位。
+   - 内嵌固定 64 点跨分音初始相位表（`kOptPhaseTable`）；同一分音的所有同音弦共享该相位，使一次琴槌击弦的三根弦同相起振；不包含 STFT 最优相位训练输入或认证声明，不将其包装成实测最优相位。该表数值来自 `danielpodrazka/piano` 的 MIT 许可表（Phase 18-B 采用，Phase 42-1b 保留第 0 行），原表不是本项目独立训练结果；归属与许可见 `THIRD-PARTY-NOTICES.md`。45-2 以 Salamander V3 48k/24bit 的 21 个起音锚点独立对照 A/B/C1/C2 后保留 A：实际引擎平均 mel-STFT 损失 2.174/2.050/2.192/2.004，平均峰值 0.0963/0.0295/0.0938/0.0723；B 峰值跌约 69%，C2 跌约 25%，C1 未优于 A。2026-11-28 以修正弦模型的优化器重跑 C1/C2（未改生产表），结论不变。实验表与数据在 `tools/phase_candidates.json`，生产表未改。
 
 4. **同音多弦 Mid-Side 差分立体声展开与非对称拍频（Weinreich 1977 JASA）**：
    - 同一分音的双弦/三弦使用相同的初始相位（$s_1(0)=s_2(0)=s_3(0)$），由微失谐自然演化出拍频；以 Mid-Side 差分矩阵展开至立体声场（以三弦为例）：
@@ -125,7 +125,7 @@ flowchart TD
 5. **低音钢弦纵向波先驱脉冲（Longitudinal Precursor Ping，Bank 2005/2010）**：
    - 钢弦内部纵向声速 $v_L = \sqrt{E/\rho} \approx 5100\text{ m/s}$，远快于横波传播速度；
    - 为低音琴键（MIDI 21～55）注入极速衰减（$15\text{ ms}$）的金属张力先导冲击，赋予低音真实的钢铁撞击张力；
-   - 纵波激励不再叠加在直达声上，而是以 0.65 增益送入唯一的 `PianoWholeBodyBus` drive，经 16 峰音板、交感弦池、琴盖和视角处理；它不参与同音弦相干求和，也不继承弦体增益。MIDI 48～55 使用 smoothstep 连续收尾，MIDI 56 起为零；该边界是工程整音值，不是实测纵向模态截止。
+   - 纵波激励不再叠加在直达声上，而是以 0.65 增益送入唯一的 `PianoWholeBodyBus` drive，经 24 峰音板、交感弦池、琴盖和视角处理；它不参与同音弦相干求和，也不继承弦体增益。MIDI 48～55 使用 smoothstep 连续收尾，MIDI 56 起为零；该边界是工程整音值，不是实测纵向模态截止。
 
 6. **泛音时间滞后膨胀与绽放（Harmonic Blooming）**：
    - 强奏时弦体非线性张力将能量持续泵浦至高阶分音；
@@ -138,6 +138,10 @@ flowchart TD
    - 采用确定性逐键整数哈希，为 88 键分别注入 $\pm 4.5\%$ 的微观不谐和度刚度扰动 $\Delta B$ 与 $\pm 0.3\sim 1.2\text{ cents}$ 基频分散微调；
    - 真实再现手工缠弦厚度微偏差与挂弦张力离散度，彻底打破纯算法生成的过分对称与人工冰冷感。
 
+9. **同音重击状态继承与力度依赖两段衰减（Phase 45-1/45-3）**：
+   - 同音且按键仍按下时，重复 NoteOn 复用同一 voice：保留主弦 `cos/sin/epsilon` 相位与当前残余能量，旧能量按 0.50 吸收后叠加新锤能量，再触发锤击、接触、扩散、滑音与 ADSR；`NoteOff` 身份和共享总线按键计数仍属于该 voice。未按键的同音（含踏板延音）仍分配新 voice；不新增第二持久 voice，也不改复音数。
+   - 慢分量权重 `slowWeight` 在固定音区表上按力度线性调制：v41 +15%、v98 −15%，v70 约不变；总幅度由既有 L1 归一化保持不变，只改变 fast/slow 初始分配，不新增逐键补偿表，也不改 `fastDecayRatio`。120 例 v70 基线仍在容差内；v41/v98 的 1.1–1.3 s / 0.1–0.3 s RMS 比值平均 +7.3%/−7.5%，v70 −0.15%，8 连击 True Peak 未超过单音 0.236 基线。
+
 ---
 
 ### 2.3 琴桥与共鸣系统（Bridge, Soundboard & Resonance System）
@@ -145,14 +149,16 @@ flowchart TD
 1. **长短琴桥交界（Bridge Break）**：
    - 低音长琴桥与主琴桥在 MIDI 43/44（G2/G#2）处划分（描述性声学分区）；弦数在 MIDI 48（C3）转入三弦，弦长/阻尼为连续插值、无阶跃；**刚度 B 的原 +43% 阶跃假设已由官方参考实测否定**（43/45/47/48 平滑递增），生产 B 表冻结于 19 节点（17 个官方参考实测锚点 + 96/108 两文献外推节点；26/52/57 由 interp-training 扩充），停止接收入训锚点。
 
-2. **16 峰正交云杉木物理音板模态组（Bank 2010 / Chabassier 2019）**：
-   - 挂载 16 组精确调谐的二阶带通共振滤波器，全频段覆盖云杉木音板核心模态：
+2. **24 峰正交云杉木物理音板模态组（Bank 2010 / Chabassier 2019；46-1）**：
+   - 挂载 24 组精确调谐的二阶带通共振滤波器，全频段覆盖云杉木音板核心模态：
      - `48 Hz / 68 Hz`：音板与背架底箱主呼吸模态；
      - `95 Hz / 135 Hz`：低音长琴桥弯曲模态；
      - `185 Hz / 250 Hz`：音板主板面弯曲与对角线模态；
      - `340 Hz / 460 Hz`：肋木与琴桥交叉耦合模态；
      - `620 Hz / 820 Hz / 1080 Hz`：中高频木质辐射模态；
-     - `1380 Hz / 1680 Hz / 1850 Hz / 2050 Hz / 2250 Hz`：各向异性高频散射模态。
+     - `1380 Hz / 1680 Hz / 1850 Hz / 2050 Hz / 2250 Hz`：各向异性高频散射模态；
+     - `300 / 400 / 540 / 710 / 940 / 1220 / 1510 / 1940 Hz`：46-1 新增的中高频插值填充。低频 ≤250 Hz 保持 6 峰稀疏，中高频变为 18 峰密集；频率、Q 与左右权重由相邻 Bank/Chabassier 锚点插值并各自归一为 1.0，不是新的实测模态锚点。
+   - 24 峰仍只在共享总线每采样处理一次；声部不复制音板状态。
 
 3. **云杉木 8 kHz 高频粘滞内耗低通滤波器（Spruce Soundboard Filter）**：
    - 模拟天然云杉木纤维对超高频能量的各向异性粘滞吸收，消除电子合成器常见的铁皮金属盒共鸣毛刺，赋予音色深厚温暖的木质感。
@@ -162,6 +168,7 @@ flowchart TD
    - 依据 88 键在长短琴桥上的物理跨度（低音偏左、高音偏右），结合音板散射矩阵计算立体声投影，消除单声道耳膜居中压迫感。
    - 42-4 使用等功率声像：`directPan = 0.15 + 0.70 keyPos`，`angle = directPan * pi/2`，`L = cos(angle)`、`R = sin(angle)`；中央 `pan=0.5` 仍为 `0.7071`，两端不再有旧线性 `sqrt2` 映射的 `+1.73 dB` 功率翘曲。`boundedSinCos` 只在 `startNote` 计算一次，实时逐采样路径不使用库函数三角。
    - L1/L2 小样本对照后保留现行 L1 归一化：L2 使 LUFS 平均抬升约 5.3 dB（最大 10.9 dB），最大 True Peak `0.98` 且出现 892 次 limiter 命中；L1 + 等功率的最大 True Peak 为 `0.383`、无 limiter。归一化不切换，避免破坏已有边界和峰值裕量。
+   - 46-2 在 `PianoSynthVoice::renderToBus` 的共享总线 `drive` 上增加连续三锚点桥耦合权重：A0 `1.10`、C4 `1.00`、C8 `0.94`。它只缩放湿音板/交感/纵波驱动，不改变直达声、partial 阶数权重、音区输出增益或声像；低音长桥略强、高音短桥略弱。该权重是工程桥耦合代理，不是实琴逐键测量。120 例 v70 参考 PASS（0.628 dB 极差、0.283 dB 相邻最大、True Peak 0.235）；逐键 LUFS 最大变化 ±0.028 dB，低频平均 +0.018 dB、高频平均 −0.010 dB，HF/centroid 与 late/early 尾音代理基本不变。
 
 5. **Duplex 非发音弦段**：
    - 每声部固定两个主弦驱动的阻尼旋转模态，代表相对发音弦长的前/后非发音段；逆长度比为 5.0 / 3.02，衰减时间常数 0.09 / 0.16 秒。刚度、实际起音第一分音与老化扰动共同决定段频率；这些是模型参数，不是特定琴型测量。
@@ -178,7 +185,7 @@ flowchart TD
    - **16 通道踏板物理隔离**：`BuiltinSynthesiser` 独立维护 16 个 MIDI 通道的踏板物理状态矩阵（CC64 延音 `sustainPedalByChannel`、CC66 保持音 `sostenutoPedalByChannel`、CC67 柔音 `softPedalByChannel`）；
    - **CC66 捕获边界**：仅低→高捕获当时仍按住的声部；重复高值不捕获后起音，被抢占声部的新音不继承旧捕获。CC64/66 释放顺序、同采样排序、逐通道隔离和 Panic 均按声部生命周期处理；电脑键盘入口及原目标释放见 [键盘分册](keyboard-mapping.md)。
    - 踩下 CC64 延音踏板时激活 12 半音全开放交感共鸣弦池，使演奏音符的泛音激发全琴未制音琴弦的共振；
-   - **整琴踏板与空间 owner**：`BuiltinSynthesiser` 持有唯一的 `PianoPedalAcoustics`（仅机械扫掠与踏板落木声）与唯一的 `PianoWholeBodyBus`；总线持有 16 峰音板、8 kHz 湿路径、唯一 12 音级交感弦池、琴盖与视角，并接收所有活动声部的 `noteOnKey/noteOffKey`、聚合 `anySustainDown`、音符激励和踏板 shock。跨音符开放弦交感因此正式共享；单声部结束不 reset 总线，只有 Panic / `allNotesOff(0,false)` / CC120（无其他活动声部）/ 采样率重准备 / rebuild 才清空。
+   - **整琴踏板与空间 owner**：`BuiltinSynthesiser` 持有唯一的 `PianoPedalAcoustics`（仅机械扫掠与踏板落木声）与唯一的 `PianoWholeBodyBus`；总线持有 24 峰音板、8 kHz 湿路径、唯一 12 音级交感弦池、琴盖与视角，并接收所有活动声部的 `noteOnKey/noteOffKey`、聚合 `anySustainDown`、音符激励和踏板 shock。跨音符开放弦交感因此正式共享；单声部结束不 reset 总线，只有 Panic / `allNotesOff(0,false)` / CC120（无其他活动声部）/ 采样率重准备 / rebuild 才清空。
    - **踏板机械扫掠声与共鸣冲击**：踩下踏板时激发成对的机械毛毡抬起刮擦与空气呼啸脉冲（`pedalWhoosh`，带通 $1350\text{ Hz}$，$Q=1.25$；抬起带通 $950\text{ Hz}$）以及全琴瞬态弱冲击激发（`pedalResonanceShock`，双共振冲击峰 $58\text{ Hz}$ 与 $116\text{ Hz}$），由 `pedalNoiseLevel`（默认 0.6）线性缩放；
    - 支持**未踩踏板时的单键开放主弦交感（Unpedaled Resonance）**：由持有音符对应音级的开放主弦产生交感振动；Duplex 非发音段见上节，不混称为同一模型；
    - **CC67 弱音/移位踏板物理拟真（Una Corda / Soft Pedal）**：踩下 CC67 踏板时击弦机向右微移，敲击毛毡侧面相对柔软区域（有效硬度衰减至多 25%，接触时间延长至多 20%），中高音区三弦组产生三弦敲两弦（Trichord to Bichord）声能衰减（至多 30% 衰减），呈现柔和朦胧的暗调色泽；
@@ -202,9 +209,10 @@ flowchart TD
      - 演奏者视角：88 键琴桥展开，低音居左、高音居右，近场宽广；
      - 听众视角：声像左右镜像翻转，并施加适度的高频空气吸收与中置凝聚感。
 
-5. **立体声早期反射 + FDN 房间混响网络（RoomReverbEngine，Phase 44-1）**：
-   - 内置纯数学算法立体声混响网络：左右早期反射抽头（7.1/11.3/17.9/23.3 ms）保留琴桥空间定位，随后进入 4×4 归一化 Hadamard 反馈延迟网络；每条反馈支路带一阶频率相关阻尼，阻尼极点按 48 kHz 参考换算到当前采样率，无外部 IR；
-   - 提供 **Studio（录音棚 0.6 s）**、**Chamber（室内乐厅 1.5 s）** 与 **Concert Hall（音乐厅 2.4 s）** 三大经典声学空间预设（C++ 枚举 `ReverbSpace::studio`、`chamber`、`concertHall`；文件持久化标识分别为 `studio`、`chamber`、`concert_hall`，旧别名 `hall` 不再映射，未知标识安全回退至 `chamber`）；48 kHz 相对 -60 dB 实测约 0.58/1.50/2.63 s；
+5. **立体声早期反射 + 8 线 Householder FDN 房间混响网络（RoomReverbEngine，Phase 44-1 / 46-3）**：
+   - 内置纯数学算法立体声混响网络：左右早期反射抽头（7.1/11.3/17.9/23.3 ms）保持琴桥空间定位，随后进入 **8 线 Householder 反馈延迟网络**（$A=I-\frac{2}{N}\mathbf{1}\mathbf{1}^{T}$，$N=8$）；每条反馈支路带一阶频率相关阻尼，阻尼极点按 48 kHz 参考换算到当前采样率，无外部 IR；
+   - 48 kHz 基础延迟为 `1601/1861/2027/2237/2371/2539/2683/2903` 样本（均为质数，两两互质），按当前采样率缩放；Householder 反馈每样本只增加一次求和与一次乘法，且保持支路能量；
+   - 提供 **Studio（录音棚 0.6 s）**、**Chamber（室内乐厅 1.5 s）** 与 **Concert Hall（音乐厅 2.4 s）** 三大经典声学空间预设（C++ 枚举 `ReverbSpace::studio`、`chamber`、`concertHall`；文件持久化标识分别为 `studio`、`chamber`、`concert_hall`，旧别名 `hall` 不再映射，未知标识安全回退至 `chamber`）；反馈/阻尼参数未改，8 线模态分布使 48 kHz Schroeder T30 约从旧 4 线的 `1.15/3.98/6.99 s` 变为 `1.22/4.36/7.77 s`（增加约 7–11%）；用户 A/B 试听（2026-11-27）未发现明显问题，已接受；
    - 干湿使用 `boundedSinCos` 等功率混合；`reverbWet=0` 精确直通；静音尾部门控清除低于 -80 dB 的残余状态，无 denormal/NaN；
    - **直通与抗下溢保护**：`RoomReverbEngine::processStereo()` 在目标与平滑后的当前 wet 均 `<= 1e-4` 时旁路混响 DSP；实时入口启用 `juce::ScopedNoDenormals`，滤波器内部另有衰减归零保护。
 6. **动态声场空间漫射（Dynamic Spatial Diffusion）**：
@@ -227,6 +235,7 @@ flowchart TD
 | **同音微失谐** | `beatingDetuneRatio` | 0.0020 → 0.0（100 以下） / 0.00030（100–108） | 同分音所有弦同相起振；双弦各偏移半个比例，三弦低/中心/高各按完整比例。100–108 只对第一分音施加残余失谐，避免全三弦近相干平均造成音区电平损失；该残余模式使用 0.38 弦和尺度而非常规 1/3，仍不使用逐键补偿表；cents 应由频率比取对数，不使用线性近似当物理证明 |
 | **基础慢衰减** | `decaySeconds` | 4.8 s → 0.8 s | 决定琴弦慢分量自然延音长度 |
 | **快衰减比率** | `fastDecayRatio` | $0.12 \to 0.18$ | 琴弦早期辐射衰减速度与慢衰减之比 |
+| **慢分量权重** | `slowWeight` | 0.20 → 0.12（音区表） × 1.15 → 0.85（v41 → v98） | 决定 fast/slow 初始分配；45-3 按力度线性调制，L1 总幅度不变，不新增逐键表 |
 | **阻尼常数** | `b1` / `b2` | $0.25 \to 9.17\text{ s}^{-1}$ / $7.5\times10^{-5} \to 2.1\times10^{-3}\text{ m}^2\text{s}^{-1}$ | 当前模型使用 $b_1+b_2(m\pi/L)^2$；这里只澄清量纲，不认证材料常数或改变数值 |
 
 > **离散分区与相位收敛**：`stringCount` 与 `partialCount` 仍为离散配置，拍频分音保持 `min(partialCount,6)`，不恢复 MIDI 96 硬切。同一分音的双弦/三弦在 $t=0$ 使用相同初相（`kOptPhaseTable` 仅保留跨分音色散），失谐自然产生拍频与 Mid-Side 展开；不再使用 `gUnisonExcitation` 的 80–100 相位收敛补丁或 `unisonScale`。弦数能量采用固定 `1/N` 平均尺度：$t=0$ 峰值保持单弦参考，稳态功率按 `1/N` 下降；该尺度由 35/36、47/48 交界审计选定，不作为逐键补偿表。Phase 44-3 的 100–108 残余模式仅对第一分音使用 0.38 尺度，避免近相干三弦平均导致顶端音区掉响。振幅采用单音总预算，不逐分音加补偿。历史 U2 的台阶改善保留为局部结构证据，人工验收与默认整音切换记录见 [Phase 39 归档](../../archive/phase39-acoustic-baseline-and-voicing-calibration.md#task-39-5--39-3-用户受控试听反馈与音色验收重开记录2026-10-19)。
@@ -243,7 +252,7 @@ flowchart TD
 |---|---|:---:|---|
 | **Brightness（亮度）** | `setPianoParameters` / `pianoBrightness` | 0.5 | 调节激振分音倾斜及整体阻尼缩放，不直接改变有效硬度 |
 | **Hammer Hardness（硬度）** | `setPianoParameters` / `pianoHammerHardness` | 0.5 | 只通过同一名义硬度 `h_hammer` 影响接触时间、分音频谱和瞬态核；分音频谱使用 CC67 后的 `h_contact`，不再另设分音硬度倾斜 |
-| **Resonance（共鸣）** | `setPianoParameters` / `pianoResonance` | 0.5 | 调节 16 峰音板共振 Wet 比率（18%~34%）与延音衰减时间缩放 |
+| **Resonance（共鸣）** | `setPianoParameters` / `pianoResonance` | 0.5 | 调节 24 峰音板共振 Wet 比率（18%~34%）与延音衰减时间缩放 |
 | **Pedal Noise（机械噪声）** | `setPedalNoiseLevel` / `pedalNoiseLevel` | 0.6 | 调节延音踏板扫掠呼啸与共鸣冲击的机械动作音量（0..1） |
 | **Felt Ageing（毛毡老化）** | `setFeltAgeingAmount` / `feltAgeingAmount` | 0.0 | 调节琴槌羊毛纤维磨损压实深度，注入微观穿透力与硬化质感（0..1） |
 | **Una Corda（弱音踏板）** | `setSoftPedalDown` / `softPedalDown` | false | 琴槌击弦机侧向位移，毛毡软化与三弦敲两弦声能衰减（MIDI CC 67，电平 0..1） |
@@ -346,7 +355,7 @@ void setWholeBodyTuning(Temperament temperament, double referencePitchA4, bool s
 
 | 测试套件 / 物理用例 | 验证物理机理与断言指标 | 状态 |
 |---|---|:---:|
-| **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、接触释放音频反例、生成分量振幅与同音频率中心、三力度锚点插值/非法配置/单一硬度路径及滚降差异、8 kHz 音板湿路径木质频带、44-3 木质三模态的键位/时长、纵波独立输出与 100–108 残余失谐边界、完整 mono 下混及既有生命周期；不固定参数锚点声明值 | [x] 已通过（整体音色由用户人工验收） |
+| **PianoSynthVoiceTest** | 实际泛音/音色/双阶段衰减、45-1 同音重击复用/相位保留、45-3 力度两段衰减、45-2 每弦相位实验映射、接触释放音频反例、生成分量振幅与同音频率中心、三力度锚点插值/非法配置/单一硬度路径及滚降差异、8 kHz 音板湿路径木质频带、44-3 木质三模态的键位/时长、纵波独立输出与 100–108 残余失谐边界、完整 mono 下混及既有生命周期；不固定参数锚点声明值 | [x] 已通过（整体音色由用户人工验收） |
 | **PianoTuningAndDuplexTest** | 实际 A4 中心峰、保留/剪枝边界的生产频谱、Duplex 尾音与分段不变性、原通道所有权、mono 尾音及低率越界旁路；默认整音下 C4 上方分音平衡与 95/96 三力度连续性 | [x] 已通过 |
 | **PianoSnapshotWavParityTest** | 非零混响、同采样快照/NoteOn、原身份释放及 mono 琴盖/视角/Room 的实时/内置 WAV 对照；误差限于 16-bit 量化 | [x] 已通过 |
 | **PianoWholeBodyBusTest** | 共享交感池跨音符开放弦激励、声部结束不截断音板/琴盖/视角尾音 | [x] 已通过 |
@@ -355,7 +364,7 @@ void setWholeBodyTuning(Temperament temperament, double referencePitchA4, bool s
 | **PedalAcousticsTest** | CC64 共鸣/机械动作；CC66 捕获边沿、重复高值、声部抢占、CC64/66 释放顺序与同采样逐通道隔离；跨区域 Sync Pedal 原目标释放 | [x] 已通过 |
 | **FeltAgeingTest** | 逐键扰动确定性与范围、老化前后的实际音频差异、引擎老化参数限幅；不以 getter 或测试侧公式重算证明音高行为 | [x] 已通过 |
 | **PerspectiveProcessorTest** | 演奏者/听众立体声像反转镜像、距离高频滚降、声像能量分布与无下溢数值收敛 | [x] 已通过 |
-| **RoomReverbEngineTest** | Studio/Chamber/Concert Hall 三档衰减时间常数、立体声早期反射/分离度、4×4 FDN 跨 44.1/48/96 kHz 衰减一致性、等功率干湿与旁路、长时静音衰减无下溢 denormal、标识回退；getter 与声明断言不作为逐采样 DSP/逐 bit 保证 | [x] 已通过 |
+| **RoomReverbEngineTest** | Studio/Chamber/Concert Hall 三档 Schroeder T30、8 条质数延迟互质、Householder 能量/共模变换、立体声早期反射/分离度、8 线 FDN 跨 44.1/48/96 kHz T30 一致性、等功率干湿与旁路、长时静音衰减无下溢 denormal、标识回退；getter 与声明断言不作为逐采样 DSP/逐 bit 保证 | [x] 已通过 |
 | **SpatialAcousticsTest** | 空间声学设置与当前预设字段磁盘往返、损坏/越界输入限幅；声场与混响 DSP 行为由对应处理器套件验证；不以 getter 复制代替 DSP 保证 | [x] 已通过 |
 | **AcousticSettingsPersistenceTest** | Settings 声学字段钳制、PerformancePreset 声学 round-trip、NY 风格的 HammerVoicing/琴盖/Room 身份经预设保存加载后仍可识别、默认 Standard 中性不变 | [x] 已通过 |
 | **PianoSynthVoiceTemperamentTest** | 持续发声期间改律制/A4 后真实音频有限与稳定；A4 声音基准由实际谱峰回归验证，不复制 getter 公式 | [x] 已通过 |

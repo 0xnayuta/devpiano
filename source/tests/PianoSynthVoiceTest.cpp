@@ -145,11 +145,14 @@ public:
         testBasicRenderingAndHarmonics();
         testHammerAndTransientDynamics();
         testDecayAndUnisonBeating();
+        testVelocityDependentSlowWeight();
         testResonatorAndAcousticCoupling();
         testVoiceLifecycleAndDynamics();
+        testSameNoteRetrigger();
         testHighTrebleFastRelease();
         testEngineIntegrationAndNumericalSafety();
         testZeroTrigSlaAndNumericalPrecision();
+        testExperimentalPhaseRows();
         testGeneratedComponentInvariants();
         testVoiceMonoDownmix();
     }
@@ -973,19 +976,73 @@ private:
         }
     }
 
+    void testVelocityDependentSlowWeight() {
+        beginTest("velocity shifts the two-stage decay split without changing strike total");
+        const auto& params = devpiano::audio::getNoteParams(60);
+        const auto slowRatio = [&](int velocity) {
+            VoiceFixture fixture;
+            fixture.synth.noteOn(1, 60, static_cast<float>(velocity) / 127.0f);
+            const auto& partial = fixture.voice()->mainString.partials[0];
+            const auto total = partial.levelFast + partial.levelSlow;
+            expectWithinAbsoluteError(total, partial.level, 1e-6f, "L1 normalization must preserve the strike total");
+            return total > 0.0f ? partial.levelSlow / total : 0.0f;
+        };
+
+        const auto soft = slowRatio(41);
+        const auto mid = slowRatio(70);
+        const auto loud = slowRatio(98);
+        expect(soft > mid && mid > loud, "weak strikes must retain more slow component");
+        expectWithinAbsoluteError(soft, params.slowWeight * 1.15f, 1e-4f);
+        expectWithinAbsoluteError(loud, params.slowWeight * 0.85f, 1e-4f);
+        expectWithinAbsoluteError(mid, params.slowWeight, 0.02f);
+
+        // 渲染后 slow 比例仍随力度分离：验证两段衰减确实进入渲染路径，
+        // 而不是只在起音时写入内部字段。
+        const auto renderedSlowRatio = [&](int velocity) {
+            VoiceFixture fixture;
+            juce::AudioBuffer<float> buffer(2, blockSize);
+            fixture.noteOnBlock(60, static_cast<float>(velocity) / 127.0f, buffer);
+            for (auto block = 0; block < 6; ++block) {
+                fixture.renderBlock(buffer);
+            }
+            const auto& partial = fixture.voice()->mainString.partials[0];
+            const auto total = partial.levelFast + partial.levelSlow;
+            return total > 0.0f ? partial.levelSlow / total : 0.0f;
+        };
+        const auto renderedSoft = renderedSlowRatio(41);
+        const auto renderedLoud = renderedSlowRatio(98);
+        expect(std::isfinite(renderedSoft) && std::isfinite(renderedLoud), "rendered decay state must stay finite");
+        expect(renderedSoft > renderedLoud, "rendered two-stage decay preserves the velocity split");
+    }
+
     void testResonatorAndAcousticCoupling() {
         beginTest("body resonator frequency response and stability (soundboard physics)");
         {
             auto leftWeight = 0.0f;
             auto rightWeight = 0.0f;
+            auto previousFrequency = 0.0f;
+            auto lowModalCount = 0;
+            auto highModalCount = 0;
+            expect(devpiano::audio::PianoWholeBodyBus::numResonators >= 24,
+                   "46-1 modal bank must contain at least 24 modes");
             for (auto i = 0; i < devpiano::audio::PianoWholeBodyBus::numResonators; ++i) {
                 const auto spec = devpiano::audio::PianoWholeBodyBus::resonatorSpec(i);
                 leftWeight += spec.weightLeft;
                 rightWeight += spec.weightRight;
+                expect(spec.frequency > previousFrequency, "soundboard modes must be strictly ascending in frequency");
+                previousFrequency = spec.frequency;
+                expect(spec.q > 0.0f && spec.q < 16.0f, "soundboard mode Q must be finite and stable");
+                if (spec.frequency < 250.0f) {
+                    ++lowModalCount;
+                } else {
+                    ++highModalCount;
+                }
                 const auto bandwidth = static_cast<double>(spec.frequency / spec.q);
                 const auto r = std::exp(-juce::MathConstants<double>::pi * bandwidth / kSampleRate);
                 expect(r > 0.0 && r < 1.0, "resonator " + juce::String(i) + " pole radius |r| < 1 is strictly stable");
             }
+            expect(lowModalCount < highModalCount,
+                   "46-1 keeps the bass modal region sparse and adds density in the mid/high range");
             expectWithinAbsoluteError(leftWeight, 1.0f, 1e-5f, "left soundboard modal weights sum to 1.0");
             expectWithinAbsoluteError(rightWeight, 1.0f, 1e-5f, "right soundboard modal weights sum to 1.0");
 
@@ -1003,6 +1060,23 @@ private:
             const auto trebleRightRms = trebleBuf.getRMSLevel(1, 0, trebleBuf.getNumSamples());
             expect(trebleRightRms > trebleLeftRms * 1.1f,
                    "treble note C7 is panned toward right channel on the bridge");
+        }
+
+        beginTest("46-2 per-note bridge drive weights slope from long bass to short treble");
+        {
+            const auto weightFor = [](int midiNoteNumber) {
+                VoiceFixture fixture;
+                fixture.synth.noteOn(1, midiNoteNumber, 0.7f);
+                return fixture.voice()->bridgeDriveWeight;
+            };
+            const auto bass = weightFor(21);
+            const auto middle = weightFor(60);
+            const auto treble = weightFor(108);
+            expectWithinAbsoluteError(bass, 1.10f, 1e-6f);
+            expectWithinAbsoluteError(middle, 1.00f, 1e-6f);
+            expectWithinAbsoluteError(treble, 0.94f, 1e-6f);
+            expectWithinAbsoluteError(weightFor(84), 0.97f, 1e-6f);
+            expect(bass > middle && middle > treble, "bridge drive weight falls continuously from bass to treble");
         }
 
         beginTest("sustain pedal sympathetic resonance and lid acoustics (Phase 21-A/B)");
@@ -1224,6 +1298,97 @@ private:
             fixture.synth.allNotesOff(0, false);
             fixture.renderBlock(buffer);
             expect(peakMagnitude(buffer) == 0.0f, "allNotesOff must silence output");
+        }
+    }
+
+    void testSameNoteRetrigger() {
+        beginTest("same-note retrigger preserves the held voice and oscillator phase");
+        {
+            VoiceFixture fixture;
+            auto* second = new PianoSynthVoice();
+            second->setVoiceIndex(1);
+            fixture.synth.addVoice(second);
+
+            juce::AudioBuffer<float> buffer(1, blockSize);
+            fixture.noteOnBlock(60, 0.35f, buffer);
+
+            auto* voice = fixture.voice();
+            const auto triggerBefore = voice->triggerCounter;
+            const auto sinBefore = voice->mainString.partials[0].sinState;
+            const auto cosBefore = voice->mainString.partials[0].cosState;
+            const auto activeBefore = voice->mainString.activePartials;
+            const auto energyBefore = voice->mainString.partials[0].levelFast + voice->mainString.partials[0].levelSlow;
+
+            fixture.synth.noteOn(1, 60, 0.95f);
+
+            expectEquals(voice->getCurrentlyPlayingNote(), 60);
+            expect(voice->isKeyDown(), "retrigger keeps the same key-down identity");
+            expectEquals(static_cast<int>(voice->triggerCounter), static_cast<int>(triggerBefore + 1));
+            expectEquals(voice->mainString.activePartials, activeBefore);
+            expectEquals(voice->mainString.partials[0].sinState, sinBefore);
+            expectEquals(voice->mainString.partials[0].cosState, cosBefore);
+            const auto energyAfter = voice->mainString.partials[0].levelFast + voice->mainString.partials[0].levelSlow;
+            expect(energyAfter > energyBefore, "retrigger must add hammer energy to the residual string state");
+            expect(voice->noteKeyActive, "retrigger must not double-register the bus key");
+            expect(!second->isVoiceActive(), "retrigger must not allocate the free second voice");
+        }
+
+        beginTest("eight same-note strikes reuse one voice without unstable growth");
+        {
+            VoiceFixture fixture;
+            auto* second = new PianoSynthVoice();
+            second->setVoiceIndex(1);
+            fixture.synth.addVoice(second);
+
+            juce::AudioBuffer<float> buffer(1, 8820);
+            fixture.noteOnBlock(60, 0.35f, buffer);
+            auto* voice = fixture.voice();
+            const auto triggerBefore = voice->triggerCounter;
+            constexpr std::array<int, 8> intervalsMs { 30, 60, 120, 200, 30, 60, 120, 200 };
+            constexpr std::array<int, 8> velocities { 41, 70, 98, 41, 70, 98, 41, 98 };
+
+            for (std::size_t strike = 0; strike < intervalsMs.size(); ++strike) {
+                fixture.synth.noteOn(1, 60, static_cast<float>(velocities[strike]) / 127.0f);
+                const auto interval = static_cast<int>(kSampleRate * intervalsMs[strike] / 1000.0);
+                buffer.clear();
+                fixture.synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, interval);
+                const auto peak = peakMagnitude(buffer);
+                expect(std::isfinite(peak), "retrigger output must stay finite");
+                expect(peak < 4.0f, "retrigger output must stay bounded");
+                expect(voice->isVoiceActive(), "the held voice must survive every retrigger");
+                expect(!second->isVoiceActive(), "each retrigger must reuse the same voice");
+            }
+
+            expectEquals(static_cast<int>(voice->triggerCounter),
+                         static_cast<int>(triggerBefore + static_cast<std::uint32_t>(intervalsMs.size())));
+            expectEquals(voice->getCurrentlyPlayingNote(), 60);
+            expect(voice->isKeyDown());
+        }
+
+        beginTest("same note with key up allocates a fresh voice instead of retriggering");
+        {
+            VoiceFixture fixture;
+            auto* second = new PianoSynthVoice();
+            second->setVoiceIndex(1);
+            fixture.synth.addVoice(second);
+
+            juce::AudioBuffer<float> buffer(1, blockSize);
+            fixture.synth.handleController(1, 64, 127);
+            fixture.synth.noteOn(1, 60, 0.6f);
+            buffer.clear();
+            fixture.synth.renderNextBlock(buffer, juce::MidiBuffer(), 0, buffer.getNumSamples());
+            auto* heldVoice = fixture.voice();
+            const auto heldTrigger = heldVoice->triggerCounter;
+
+            fixture.synth.noteOff(1, 60, 0.5f, true);
+            expect(!heldVoice->isKeyDown());
+            expect(heldVoice->isVoiceActive(), "sustain must keep the released voice alive");
+
+            fixture.synth.noteOn(1, 60, 0.8f);
+            expect(second->isKeyDown(), "a key-up same note must start a fresh voice");
+            expectEquals(second->getCurrentlyPlayingNote(), 60);
+            expectEquals(static_cast<int>(heldVoice->triggerCounter), static_cast<int>(heldTrigger));
+            fixture.synth.handleController(1, 64, 0);
         }
     }
 
@@ -1449,6 +1614,32 @@ private:
             expect(pedalMax > 0.0005f, "pedal whoosh and shock must render audible sound");
         }
     }
+    void testExperimentalPhaseRows() {
+        beginTest("45-2 experimental phase table maps rows to each string");
+        std::array<std::array<float, 64>, 3> table {};
+        table[0].fill(0.0f);
+        table[1].fill(juce::MathConstants<float>::halfPi);
+        table[2].fill(-juce::MathConstants<float>::halfPi);
+
+        VoiceFixture threeStrings;
+        auto* voice = threeStrings.voice();
+        voice->setPhaseTableForExperiment(table[0].data(), 3);
+        threeStrings.synth.noteOn(1, 60, 0.7f);
+        const auto& partial = voice->mainString.partials[0];
+        expectEquals(partial.stringCount, 3);
+        expect(partial.sinState2 > partial.sinState + 0.5f, "row 1 must drive the second string phase independently");
+        expect(partial.sinState3 < partial.sinState - 0.5f, "row 2 must drive the third string phase independently");
+
+        VoiceFixture singleRow;
+        singleRow.voice()->setPhaseTableForExperiment(table[0].data(), 1);
+        singleRow.synth.noteOn(1, 60, 0.7f);
+        const auto& singlePartial = singleRow.voice()->mainString.partials[0];
+        expectWithinAbsoluteError(singlePartial.sinState2, singlePartial.sinState, 1e-12,
+                                  "a single-row experiment table keeps all strings in phase");
+        expectWithinAbsoluteError(singlePartial.sinState3, singlePartial.sinState, 1e-12,
+                                  "a single-row experiment table keeps all strings in phase");
+    }
+
     void testGeneratedComponentInvariants() {
         beginTest("generated fixed-frequency components preserve amplitude and requested frequency");
         for (const auto rate : { 44100.0, 48000.0 }) {

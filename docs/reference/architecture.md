@@ -121,19 +121,19 @@ source/
   - **88 键连续参数化模型**（`Piano88KeyTable.h`）：刚度 $B$ 使用受控软件参考锚点、段间对数插值及高音文献外推；击弦比 $d/L$、阻尼与弦组分区仍为固定模型参数。参考软件输出不等于实琴逐键测量，不认证全域校准或初相训练最优性；
   - **琴槌非线性打击与毛毡老化**：三层毛毡动力学压实、动态接触时间 $T_c$、击弦点几何梳状陷波、4–10 ms 三模态木质敲击（1.6–5.4 kHz，HF Crack 已退役）与 `feltAgeingAmount`；`HammerVoicing.h` 在 41/70/98 三锚点间连续插值硬度/响度/滚降相对增量，出厂中性零偏移，不引入独立 DSP 分支。配置贯通设置、预设、Take 与实时/离线 Piano，不传给 Sine 或 VST3；
   - **琴弦非线性动力学与泛音抖动**：JOS PASP 刚性失谐、泛音刚度不谐和度抖动（`inharmonicityJitter` ±4.5%）、预计算跨分音相位色散与同分音同相起振、同音三弦 Mid-Side 差分展开、低音纵波先驱声（$5100\text{ m/s}$）、泛音时间滞后膨胀绽放（Harmonic Blooming）与强击软饱和；生产路径按同音弦平均功率计算一个单音总尺度，同时作用于分音与木质敲击瞬态，不增加逐键补偿表或状态字段；纵波先驱不继承该补偿，只送入共享整琴总线，并在 MIDI 48～55 连续收尾、MIDI 56 起为零；固定音区整音曲线在声部输出级按 8 个 MIDI 锚点连续插值，仅作用于音符及音符驱动的共鸣/Duplex 尾音，不作用于踏板机械声，也不改变物理参数或逐键身份；
-  - **共鸣与空间辐射**：长短琴桥交界补偿（G2/G#2）、16 峰正交云杉木物理音板模态、8kHz 云杉木高频截止（湿路径）、琴桥立体声空间辐射与动态声场空间漫射；
+  - **共鸣与空间辐射**：长短琴桥交界补偿（G2/G#2）、24 峰正交云杉木物理音板模态（46-1 在 16 个锚点上增加 8 个中高频填充）、8kHz 云杉木高频截止（湿路径）、琴桥立体声空间辐射与动态声场空间漫射；声部 drive 使用 A0/C4/C8 `1.10/1.00/0.94` 的连续桥耦合权重（46-2），只作用于湿音板/交感/纵波路径；
   - **微观机械动作拟真**：CC64 全局交感共鸣弦池、延音踏板下踏/抬起机械扫掠呼啸（Whoosh）与共鸣冲击（Resonance Shock，受 `pedalNoiseLevel` 调节）、未踩踏板单键开放弦交感、制音器落木闷击与琴键释放机械摩擦、离键速度动态 ADSR 阻尼缩放；
   - **调律与被动段共鸣**：`PianoTuning.h` 将第一分音归一化、独立律制与 A4 锚点拉伸统一到 Piano；`DuplexResonance` 的固定双模态只由主弦驱动，0 旁路、越 Nyquist 禁用，原通道持有到尾音结束；
   - **声学风格作用域**：`PianoStyle.h` 定义固定参数化风格（含琴盖位置与 Room 空间/干湿），由实际字段反推 Custom/风格标签；NY Steinway D Classical 使用独立非零 `HammerVoicing` 锚点与 9% Concert Hall 干湿，默认 Standard 保持中性。普通预设保存核心琴槌/泛音字段与调律/共鸣，Take 快照和 WAV 消费相同参数；不改变插件、Master、音源选择、键位或全局调号；
   - **主弦组件边界**：`PianoMainString` 拥有分音准入/安装、固定分音状态、Magic Circle 递推、双阶段衰减/Bloom、Pitch Glide/Spatial Diffusion 和主弦分音静音；`PianoSynthVoice` 保留音符身份、`triggerCounter`、ADSR、hammer/damper 瞬态、Duplex、等功率声像、scratch 输出与整个 Voice 停止。Phase 43-1 将音板/交感/琴盖/视角/尾音所有权迁至 `PianoWholeBodyBus`；Voice 不再持有这些子系统。R10 将 Voice 的实例 DSP/配置状态收为 private，生产消费者只使用 JUCE override 和语义 setter；既有测试通过明确 friend 观察内部状态，不提供生产可写访问器。
-  - **最终所有权地图**：`BuiltinSynthesiser` 持有 16 通道踏板真值、声部分配、唯一的机械 `PianoPedalAcoustics`（仅 `PedalTransient`）和唯一的 `PianoWholeBodyBus`（16 峰音板、8 kHz 湿路径、共享交感弦池、琴盖、视角、调律与尾音预算）；`PianoSynthVoice` 只持有单音生命周期、ADSR、hammer contact/damper、`PianoMainString`、Duplex、等功率声像和输出增益；音符开关键在 Voice start/stop 时进入共享弦池。`PianoNoteSetup` 是纯起音计算；`PianoMainString` 是主弦状态与合成；`PianoMechanicalTransients` 由 Voice 和 pedal owner 分别组合。`AudioEngine` 继续持有 Room、Master 和层路由。总线只在 Panic / `allNotesOff(0,false)` / CC120 清空且无其他活动声部、采样率重准备和 rebuild 时硬 reset；单声部 stopNote 不 reset。以上是当前架构，R5/R7/R0 基线与 Phase 43-1 不能混写。
+  - **最终所有权地图**：`BuiltinSynthesiser` 持有 16 通道踏板真值、声部分配、唯一的机械 `PianoPedalAcoustics`（仅 `PedalTransient`）和唯一的 `PianoWholeBodyBus`（24 峰音板、8 kHz 湿路径、共享交感弦池、琴盖、视角、调律与尾音预算）；`PianoSynthVoice` 只持有单音生命周期、ADSR、hammer contact/damper、`PianoMainString`、Duplex、等功率声像和输出增益；音符开关键在 Voice start/stop 时进入共享弦池。`PianoNoteSetup` 是纯起音计算；`PianoMainString` 是主弦状态与合成；`PianoMechanicalTransients` 由 Voice 和 pedal owner 分别组合。`AudioEngine` 继续持有 Room、Master 和层路由。总线只在 Panic / `allNotesOff(0,false)` / CC120 清空且无其他活动声部、采样率重准备和 rebuild 时硬 reset；单声部 stopNote 不 reset。以上是当前架构，R5/R7/R0 基线与 Phase 43-1 不能混写。
   - **实时契约与性能认证边界**：递归/预计算保留产品自有路径零堆分配、零锁、零库函数三角。当前配置为 12 复音；历史 8 复音 CPU ≤0.7% 的长期目标与实测分别登记，不将 Debug callback 时长比冒充数值认证；第三方 VST3 框架限制仍单列。直接声音/生命周期证据见 [R0–R11 结构整理归档](../archive/r0-r11-physical-piano-source-refactor.md)，完整契约见 [内置音源](features/builtin-piano-synthesis.md)。
 - **`source/Audio/PerspectiveProcessor.h`（空间声像视角处理器，Phase 31-A）**：
   - 纯数学立体声声像变换器，提供演奏者视角（Player，低音在左高音在右近场宽阔）与听众视角（Audience，声像镜像反转与中距声场凝聚）；
   - 负责双声道视角变换；mono 消费者对处理后左右声道取均值，不将声压均值宣称为任意相位下的功率守恒。
-- **`source/Audio/RoomReverbEngine.h`（立体声早期反射 + FDN 房间混响网络，Phase 44-1）**：
-  - 内置纯算法立体声混响引擎：左右早期反射抽头保留琴桥空间定位，随后进入 4×4 归一化 Hadamard FDN；每条反馈支路带一阶频率相关阻尼，阻尼极点按 48 kHz 参考换算到当前采样率，无外部 IR；
-  - 内置 Studio（0.6 s）、Chamber（1.5 s）与 Concert Hall（2.4 s）三大空间预设；实测相对 -60 dB 衰减约为 0.58/1.50/2.63 s（48 kHz），干湿使用 `boundedSinCos` 等功率混合，`wet=0` 精确直通。
+- **`source/Audio/RoomReverbEngine.h`（立体声早期反射 + 8 线 Householder FDN 房间混响网络，Phase 44-1 / 46-3）**：
+  - 内置纯算法立体声混响引擎：左右早期反射抽头保留琴桥空间定位，随后进入 8 线 Householder FDN（`A = I - (2/N)11^T`）；48 kHz 基础延迟为 8 个互质质数，每条反馈支路带一阶频率相关阻尼，阻尼极点按 48 kHz 参考换算到当前采样率，无外部 IR；
+  - 内置 Studio（0.6 s）、Chamber（1.5 s）与 Concert Hall（2.4 s）三大空间预设；反馈/阻尼参数未改，8 线模态分布使 48 kHz Schroeder T30 约 1.22/4.36/7.77 s（旧 4 线约 1.15/3.98/6.99 s），干湿使用 `boundedSinCos` 等功率混合，`wet=0` 精确直通。
 - **`source/Audio/TemperamentEngine.h`（古典微调律制引擎，Phase 30）**：
   - 提供平均律（Equal）、1/4 中庸全音律（Meantone）、毕达哥拉斯律（Pythagorean）、韦克迈斯特三律（Werckmeister III）、基恩伯格三律（Kirnberger III）与纯律（Just）六大微律音分偏移换算；
   - A4 基准基频范围为 400.0 ~ 480.0 Hz（默认 440.0 Hz）；引擎、设置滑块、预设、Take 声学快照与内置离线渲染统一消费 `TemperamentEngine::clampReferencePitch()`。

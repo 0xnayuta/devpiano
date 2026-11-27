@@ -1,4 +1,7 @@
 #include <JuceHeader.h>
+
+#include "AcousticProbe.h"
+
 #include <iostream>
 #include <optional>
 
@@ -156,6 +159,16 @@ int main(int argc, char** argv) {
     std::cerr << std::unitbuf;
     juce::ScopedJuceInitialiser_GUI guiInitialiser;
     juce::ConsoleApplication app;
+
+    for (int index = 1; index < argc; ++index) {
+        if (juce::String(argv[index]) == "--acoustic-probe") {
+            juce::StringArray args;
+            for (int argIndex = 0; argIndex < argc; ++argIndex) {
+                args.add(argv[argIndex]);
+            }
+            return devpiano::test::runAcousticProbe(args);
+        }
+    }
 
     juce::String parseError;
     const auto options = CommandLineOptions::parse(argc, argv, parseError);

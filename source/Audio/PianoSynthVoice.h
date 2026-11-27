@@ -30,7 +30,7 @@ using PianoBusInput = devpiano::audio::PianoBusInput;
 using PianoWholeBodyBus = devpiano::audio::PianoWholeBodyBus;
 // 内置物理建模钢琴合成器（Phase 12~24）：
 // - 空气黏性阻尼与二次方摩擦 (Phase 18-C)：Desvages & Bilbao (2016) 模态耗散模型，呈现中频下凹歌唱性；
-// - 16 峰正交云杉木音板模态 (Phase 19-A)：Bank 2010 / Chabassier 2019 实测物理模态分布；
+// - 24 峰正交云杉木音板模态 (Phase 19-A / 46-1)：Bank 2010 / Chabassier 2019 的 16 个锚点加 8 个中高频插值填充；
 // - 琴桥立体声空间辐射 (Phase 19-B)：根据 88 键物理跨度分配声像，消灭单声道耳膜居中压迫感；
 // - 同音三弦独立三振荡器非对称拍频 (Phase 19-C)：3 弦独立微失谐与 STFT 空间初相；
 // - 低音钢弦纵波先驱脉冲 (Phase 20-A, Bank 2005/2010)：v_L ≈ 5100 m/s 极短金属撞击先导声；
@@ -52,7 +52,7 @@ using PianoWholeBodyBus = devpiano::audio::PianoWholeBodyBus;
 // - 同音三弦立体声非对称微失谐与声相展开 (Phase 23-B, Weinreich 1977 JASA)：
 //   将同音多弦振动在物理声相空间微观展开，彻底消除中高音单声道聚焦感，营造开阔立体的空气环绕感；
 // - 云杉木音板高频截止与木质腔体共鸣峰配平 (Phase 23-C, Boutillon & Ege 2013, Giordano 1998)：
-//   4.2kHz 云杉木粘滞内耗低通截止滤波器与 16 峰物理音板模态配平，赋予真实三角钢琴温润深厚的木质感；
+//   8kHz 云杉木粘滞内耗低通截止滤波器与 24 峰物理音板模态配平，赋予真实三角钢琴温润深厚的木质感；
 // - 起音瞬态裂音与低音纵波微调 (Phase 23-D, Attack Transient Crack & Longitudinal Tuning)：
 //   前 3ms 高频冲击裂音 (HF Crack) 与紧凑型低音纵波先导声，对齐真琴 27~30ms 极速起振特性；
 // - 泛音时间滞后膨胀与绽放 (Phase 24-A, Harmonic Blooming)：中高力度高阶分音非线性能量泵浦与上升绽放；
@@ -176,6 +176,18 @@ public:
         return pianoFeltAgeingAmount;
     }
 
+    // 45-2 实验 API：不改变生产默认。table 指向 rowCount x 64 个 float，
+    // 调用方保证其生命周期覆盖 startNote；null / 0 行恢复生产单行表。
+    void setPhaseTableForExperiment(const float* table, int rowCount) noexcept {
+        if (table == nullptr || rowCount <= 0) {
+            experimentalPhaseTable = nullptr;
+            experimentalPhaseRows = 1;
+            return;
+        }
+        experimentalPhaseTable = table;
+        experimentalPhaseRows = std::clamp(rowCount, 1, 3);
+    }
+
     [[nodiscard]] bool isVoiceActive() const override {
         return getCurrentlyPlayingNote() >= 0;
     }
@@ -201,13 +213,6 @@ public:
             noteKeyActive = false;
         }
 
-        currentPlayingMidiNote = midiNoteNumber;
-        noteOutputGain = devpiano::audio::pianoRegisterLoudnessGain(midiNoteNumber);
-        // Mechanical action noise has its own shallow register curve. It is
-        // pre-scaled before the shared string output gain so its net level is
-        // mechanicalOutputGain rather than the string register curve.
-        mechanicalOutputGain = mechanicalRegisterGain(midiNoteNumber);
-        mechanicalPreGain = mechanicalOutputGain / juce::jmax(1e-6f, noteOutputGain);
         const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
         const auto triggerSequence = ++triggerCounter;
         const auto setup = devpiano::audio::computePianoNoteSetup(
@@ -215,66 +220,40 @@ public:
             pianoFeltAgeingAmount, hammerVoicing, softPedalDown, softPedalAmount, pianoTemperament,
             pianoReferencePitchA4, pianoStretchTuningEnabled, triggerSequence);
 
+        configureVoiceForNote(midiNoteNumber, setup);
         duplexPool.prepare(sampleRate, setup.firstPartialFrequency, setup.effectiveInharmonicityB);
-
-        const auto keyPos = setup.keyPos;
-        const auto directPan = 0.15f + 0.70f * keyPos;
-        // 42-4: 等功率声像；中央 pan=0.5 仍为 0.7071，两端不再有 +1.73 dB 翘曲。
-        // boundedSinCos 在 startNote 一次计算，实时逐采样路径无库函数三角。
-        const auto panAngle = static_cast<double>(directPan) * devpiano::audio::dsp::kHalfPi;
-        const auto pan = devpiano::audio::dsp::boundedSinCos(panAngle);
-        directLeftGain = static_cast<float>(pan.cosVal);
-        directRightGain = static_cast<float>(pan.sinVal);
-
-        const auto unaCordaMu = setup.unaCordaMu;
-        const auto hammerHardness = setup.hammerHardness;
-        const auto effectiveTc = setup.effectiveTc;
-        const auto clampedVelocity = setup.clampedVelocity;
-
-        devpiano::audio::MainStringStart stringStart;
-        stringStart.requestedPartials = params.partialCount;
-        stringStart.stringCount = params.stringCount;
-        stringStart.beatingPartials = params.beatingPartials;
-        stringStart.beatingDetuneRatio = params.beatingDetuneRatio;
-        stringStart.baseFrequency = setup.baseFrequency;
-        stringStart.effectiveInharmonicityB = setup.effectiveInharmonicityB;
-        stringStart.keyPos = setup.keyPos;
-        stringStart.contactHardness = setup.contactHardness;
-        stringStart.effectiveStrikePos = setup.effectiveStrikePos;
-        stringStart.effectiveTc = setup.effectiveTc;
-        stringStart.effectiveBrightness = setup.effectiveBrightness;
-        stringStart.pianoBrightness = pianoBrightness;
-        stringStart.hammerVoicingRolloffDelta = setup.hammerVoicingRolloffDelta;
-        stringStart.velocityLevel = setup.velocityLevel;
-        stringStart.clampedVelocity = setup.clampedVelocity;
-        stringStart.unaCordaMu = setup.unaCordaMu;
-        stringStart.jitterPhase = setup.jitterPhase;
-        stringStart.baseDecaySeconds = setup.baseDecaySeconds;
-        stringStart.k1 = setup.k1;
-        stringStart.alpha1 = setup.alpha1;
-        stringStart.b1 = params.b1;
-        stringStart.b2 = params.b2;
-        stringStart.fastDecayRatio = params.fastDecayRatio;
-        stringStart.slowWeight = params.slowWeight;
-        mainString.start(stringStart);
-
-        const auto hammerTransientVel = clampedVelocity * (1.0f - 0.35f * unaCordaMu);
-        // The wood knock and longitudinal precursor are additive mechanical
-        // transients, not part of the coherent string sum. The precursor is
-        // routed separately into the shared body drive; do not inherit the
-        // string unison phase-compensation gain.
-        hammerTransient.trigger(sampleRate, midiNoteNumber, hammerTransientVel, hammerHardness, params.stringLength,
-                                1.0f);
-        hammerContactEngine.trigger(sampleRate, effectiveTc);
-        mainString.triggerSpatialDiffusion();
-        damperTransient.reset();
-        mainString.triggerPitchGlide(clampedVelocity);
-
-        adsrGate.setSampleRate(sampleRate);
-        adsrGate.setParameters(configuredAdsr);
-        adsrGate.noteOn();
+        mainString.start(makeMainStringStart(params, setup));
+        triggerMechanicalAttack(midiNoteNumber, setup, params);
 
         if (wholeBodyBus != nullptr) {
+            wholeBodyBus->noteOnKey(midiNoteNumber);
+            noteKeyActive = true;
+        }
+    }
+
+    // 45-1: 同音且按键仍按下时复用同一个 voice 重新击弦。保留 mainString
+    // 的振荡器相位与残余能量、声像、总线按键所有权和 NoteOff 身份；
+    // 不调用 stopVoice/startVoice，也不分配第二个持久 voice。
+    void retriggerNote(float velocity) {
+        const auto sampleRate = getSampleRate();
+        const auto midiNoteNumber = getCurrentlyPlayingNote();
+        if (sampleRate <= 0.0 || midiNoteNumber < 0) {
+            return;
+        }
+
+        const auto& params = devpiano::audio::getNoteParams(midiNoteNumber);
+        const auto triggerSequence = ++triggerCounter;
+        const auto setup = devpiano::audio::computePianoNoteSetup(
+            midiNoteNumber, velocity, params, pianoBrightness, pianoHammerHardness, pianoResonance,
+            pianoFeltAgeingAmount, hammerVoicing, softPedalDown, softPedalAmount, pianoTemperament,
+            pianoReferencePitchA4, pianoStretchTuningEnabled, triggerSequence);
+
+        configureVoiceForNote(midiNoteNumber, setup);
+        // duplexPool 保留现有交感共振状态；重击只更新主弦激励。
+        mainString.retrigger(makeMainStringStart(params, setup));
+        triggerMechanicalAttack(midiNoteNumber, setup, params);
+
+        if (wholeBodyBus != nullptr && !noteKeyActive) {
             wholeBodyBus->noteOnKey(midiNoteNumber);
             noteKeyActive = true;
         }
@@ -390,7 +369,9 @@ public:
             const auto dryRight
                 = (duplexGain * (1.0f - wet) * rawRight * directRightGain + duplexMix * duplexOut * directRightGain)
                 * noteOutputGain;
-            const auto drive = rawMono * noteOutputGain * wet * duplexGain + longitudinal;
+            // 46-2: 只缩放进入共享音板/交感/纵波的 drive；直达声、partial
+            // 阶数权重、音区输出增益与声像保持原路径。
+            const auto drive = (rawMono * noteOutputGain * wet * duplexGain + longitudinal) * bridgeDriveWeight;
             input.add(sampleIndex, dryLeft, dryRight, drive);
         }
 
@@ -414,6 +395,19 @@ private:
         return 0.95f + 0.05f * keyPos;
     }
 
+    // 46-2: 低音长桥/中音/高音短桥的三锚点驱动权重。低音略强、高音略弱；
+    // 中间线性插值，音区边界没有离散跳变。该权重是工程桥耦合代理，
+    // 不是实琴逐键测量，也不改变 partial 阶数权重或输出增益。
+    [[nodiscard]] static float bridgeDriveWeightForNote(int midiNoteNumber) noexcept {
+        const auto midi = std::clamp(midiNoteNumber, 21, 108);
+        if (midi <= 60) {
+            const auto position = static_cast<float>(midi - 21) / 39.0f;
+            return 1.10f - 0.10f * position;
+        }
+        const auto position = static_cast<float>(midi - 60) / 48.0f;
+        return 1.00f - 0.06f * position;
+    }
+
     [[nodiscard]] static float softSaturate(float x) noexcept {
         const auto x2 = std::clamp(x * x, 0.0f, 1.0f);
         return x * (1.0f - 0.12f * x2);
@@ -424,6 +418,76 @@ private:
             return false;
         }
         return mainString.isSilent();
+    }
+
+    void configureVoiceForNote(int midiNoteNumber, const devpiano::audio::PianoNoteSetup& setup) noexcept {
+        currentPlayingMidiNote = midiNoteNumber;
+        noteOutputGain = devpiano::audio::pianoRegisterLoudnessGain(midiNoteNumber);
+        // Mechanical action noise has its own shallow register curve. It is
+        // pre-scaled before the shared string output gain so its net level is
+        // mechanicalOutputGain rather than the string register curve.
+        mechanicalOutputGain = mechanicalRegisterGain(midiNoteNumber);
+        mechanicalPreGain = mechanicalOutputGain / juce::jmax(1e-6f, noteOutputGain);
+        bridgeDriveWeight = bridgeDriveWeightForNote(midiNoteNumber);
+        const auto directPan = 0.15f + 0.70f * setup.keyPos;
+        // 42-4: 等功率声像；中央 pan=0.5 仍为 0.7071，两端不再有 +1.73 dB 翘曲。
+        // boundedSinCos 只在起音/重击时计算，实时逐采样路径无库函数三角。
+        const auto panAngle = static_cast<double>(directPan) * devpiano::audio::dsp::kHalfPi;
+        const auto pan = devpiano::audio::dsp::boundedSinCos(panAngle);
+        directLeftGain = static_cast<float>(pan.cosVal);
+        directRightGain = static_cast<float>(pan.sinVal);
+    }
+
+    [[nodiscard]] devpiano::audio::MainStringStart
+    makeMainStringStart(const devpiano::audio::PianoNoteParams& params,
+                        const devpiano::audio::PianoNoteSetup& setup) const noexcept {
+        devpiano::audio::MainStringStart stringStart;
+        stringStart.requestedPartials = params.partialCount;
+        stringStart.stringCount = params.stringCount;
+        stringStart.beatingPartials = params.beatingPartials;
+        stringStart.beatingDetuneRatio = params.beatingDetuneRatio;
+        stringStart.baseFrequency = setup.baseFrequency;
+        stringStart.effectiveInharmonicityB = setup.effectiveInharmonicityB;
+        stringStart.keyPos = setup.keyPos;
+        stringStart.contactHardness = setup.contactHardness;
+        stringStart.effectiveStrikePos = setup.effectiveStrikePos;
+        stringStart.effectiveTc = setup.effectiveTc;
+        stringStart.effectiveBrightness = setup.effectiveBrightness;
+        stringStart.pianoBrightness = pianoBrightness;
+        stringStart.hammerVoicingRolloffDelta = setup.hammerVoicingRolloffDelta;
+        stringStart.velocityLevel = setup.velocityLevel;
+        stringStart.clampedVelocity = setup.clampedVelocity;
+        stringStart.unaCordaMu = setup.unaCordaMu;
+        stringStart.jitterPhase = setup.jitterPhase;
+        stringStart.phaseTable = experimentalPhaseTable;
+        stringStart.phaseTableRows = experimentalPhaseRows;
+        stringStart.baseDecaySeconds = setup.baseDecaySeconds;
+        stringStart.k1 = setup.k1;
+        stringStart.alpha1 = setup.alpha1;
+        stringStart.b1 = params.b1;
+        stringStart.b2 = params.b2;
+        stringStart.fastDecayRatio = params.fastDecayRatio;
+        stringStart.slowWeight = setup.slowWeight;
+        return stringStart;
+    }
+
+    void triggerMechanicalAttack(int midiNoteNumber, const devpiano::audio::PianoNoteSetup& setup,
+                                 const devpiano::audio::PianoNoteParams& params) {
+        const auto sampleRate = getSampleRate();
+        const auto hammerTransientVel = setup.clampedVelocity * (1.0f - 0.35f * setup.unaCordaMu);
+        // The wood knock and longitudinal precursor are additive mechanical
+        // transients, not part of the coherent string sum. The precursor is
+        // routed separately into the shared body drive; do not inherit the
+        // string unison phase-compensation gain.
+        hammerTransient.trigger(sampleRate, midiNoteNumber, hammerTransientVel, setup.hammerHardness,
+                                params.stringLength, 1.0f);
+        hammerContactEngine.trigger(sampleRate, setup.effectiveTc);
+        mainString.triggerSpatialDiffusion();
+        damperTransient.reset();
+        mainString.triggerPitchGlide(setup.clampedVelocity);
+        adsrGate.setSampleRate(sampleRate);
+        adsrGate.setParameters(configuredAdsr);
+        adsrGate.noteOn();
     }
 
     int currentPlayingMidiNote = 60;
@@ -442,6 +506,7 @@ private:
     float noteOutputGain = 1.0f;
     float mechanicalOutputGain = 1.0f;
     float mechanicalPreGain = 1.0f;
+    float bridgeDriveWeight = 1.0f;
 
     // 琴槌接触微阻尼与脱离物理释放引擎 (Phase 24-B, Hammer Contact-Release Dynamics)
     struct HammerContactEngine {
@@ -601,6 +666,8 @@ private:
     float softPedalAmount = 0.0f;
     int voiceIndex = 0;
     float pianoFeltAgeingAmount = 0.0f;
+    const float* experimentalPhaseTable = nullptr;
+    int experimentalPhaseRows = 1;
 
 private:
     // The longitudinal precursor is an independent bass excitation. Keep it
