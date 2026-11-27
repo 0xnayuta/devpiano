@@ -25,6 +25,7 @@ struct PianoNoteSetup {
     float keyPos = 0.0f;
     float clampedVelocity = 0.0f;
     float velocityLevel = 0.0f;
+    float slowWeight = 0.0f;
     float unaCordaMu = 0.0f;
     float hammerHardness = 0.0f;
     float contactHardness = 0.0f;
@@ -60,6 +61,13 @@ computePianoNoteSetup(int midiNoteNumber, float velocity, const PianoNoteParams&
     const auto baseFrequency = firstPartialFrequency / std::sqrt(1.0 + effectiveInharmonicityB);
 
     const auto clampedVelocity = juce::jlimit(0.0f, 1.0f, velocity);
+    // 45-3: 力度依赖两段衰减。v41 慢分量 +15%，v98 -15%，中间线性过渡；
+    // L1 总幅度不变，只改变 fast/slow 分配。范围外夹紧，不新增逐键表。
+    constexpr auto kSlowVelocityLow = 41.0f / 127.0f;
+    constexpr auto kSlowVelocityHigh = 98.0f / 127.0f;
+    const auto slowVelocityT
+        = juce::jlimit(0.0f, 1.0f, (clampedVelocity - kSlowVelocityLow) / (kSlowVelocityHigh - kSlowVelocityLow));
+    const auto slowWeight = juce::jlimit(0.0f, 1.0f, params.slowWeight * (1.15f - 0.30f * slowVelocityT));
     // Three-anchor hammer voicing: default anchors return {0.0f, 1.0f}.
     const auto voicingSample = sampleHammerVoicing(hammerVoicing, clampedVelocity * 127.0f);
     const auto velocityLevel = juce::jlimit(0.0f, 1.0f, std::pow(clampedVelocity, 1.20f) * voicingSample.loudnessGain);
@@ -115,6 +123,7 @@ computePianoNoteSetup(int midiNoteNumber, float velocity, const PianoNoteParams&
     setup.keyPos = keyPos;
     setup.clampedVelocity = clampedVelocity;
     setup.velocityLevel = velocityLevel;
+    setup.slowWeight = slowWeight;
     setup.unaCordaMu = unaCordaMu;
     setup.hammerHardness = hammerHardness;
     setup.contactHardness = contactHardness;

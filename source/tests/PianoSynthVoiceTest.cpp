@@ -145,6 +145,7 @@ public:
         testBasicRenderingAndHarmonics();
         testHammerAndTransientDynamics();
         testDecayAndUnisonBeating();
+        testVelocityDependentSlowWeight();
         testResonatorAndAcousticCoupling();
         testVoiceLifecycleAndDynamics();
         testSameNoteRetrigger();
@@ -972,6 +973,27 @@ private:
             const auto monoRight = monoBuf.getRMSLevel(1, 0, monoBuf.getNumSamples());
             expect(monoLeft > monoRight * 1.15f, "monochord bass note strictly follows bridge left panning");
         }
+    }
+
+    void testVelocityDependentSlowWeight() {
+        beginTest("velocity shifts the two-stage decay split without changing strike total");
+        const auto& params = devpiano::audio::getNoteParams(60);
+        const auto slowRatio = [&](int velocity) {
+            VoiceFixture fixture;
+            fixture.synth.noteOn(1, 60, static_cast<float>(velocity) / 127.0f);
+            const auto& partial = fixture.voice()->mainString.partials[0];
+            const auto total = partial.levelFast + partial.levelSlow;
+            expectWithinAbsoluteError(total, partial.level, 1e-6f, "L1 normalization must preserve the strike total");
+            return total > 0.0f ? partial.levelSlow / total : 0.0f;
+        };
+
+        const auto soft = slowRatio(41);
+        const auto mid = slowRatio(70);
+        const auto loud = slowRatio(98);
+        expect(soft > mid && mid > loud, "weak strikes must retain more slow component");
+        expectWithinAbsoluteError(soft, params.slowWeight * 1.15f, 1e-4f);
+        expectWithinAbsoluteError(loud, params.slowWeight * 0.85f, 1e-4f);
+        expectWithinAbsoluteError(mid, params.slowWeight, 0.02f);
     }
 
     void testResonatorAndAcousticCoupling() {

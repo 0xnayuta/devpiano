@@ -437,7 +437,7 @@ private:
         stringStart.b1 = params.b1;
         stringStart.b2 = params.b2;
         stringStart.fastDecayRatio = params.fastDecayRatio;
-        stringStart.slowWeight = params.slowWeight;
+        stringStart.slowWeight = setup.slowWeight;
         return stringStart;
     }
 
