@@ -97,13 +97,18 @@ Actual-engine attack metrics (21 anchors, lower spec is better):
 |---|---:|---:|---:|---:|
 | A | 2.174 | 0.0963 | 0.924 | 0.561 |
 | B | 2.050 | 0.0295 | 1.041 | 0.639 |
-| C1 | 2.177 | 0.0935 | 0.894 | 0.562 |
-| C2 | 1.966 | 0.0557 | 0.841 | 0.638 |
+| C1 | 2.192 | 0.0938 | 0.899 | 0.565 |
+| C2 | 2.004 | 0.0723 | 0.840 | 0.627 |
 
-**Decision: retain A.** C1 did not beat A. B and C2 lose about 69% and 42% of
-average peak level; B is not better than A, so C2 is not eligible under the
-phase-plan gate. The production phase table and voice output path are
-unchanged.
+**Decision: retain A.** C1 did not beat A. B loses about 69% of average peak
+level; C2 improves over the previous run but remains about 25% below A, and B
+is not eligible, so C2 is not eligible under the phase-plan gate. The
+production phase table and voice output path are unchanged.
+
+The 2026-11-28 rerun uses the corrected string model (inactive string columns
+masked, production 1/3 or 0.38 trichord scale) at 500 iterations. A and B are
+unchanged; C1/C2 in `phase_candidates.json` and the table above are from that
+run.
 
 ## Limitations
 
