@@ -1,0 +1,11 @@
+{
+  "phase40_44": {
+    "source": "Phase 44-3 Standard full-key v70 range / 96-108 adjacent maximum / True Peak; Phase 42-5 adjacent and True Peak cross-check",
+    "fullKeyV70LufsRangeDb": 0.650,
+    "maxAdjacentSemitoneDb": 0.275,
+    "maxTruePeak": 0.236,
+    "toleranceLufsDb": 0.25,
+    "toleranceAdjacentDb": 0.20,
+    "toleranceTruePeak": 0.03
+  }
+}
