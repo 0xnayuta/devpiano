@@ -131,9 +131,9 @@ source/
 - **`source/Audio/PerspectiveProcessor.h`（空间声像视角处理器，Phase 31-A）**：
   - 纯数学立体声声像变换器，提供演奏者视角（Player，低音在左高音在右近场宽阔）与听众视角（Audience，声像镜像反转与中距声场凝聚）；
   - 负责双声道视角变换；mono 消费者对处理后左右声道取均值，不将声压均值宣称为任意相位下的功率守恒。
-- **`source/Audio/RoomReverbEngine.h`（立体声早期反射 + FDN 房间混响网络，Phase 44-1）**：
-  - 内置纯算法立体声混响引擎：左右早期反射抽头保留琴桥空间定位，随后进入 4×4 归一化 Hadamard FDN；每条反馈支路带一阶频率相关阻尼，阻尼极点按 48 kHz 参考换算到当前采样率，无外部 IR；
-  - 内置 Studio（0.6 s）、Chamber（1.5 s）与 Concert Hall（2.4 s）三大空间预设；实测相对 -60 dB 衰减约为 0.58/1.50/2.63 s（48 kHz），干湿使用 `boundedSinCos` 等功率混合，`wet=0` 精确直通。
+- **`source/Audio/RoomReverbEngine.h`（立体声早期反射 + 8 线 Householder FDN 房间混响网络，Phase 44-1 / 46-3）**：
+  - 内置纯算法立体声混响引擎：左右早期反射抽头保留琴桥空间定位，随后进入 8 线 Householder FDN（`A = I - (2/N)11^T`）；48 kHz 基础延迟为 8 个互质质数，每条反馈支路带一阶频率相关阻尼，阻尼极点按 48 kHz 参考换算到当前采样率，无外部 IR；
+  - 内置 Studio（0.6 s）、Chamber（1.5 s）与 Concert Hall（2.4 s）三大空间预设；反馈/阻尼参数未改，8 线模态分布使 48 kHz Schroeder T30 约 1.22/4.36/7.77 s（旧 4 线约 1.15/3.98/6.99 s），干湿使用 `boundedSinCos` 等功率混合，`wet=0` 精确直通。
 - **`source/Audio/TemperamentEngine.h`（古典微调律制引擎，Phase 30）**：
   - 提供平均律（Equal）、1/4 中庸全音律（Meantone）、毕达哥拉斯律（Pythagorean）、韦克迈斯特三律（Werckmeister III）、基恩伯格三律（Kirnberger III）与纯律（Just）六大微律音分偏移换算；
   - A4 基准基频范围为 400.0 ~ 480.0 Hz（默认 440.0 Hz）；引擎、设置滑块、预设、Take 声学快照与内置离线渲染统一消费 `TemperamentEngine::clampReferencePitch()`。

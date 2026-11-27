@@ -209,9 +209,10 @@ flowchart TD
      - 演奏者视角：88 键琴桥展开，低音居左、高音居右，近场宽广；
      - 听众视角：声像左右镜像翻转，并施加适度的高频空气吸收与中置凝聚感。
 
-5. **立体声早期反射 + FDN 房间混响网络（RoomReverbEngine，Phase 44-1）**：
-   - 内置纯数学算法立体声混响网络：左右早期反射抽头（7.1/11.3/17.9/23.3 ms）保留琴桥空间定位，随后进入 4×4 归一化 Hadamard 反馈延迟网络；每条反馈支路带一阶频率相关阻尼，阻尼极点按 48 kHz 参考换算到当前采样率，无外部 IR；
-   - 提供 **Studio（录音棚 0.6 s）**、**Chamber（室内乐厅 1.5 s）** 与 **Concert Hall（音乐厅 2.4 s）** 三大经典声学空间预设（C++ 枚举 `ReverbSpace::studio`、`chamber`、`concertHall`；文件持久化标识分别为 `studio`、`chamber`、`concert_hall`，旧别名 `hall` 不再映射，未知标识安全回退至 `chamber`）；48 kHz 相对 -60 dB 实测约 0.58/1.50/2.63 s；
+5. **立体声早期反射 + 8 线 Householder FDN 房间混响网络（RoomReverbEngine，Phase 44-1 / 46-3）**：
+   - 内置纯数学算法立体声混响网络：左右早期反射抽头（7.1/11.3/17.9/23.3 ms）保持琴桥空间定位，随后进入 **8 线 Householder 反馈延迟网络**（$A=I-\frac{2}{N}\mathbf{1}\mathbf{1}^{T}$，$N=8$）；每条反馈支路带一阶频率相关阻尼，阻尼极点按 48 kHz 参考换算到当前采样率，无外部 IR；
+   - 48 kHz 基础延迟为 `1601/1861/2027/2237/2371/2539/2683/2903` 样本（均为质数，两两互质），按当前采样率缩放；Householder 反馈每样本只增加一次求和与一次乘法，且保持支路能量；
+   - 提供 **Studio（录音棚 0.6 s）**、**Chamber（室内乐厅 1.5 s）** 与 **Concert Hall（音乐厅 2.4 s）** 三大经典声学空间预设（C++ 枚举 `ReverbSpace::studio`、`chamber`、`concertHall`；文件持久化标识分别为 `studio`、`chamber`、`concert_hall`，旧别名 `hall` 不再映射，未知标识安全回退至 `chamber`）；反馈/阻尼参数未改，8 线模态分布使 48 kHz Schroeder T30 约从旧 4 线的 `1.15/3.98/6.99 s` 变为 `1.22/4.36/7.77 s`（增加约 7–11%），需以 A/B 试听确认尾音长度；
    - 干湿使用 `boundedSinCos` 等功率混合；`reverbWet=0` 精确直通；静音尾部门控清除低于 -80 dB 的残余状态，无 denormal/NaN；
    - **直通与抗下溢保护**：`RoomReverbEngine::processStereo()` 在目标与平滑后的当前 wet 均 `<= 1e-4` 时旁路混响 DSP；实时入口启用 `juce::ScopedNoDenormals`，滤波器内部另有衰减归零保护。
 6. **动态声场空间漫射（Dynamic Spatial Diffusion）**：
@@ -363,7 +364,7 @@ void setWholeBodyTuning(Temperament temperament, double referencePitchA4, bool s
 | **PedalAcousticsTest** | CC64 共鸣/机械动作；CC66 捕获边沿、重复高值、声部抢占、CC64/66 释放顺序与同采样逐通道隔离；跨区域 Sync Pedal 原目标释放 | [x] 已通过 |
 | **FeltAgeingTest** | 逐键扰动确定性与范围、老化前后的实际音频差异、引擎老化参数限幅；不以 getter 或测试侧公式重算证明音高行为 | [x] 已通过 |
 | **PerspectiveProcessorTest** | 演奏者/听众立体声像反转镜像、距离高频滚降、声像能量分布与无下溢数值收敛 | [x] 已通过 |
-| **RoomReverbEngineTest** | Studio/Chamber/Concert Hall 三档衰减时间常数、立体声早期反射/分离度、4×4 FDN 跨 44.1/48/96 kHz 衰减一致性、等功率干湿与旁路、长时静音衰减无下溢 denormal、标识回退；getter 与声明断言不作为逐采样 DSP/逐 bit 保证 | [x] 已通过 |
+| **RoomReverbEngineTest** | Studio/Chamber/Concert Hall 三档 Schroeder T30、8 条质数延迟互质、Householder 能量/共模变换、立体声早期反射/分离度、8 线 FDN 跨 44.1/48/96 kHz T30 一致性、等功率干湿与旁路、长时静音衰减无下溢 denormal、标识回退；getter 与声明断言不作为逐采样 DSP/逐 bit 保证 | [x] 已通过 |
 | **SpatialAcousticsTest** | 空间声学设置与当前预设字段磁盘往返、损坏/越界输入限幅；声场与混响 DSP 行为由对应处理器套件验证；不以 getter 复制代替 DSP 保证 | [x] 已通过 |
 | **AcousticSettingsPersistenceTest** | Settings 声学字段钳制、PerformancePreset 声学 round-trip、NY 风格的 HammerVoicing/琴盖/Room 身份经预设保存加载后仍可识别、默认 Standard 中性不变 | [x] 已通过 |
 | **PianoSynthVoiceTemperamentTest** | 持续发声期间改律制/A4 后真实音频有限与稳定；A4 声音基准由实际谱峰回归验证，不复制 getter 公式 | [x] 已通过 |

@@ -11,6 +11,8 @@
 #include <string_view>
 #include <vector>
 
+class RoomReverbEngineTest;
+
 namespace devpiano::audio {
 
 /**
@@ -23,9 +25,9 @@ enum class ReverbSpace : std::uint8_t {
 };
 
 /**
- * RoomReverbEngine (Phase 44-1)
+ * RoomReverbEngine (Phase 44-1 / 46-3)
  *
- * Stereo early-reflection taps feeding a 4x4 normalized Hadamard feedback delay
+ * Stereo early-reflection taps feeding an 8-line Householder feedback delay
  * network with one-pole damping in every feedback branch. The dry/wet mix uses
  * constant-power gains from boundedSinCos; wet=0 is an exact bypass.
  *
@@ -35,7 +37,7 @@ enum class ReverbSpace : std::uint8_t {
  */
 class RoomReverbEngine {
 public:
-    static constexpr int kFdnSize = 4;
+    static constexpr int kFdnSize = 8;
     static constexpr int kEarlyTaps = 4;
     static constexpr float kDefaultWetLevel = 0.20f;
 
@@ -50,9 +52,9 @@ public:
         }
         sampleRate = newSampleRate;
 
-        // Coprime-ish base delays in samples at 48 kHz. They are scaled by the
+        // Prime base delays in samples at 48 kHz. They are scaled by the
         // active rate so RT60 remains a time-domain property.
-        constexpr std::array<int, kFdnSize> kBaseDelays { 1601, 2027, 2371, 2683 };
+        constexpr std::array<int, kFdnSize> kBaseDelays { 1601, 1861, 2027, 2237, 2371, 2539, 2683, 2903 };
         for (std::size_t i = 0; i < kFdnSize; ++i) {
             const auto samples = std::max(
                 32, static_cast<int>(std::lround(static_cast<double>(kBaseDelays[i]) * sampleRate / 48000.0)));
@@ -174,21 +176,12 @@ public:
                 damped[i] = dampingState[i];
             }
 
-            // Normalized 4x4 Hadamard feedback and input injection.
-            std::array<float, kFdnSize> feedback { {
-                0.5f * (damped[0] + damped[1] + damped[2] + damped[3]),
-                0.5f * (damped[0] - damped[1] + damped[2] - damped[3]),
-                0.5f * (damped[0] + damped[1] - damped[2] - damped[3]),
-                0.5f * (damped[0] - damped[1] - damped[2] + damped[3]),
-            } };
-            const std::array<float, kFdnSize> injected { {
-                kInputGain * inL,
-                kInputGain * inR,
-                kInputGain * inL,
-                kInputGain * inR,
-            } };
+            // Normalized 8-line Householder feedback: A = I - (2/N) 1 1^T.
+            // The transform is orthogonal and preserves branch energy.
+            const auto feedback = householderFeedback(damped);
             for (std::size_t i = 0; i < kFdnSize; ++i) {
-                const auto next = injected[i] + feedback[i] * feedbackGain[i];
+                const auto injected = (i % 2 == 0) ? kInputGain * inL : kInputGain * inR;
+                const auto next = injected + feedback[i] * feedbackGain[i];
                 delayLines[i][delayWrite[i]] = std::abs(next) < 1.0e-7f ? 0.0f : next;
                 if (++delayWrite[i] >= delaySamples[i]) {
                     delayWrite[i] = 0;
@@ -198,8 +191,10 @@ public:
                 earlyWrite = 0;
             }
 
-            const auto wetLeft = static_cast<float>(kWetOutputGain * 0.5f * (delayOut[0] + delayOut[2]) + earlyL);
-            const auto wetRight = static_cast<float>(kWetOutputGain * 0.5f * (delayOut[1] + delayOut[3]) + earlyR);
+            const auto wetLeft = static_cast<float>(
+                kWetOutputGain * 0.25f * (delayOut[0] + delayOut[2] + delayOut[4] + delayOut[6]) + earlyL);
+            const auto wetRight = static_cast<float>(
+                kWetOutputGain * 0.25f * (delayOut[1] + delayOut[3] + delayOut[5] + delayOut[7]) + earlyR);
             const auto mix
                 = devpiano::audio::dsp::boundedSinCos(static_cast<double>(currentWet) * devpiano::audio::dsp::kHalfPi);
             const auto dryGain = static_cast<float>(mix.cosVal);
@@ -232,6 +227,20 @@ public:
     }
 
 private:
+    [[nodiscard]] static std::array<float, kFdnSize>
+    householderFeedback(const std::array<float, kFdnSize>& input) noexcept {
+        auto sum = 0.0f;
+        for (const auto value : input) {
+            sum += value;
+        }
+        const auto correction = sum * (2.0f / static_cast<float>(kFdnSize));
+        std::array<float, kFdnSize> output {};
+        for (std::size_t i = 0; i < kFdnSize; ++i) {
+            output[i] = input[i] - correction;
+        }
+        return output;
+    }
+
     [[nodiscard]] float maxTailState() const noexcept {
         auto maximum = 0.0f;
         for (const auto& line : delayLines) {
@@ -292,6 +301,8 @@ private:
     int earlySize = 2400;
     int earlyWrite = 0;
     bool tailSilent = false;
+
+    friend class ::RoomReverbEngineTest;
 };
 
 } // namespace devpiano::audio

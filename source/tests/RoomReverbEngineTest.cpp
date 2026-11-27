@@ -3,16 +3,19 @@
 #include "Audio/AudioEngine.h"
 #include "Audio/RoomReverbEngine.h"
 
+#include <numeric>
+
 // ============================================================================
-/// RoomReverbEngineTest (Phase 31-B)
+/// RoomReverbEngineTest (Phase 31-B / 46-3)
 ///
 /// Validates mathematical algorithmic room reverberation:
-/// 1. Preset decay scaling: Studio (0.6 s) < Chamber (1.5 s) < Concert Hall (2.4 s).
-/// 2. Wet level scaling and zero-wet transparency bypass.
-/// 3. Numerical safety: denormal flushing to absolute zero, no NaN/Inf.
-/// 4. Sample rate invariance (44.1 kHz, 48 kHz, 96 kHz, 192 kHz).
-/// 5. AudioEngine atomic parameter state and block processing integration.
-/// 6. Identifier serialization round-trip.
+/// 1. 8-line Householder topology, prime delays and orthogonal branch energy.
+/// 2. Preset Schroeder T30 scaling: Studio < Chamber < Concert Hall.
+/// 3. Wet level scaling and zero-wet transparency bypass.
+/// 4. Numerical safety: denormal flushing to absolute zero, no NaN/Inf.
+/// 5. Sample rate invariance (44.1 kHz, 48 kHz, 96 kHz, 192 kHz).
+/// 6. AudioEngine atomic parameter state and block processing integration.
+/// 7. Identifier serialization round-trip.
 // ============================================================================
 class RoomReverbEngineTest final : public juce::UnitTest {
 public:
@@ -21,6 +24,7 @@ public:
     }
 
     void runTest() override {
+        testEightLineHouseholderTopology();
         testPresetsDecayCharacteristics();
         testWetLevelBypassAndScaling();
         testNumericalSafetyAndDenormalFlushing();
@@ -32,61 +36,95 @@ public:
     }
 
 private:
+    [[nodiscard]] static double measureRT30(double sampleRate, devpiano::audio::ReverbSpace space) {
+        using namespace devpiano::audio;
+        RoomReverbEngine reverb;
+        reverb.prepare(sampleRate);
+        reverb.setSpace(space);
+        reverb.setWetLevel(1.0f, true);
+
+        const auto totalSamples = static_cast<int>(std::lround(10.0 * sampleRate));
+        std::vector<float> left(static_cast<std::size_t>(totalSamples), 0.0f);
+        std::vector<float> right(static_cast<std::size_t>(totalSamples), 0.0f);
+        left[0] = 1.0f;
+        reverb.processStereo(left.data(), right.data(), totalSamples);
+
+        std::vector<double> cumulative(static_cast<std::size_t>(totalSamples) + 1, 0.0);
+        for (auto sample = totalSamples - 1; sample >= 0; --sample) {
+            const auto index = static_cast<std::size_t>(sample);
+            const auto energy = 0.5
+                * (static_cast<double>(left[index]) * left[index] + static_cast<double>(right[index]) * right[index]);
+            cumulative[index] = cumulative[index + 1] + energy;
+        }
+        const auto referenceEnergy = cumulative[0];
+        if (referenceEnergy <= 0.0) {
+            return -1.0;
+        }
+
+        auto timeAtMinus5 = -1.0;
+        auto timeAtMinus35 = -1.0;
+        for (auto sample = 0; sample < totalSamples; ++sample) {
+            const auto index = static_cast<std::size_t>(sample);
+            const auto decibels = 10.0 * std::log10(std::max(cumulative[index] / referenceEnergy, 1.0e-300));
+            if (timeAtMinus5 < 0.0 && decibels <= -5.0) {
+                timeAtMinus5 = static_cast<double>(sample) / sampleRate;
+            }
+            if (timeAtMinus35 < 0.0 && decibels <= -35.0) {
+                timeAtMinus35 = static_cast<double>(sample) / sampleRate;
+            }
+        }
+        if (timeAtMinus5 < 0.0 || timeAtMinus35 < 0.0) {
+            return -1.0;
+        }
+        return 2.0 * (timeAtMinus35 - timeAtMinus5);
+    }
+
+    void testEightLineHouseholderTopology() {
+        beginTest("RoomReverbEngine: 8 prime delays and orthogonal Householder feedback");
+        using namespace devpiano::audio;
+        expectEquals(RoomReverbEngine::kFdnSize, 8);
+        expectEquals(RoomReverbEngine::kEarlyTaps, 4);
+
+        RoomReverbEngine reverb;
+        reverb.prepare(48000.0);
+        for (std::size_t i = 0; i < RoomReverbEngine::kFdnSize; ++i) {
+            expect(reverb.delaySamples[i] >= 32, "FDN delay must be at least one render block");
+            for (std::size_t j = i + 1; j < RoomReverbEngine::kFdnSize; ++j) {
+                expect(std::gcd(reverb.delaySamples[i], reverb.delaySamples[j]) == 1,
+                       "FDN delay lengths must be pairwise coprime at 48 kHz");
+            }
+        }
+
+        const std::array<float, RoomReverbEngine::kFdnSize> input { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+        const auto output = RoomReverbEngine::householderFeedback(input);
+        auto inputEnergy = 0.0f;
+        auto outputEnergy = 0.0f;
+        auto inputSum = 0.0f;
+        auto outputSum = 0.0f;
+        for (std::size_t i = 0; i < RoomReverbEngine::kFdnSize; ++i) {
+            inputEnergy += input[i] * input[i];
+            outputEnergy += output[i] * output[i];
+            inputSum += input[i];
+            outputSum += output[i];
+        }
+        expectWithinAbsoluteError(outputEnergy, inputEnergy, 1.0e-4f,
+                                  "Householder transform must preserve branch energy");
+        expectWithinAbsoluteError(outputSum, -inputSum, 1.0e-4f,
+                                  "Householder transform must invert the common-mode sum");
+    }
+
     void testPresetsDecayCharacteristics() {
         beginTest("RoomReverbEngine: Preset decay scaling (Studio < Chamber < Concert Hall)");
-
         using namespace devpiano::audio;
-
         constexpr double sampleRate = 44100.0;
 
-        auto measureDecaySampleCount = [&](ReverbSpace space) {
-            RoomReverbEngine reverb;
-            reverb.prepare(sampleRate);
-            reverb.setSpace(space);
-            reverb.setWetLevel(1.0f); // 100% wet to measure reverberant tail alone
+        const auto decayStudio = measureRT30(sampleRate, ReverbSpace::studio);
+        const auto decayChamber = measureRT30(sampleRate, ReverbSpace::chamber);
+        const auto decayConcert = measureRT30(sampleRate, ReverbSpace::concertHall);
 
-            // Excite with a single impulse
-            std::vector<float> left(2048, 0.0f);
-            std::vector<float> right(2048, 0.0f);
-            left[0] = 1.0f;
-            right[0] = 1.0f;
-
-            reverb.processStereo(left.data(), right.data(), 2048);
-
-            // Now pump silence and measure how many samples until RMS falls below threshold (e.g. -40dB = 0.01)
-            int totalSamples = 2048;
-            int tailLength = 0;
-            constexpr int kBlockSize = 512;
-            std::vector<float> silenceL(kBlockSize, 0.0f);
-            std::vector<float> silenceR(kBlockSize, 0.0f);
-
-            for (int block = 0; block < 300; ++block) { // up to ~3.5 seconds
-                std::fill(silenceL.begin(), silenceL.end(), 0.0f);
-                std::fill(silenceR.begin(), silenceR.end(), 0.0f);
-                reverb.processStereo(silenceL.data(), silenceR.data(), kBlockSize);
-                totalSamples += kBlockSize;
-
-                float maxSample = 0.0f;
-                for (std::size_t i = 0; i < kBlockSize; ++i) {
-                    maxSample = std::max(maxSample, std::abs(silenceL[i]));
-                    maxSample = std::max(maxSample, std::abs(silenceR[i]));
-                }
-
-                if (maxSample > 0.005f) {
-                    tailLength = totalSamples;
-                }
-            }
-            return tailLength;
-        };
-
-        const auto decayStudio = measureDecaySampleCount(ReverbSpace::studio);
-        const auto decayChamber = measureDecaySampleCount(ReverbSpace::chamber);
-        const auto decayConcert = measureDecaySampleCount(ReverbSpace::concertHall);
-
-        // Verification of relative physical RT60 scaling
-        expect(decayStudio > 0, "Studio tail must exist");
-        expect(decayChamber > decayStudio, "Chamber tail must be longer than Studio");
-        expect(decayConcert > decayChamber, "Concert Hall tail must be longer than Chamber");
+        expect(decayStudio > 0.0, "Studio T30 must exist");
+        expect(decayChamber > decayStudio, "Chamber T30 must be longer than Studio");
+        expect(decayConcert > decayChamber, "Concert Hall T30 must be longer than Chamber");
     }
 
     void testWetLevelBypassAndScaling() {
@@ -209,51 +247,11 @@ private:
 
         using namespace devpiano::audio;
 
-        const auto measureDecaySeconds = [](double sampleRate, ReverbSpace space) {
-            RoomReverbEngine reverb;
-            reverb.prepare(sampleRate);
-            reverb.setSpace(space);
-            reverb.setWetLevel(1.0f, true);
-            std::vector<float> impulseL(2048, 0.0f);
-            std::vector<float> impulseR(2048, 0.0f);
-            impulseL[0] = 1.0f;
-            impulseR[0] = 0.0f;
-            reverb.processStereo(impulseL.data(), impulseR.data(), 2048);
-            auto referencePeak = 0.0f;
-            for (auto sample = 0; sample < 2048; ++sample) {
-                referencePeak = std::max(referencePeak, std::abs(impulseL[sample]));
-                referencePeak = std::max(referencePeak, std::abs(impulseR[sample]));
-            }
-            const auto threshold = std::max(1.0e-6f, referencePeak * 1.0e-3f);
-            constexpr int blockSize = 512;
-            constexpr double measureSeconds = 8.0;
-            const auto maxBlocks = static_cast<int>(std::ceil(measureSeconds * sampleRate / blockSize));
-            std::vector<float> silentL(blockSize, 0.0f);
-            std::vector<float> silentR(blockSize, 0.0f);
-            auto total = 2048;
-            auto lastAudible = 0;
-            for (auto block = 0; block < maxBlocks; ++block) {
-                std::fill(silentL.begin(), silentL.end(), 0.0f);
-                std::fill(silentR.begin(), silentR.end(), 0.0f);
-                reverb.processStereo(silentL.data(), silentR.data(), blockSize);
-                total += blockSize;
-                auto peak = 0.0f;
-                for (auto sample = 0; sample < blockSize; ++sample) {
-                    peak = std::max(peak, std::abs(silentL[sample]));
-                    peak = std::max(peak, std::abs(silentR[sample]));
-                }
-                if (peak > threshold) {
-                    lastAudible = total;
-                }
-            }
-            return static_cast<double>(lastAudible) / sampleRate;
-        };
-
-        const auto decay44 = measureDecaySeconds(44100.0, ReverbSpace::chamber);
-        const auto decay48 = measureDecaySeconds(48000.0, ReverbSpace::chamber);
-        const auto decay96 = measureDecaySeconds(96000.0, ReverbSpace::chamber);
-        expect(decay44 > 0.3 && decay44 < 4.0, "chamber decay has a bounded time-domain length");
-        // 容差由实测跨率差异决定：延迟取整与峰值参考不同仍带来约 25% 偏差，
+        const auto decay44 = measureRT30(44100.0, ReverbSpace::chamber);
+        const auto decay48 = measureRT30(48000.0, ReverbSpace::chamber);
+        const auto decay96 = measureRT30(96000.0, ReverbSpace::chamber);
+        expect(decay44 > 1.0 && decay44 < 8.0, "chamber T30 has a bounded time-domain length");
+        // 容差由实测跨率差异决定：延迟取整与模态分布仍带来约 15% 偏差，
         // 这里只拦截数量级错误，不用过紧阈值掩盖或伪造采样率不变性。
         expectWithinAbsoluteError(decay48, decay44, std::max(0.35, 0.30 * decay44));
         expectWithinAbsoluteError(decay96, decay44, std::max(0.35, 0.30 * decay44));
