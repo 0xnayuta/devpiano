@@ -58,28 +58,39 @@ def read_wav(path: Path) -> tuple[np.ndarray, int]:
     return values, rate
 
 
-def biquad_response(freqs: np.ndarray, b: tuple[float, ...], a: tuple[float, ...], rate: float) -> np.ndarray:
-    z = np.exp(-1j * 2.0 * math.pi * freqs / rate)
-    return (b[0] + b[1] * z + b[2] * z * z) / (a[0] + a[1] * z + a[2] * z * z)
-
-
-def k_weighted_lufs(segment: np.ndarray, rate: float) -> float:
-    if segment.shape[0] == 0:
-        return float("-inf")
-    n = segment.shape[0]
-    freqs = np.fft.rfftfreq(n, 1.0 / rate)
-    response = biquad_response(freqs, K_B1, K_A1, rate) * biquad_response(freqs, K_B2, K_A2, rate)
-    mean_square = 0.0
+def biquad_filter(segment: np.ndarray, b: tuple[float, ...], a: tuple[float, ...]) -> np.ndarray:
+    # 直接型 I 转置、零初始状态的顺序滤波；不能用同长度 FFT 代替，
+    # 那等价于循环卷积，会让窗口首尾互相污染。
+    filtered = np.empty_like(segment)
+    b0, b1, b2 = b
+    _, a1, a2 = a
     for channel in range(segment.shape[1]):
-        spectrum = np.fft.rfft(segment[:, channel])
-        filtered = np.fft.irfft(spectrum * response, n)
-        mean_square += float(np.mean(filtered * filtered))
-    if mean_square <= 0.0:
-        return float("-inf")
+        x = segment[:, channel]
+        y = filtered[:, channel]
+        x1 = x2 = y1 = y2 = 0.0
+        for index, sample in enumerate(x):
+            out = b0 * sample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+            y[index] = out
+            x2 = x1
+            x1 = sample
+            y2 = y1
+            y1 = out
+    return filtered
+
+
+def k_weighted_lufs(segment: np.ndarray, rate: float) -> float | None:
+    if segment.shape[0] == 0:
+        return None
+    filtered = biquad_filter(biquad_filter(segment, K_B1, K_A1), K_B2, K_A2)
+    mean_square = float(np.sum(np.mean(filtered * filtered, axis=0)))
+    if mean_square <= 0.0 or not math.isfinite(mean_square):
+        return None
     return -0.691 + 10.0 * math.log10(mean_square)
 
 
 def true_peak_4x(segment: np.ndarray) -> float:
+    if segment.shape[0] == 0:
+        return 0.0
     # Windowed-sinc 4x interpolation is a conservative true-peak estimate.
     taps = 32
     offsets = np.arange(-taps // 2 + 1, taps // 2 + 1, dtype=np.float64)
@@ -151,7 +162,7 @@ def analyze_case(path: Path, midi: int, velocity: int) -> dict:
         "true_peak_4x": true_peak_4x(audio),
         "rms_100_300ms": steady_rms,
         "rms_1100_1300ms": late_rms,
-        "late_over_early_rms": (late_rms / steady_rms) if steady_rms > 0.0 else 0.0,
+        "late_over_early_rms": (late_rms / steady_rms) if steady_rms > 0.0 else None,
         "hf_ratio_2500_steady": hf_steady,
         "centroid_hz_steady": centroid_steady,
         "hf_ratio_2500_attack": hf_attack,
@@ -164,19 +175,26 @@ def summarize(cases: list[dict], velocity: int) -> dict:
     if not subset:
         return {}
 
-    lufs_values = [case["lufs_0_400ms"] for case in subset if math.isfinite(case["lufs_0_400ms"])]
+    lufs_values = [case["lufs_0_400ms"] for case in subset if case["lufs_0_400ms"] is not None]
     lufs_range = (max(lufs_values) - min(lufs_values)) if len(lufs_values) > 1 else 0.0
 
     adjacent = []
     for left, right in zip(subset, subset[1:]):
-        if right["midi"] - left["midi"] == 1:
-            adjacent.append(abs(right["lufs_0_400ms"] - left["lufs_0_400ms"]))
+        if right["midi"] - left["midi"] != 1:
+            continue
+        left_lufs = left["lufs_0_400ms"]
+        right_lufs = right["lufs_0_400ms"]
+        if left_lufs is not None and right_lufs is not None:
+            adjacent.append(abs(right_lufs - left_lufs))
 
     by_midi = {case["midi"]: case for case in subset}
     boundaries = {}
     for low, high in BOUNDARY_PAIRS:
         if low in by_midi and high in by_midi:
-            boundaries[f"{low}/{high}"] = abs(by_midi[high]["lufs_0_400ms"] - by_midi[low]["lufs_0_400ms"])
+            low_lufs = by_midi[low]["lufs_0_400ms"]
+            high_lufs = by_midi[high]["lufs_0_400ms"]
+            if low_lufs is not None and high_lufs is not None:
+                boundaries[f"{low}/{high}"] = abs(high_lufs - low_lufs)
 
     return {
         "count": len(subset),
@@ -207,8 +225,13 @@ def validate(summaries: dict, reference: dict | None) -> dict | None:
     def compare(name: str, actual_key: str, expected_key: str, tolerance: float) -> None:
         if expected_key not in expected or actual_key not in actual:
             return
+        observed_value = actual[actual_key]
+        if observed_value is None:
+            return
         target = float(expected[expected_key])
-        observed = float(actual[actual_key])
+        observed = float(observed_value)
+        if not math.isfinite(observed):
+            return
         delta = abs(observed - target)
         result[name] = {
             "expected": target,
@@ -272,7 +295,7 @@ def main() -> int:
     }
 
     output_path = args.output or (base_directory / "report.json")
-    output_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    output_path.write_text(json.dumps(report, indent=2, allow_nan=False), encoding="utf-8")
 
     print(f"cases: {len(analyzed)}")
     for velocity, summary in summaries.items():
