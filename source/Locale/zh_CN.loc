@@ -193,6 +193,7 @@ countries: cn
 "Audio Buffer Size:" = "音频缓冲区大小："
 "Audio buffer size:" = "音频缓冲区大小："
 "Polyphony (restart required):" = "复音数（重启后生效）："
+"24 voices is opt-in; use 12/16 on low-end CPUs or at 96 kHz." = "24 复音为可选项；低端 CPU 或 96 kHz 下建议使用 12/16。"
 "Device Control Panel:" = "设备控制面板："
 "Control Panel" = "控制面板"
 "Open Control Panel" = "打开控制面板"

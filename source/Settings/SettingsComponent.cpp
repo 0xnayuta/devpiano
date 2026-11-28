@@ -182,6 +182,7 @@ void SettingsComponent::wireAudioControls() {
     });
 
     if (pianoVoiceCountCombo != nullptr) {
+        pianoVoiceCountCombo->setTooltip(TRANS("24 voices is opt-in; use 12/16 on low-end CPUs or at 96 kHz."));
         pianoVoiceCountCombo->clear(juce::dontSendNotification);
         for (const auto count : devpiano::audio::kSupportedPianoVoiceCounts) {
             pianoVoiceCountCombo->addItem(juce::String(count), count);

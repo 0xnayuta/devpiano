@@ -40,6 +40,17 @@ For a quick single case:
 ... --acoustic-probe --keys 60 --velocities 41,70,98 --out 'G:\...\acoustic-probe\c4'
 ```
 
+For the dense-chord level comparison, render the same chord at each voice count:
+
+```bash
+... --acoustic-probe --chord --keys 21-44 --polyphony 16 \
+  --duration 2.0 --tail 0 --out 'G:\...\acoustic-probe\phase48-chords\low_p16'
+```
+
+`--chord` writes one WAV and `manifest.json`; `--polyphony` accepts 12/16/20/24. The
+offline export path includes the master soft limiter, so the WAV is suitable for
+LUFS/True Peak/limiter analysis.
+
 For the 45-1 same-note retrigger protocol (eight C4 strikes at v41/v70/v98
 with 30/60/120/200 ms intervals):
 

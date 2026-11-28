@@ -40,7 +40,7 @@ Phase 45–46 已完成并归档；Phase 47-1 已完成（2026-11-27）；Phase 
 
 **实现**：`Audio/PianoVoiceCount.h` 作为唯一事实源；`SettingsModel`/`SettingsStore` 持久化全局 `pianoVoiceCount`，缺失/非法值回退 16；设置页新增 `Polyphony (restart required)` 控件；`AudioEngine` 以 pending 值在 `prepareToPlay` 重建 voice（重启音频设备/应用生效），音频回调不重建；实时、`WavExportOptions`、`WavFileExporter`、`PluginOfflineRenderer` 与 probe 共用同一 voice 数。
 
-**验证**：当前 main Release、48 kHz/512、低音区 21–32/36/40/44 + Room 0.20、5 s × 3 repeats × 3 进程：12/16/20/24 的 p50 约 0.86/1.11/1.35/1.57 ms，p99 约 1.75/2.10/2.53/2.94 ms；安静环境下早期测得 p99 约 0.97/1.27/1.47/1.79 ms。max 多为 2.5–4.3 ms；并发工具负载下曾出现 13.9 ms 单次离群，故 20/24 仅 opt-in。周期 10.67 ms。Windows Debug/Release CTest、全量 tidy、格式检查与设置界面实际表面验证通过。用户确认默认 16、保留 12/20/24。
+**验证**：当前 main Release、48 kHz/512、低音区 21–32/36/40/44 + Room 0.20、5 s × 3 repeats × 3 进程：12/16/20/24 的 p50 约 0.86/1.11/1.35/1.57 ms，p99 约 1.75/2.10/2.53/2.94 ms；安静环境下早期测得 p99 约 0.97/1.27/1.47/1.79 ms。max 多为 2.5–4.3 ms；并发工具负载下曾出现 13.9 ms 单次离群，故 20/24 仅 opt-in。周期 10.67 ms。密集 24 音低音和弦（21–44，v70，2 s）实测 12/16/20/24：LUFS `-21.71/-19.84/-18.46/-17.87`，True Peak `0.677/0.869/0.981/0.981`，limiter 活跃样本约 `0/17/155/209`；中音 48–71 的 True Peak 为 `0.493/0.690/0.707/0.906`，24 复音约 14 个 limiter 样本。20/24 在低音密集和弦下更易触发 limiter，故 24 保持 opt-in，设置项增加“低端 CPU/96 kHz 建议 12/16”提示。Windows Debug/Release CTest、全量 tidy、格式检查与设置界面实际表面验证通过。用户确认默认 16、保留 12/20/24。
 
 ## 2. 研究候选与不排期
 
