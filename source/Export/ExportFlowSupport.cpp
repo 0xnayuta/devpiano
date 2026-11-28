@@ -57,7 +57,7 @@ bool canExportTake(const devpiano::recording::RecordingTake& take) {
 
 WavExportOptions buildWavExportOptions(const devpiano::recording::RecordingTake& take,
                                        const SettingsModel::PerformanceSettingsView& performance,
-                                       double runtimeSampleRate, int runtimeBlockSize) {
+                                       double runtimeSampleRate, int runtimeBlockSize, int pianoVoiceCount) {
     double exportSampleRate = 44100.0;
     if (runtimeSampleRate > 0.0) {
         exportSampleRate = runtimeSampleRate;
@@ -69,6 +69,7 @@ WavExportOptions buildWavExportOptions(const devpiano::recording::RecordingTake&
     options.sampleRate = exportSampleRate;
     options.numChannels = 2;
     options.blockSize = juce::jmax(1, runtimeBlockSize);
+    options.pianoVoiceCount = devpiano::audio::clampPianoVoiceCount(pianoVoiceCount);
     options.masterGain = performance.masterGain;
     options.adsr.attack = performance.adsrAttack;
     options.adsr.decay = performance.adsrDecay;

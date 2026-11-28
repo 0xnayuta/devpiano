@@ -79,6 +79,14 @@ public:
             expectEquals(buildWavExportOptions(take, perf, 44100.0, 512).blockSize, 512);
         });
 
+        testCase("piano polyphony is copied into export options", [&] {
+            const auto take = makeOneSecondTake();
+            SettingsModel::PerformanceSettingsView perf;
+            expectEquals(buildWavExportOptions(take, perf, 48000.0, 256, 20).pianoVoiceCount, 20);
+            expectEquals(buildWavExportOptions(take, perf, 48000.0, 256).pianoVoiceCount,
+                         devpiano::audio::kDefaultPianoVoiceCount);
+        });
+
         testCase("take preset acoustic snapshot overrides current export options", [&] {
             devpiano::test::ScopedTempDir tempDir("wav-take-voicing");
             RecordingTake take;

@@ -95,7 +95,7 @@ bool exportTakeAsWavFile(const devpiano::recording::RecordingTake& take, const j
     roomReverb.setWetLevel(options.reverbWet);
     roomReverb.prepare(options.sampleRate);
 
-    initialiseOfflineSynths(pianoSynth, sineSynth, options);
+    initialiseOfflineSynths(pianoSynth, sineSynth, options, options.pianoVoiceCount);
     devpiano::audio::InstrumentLayers activeLayers = options.layers;
     if (activeLayers.enabled) {
         activeSynth = &pianoSynth;

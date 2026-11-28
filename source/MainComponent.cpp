@@ -56,6 +56,7 @@ MainComponent::MainComponent() {
     devPianoLogger = std::make_unique<devpiano::diagnostics::DevPianoLogger>();
     juce::Logger::setCurrentLogger(devPianoLogger.get());
     settingsStore.load(appSettings);
+    audioEngine.setPianoVoiceCount(appSettings.pianoVoiceCount);
     audioEngine.setPluginHost(&pluginHost);
     audioEngine.setRecordingEngine(&recordingEngine);
 
@@ -659,7 +660,9 @@ void MainComponent::persistMainContentSize(int width, int height) {
 
 void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
     audioEngine.prepareToPlay(samplesPerBlockExpected, sampleRate);
-    appSettings.applyAudioSettingsView({ .sampleRate = sampleRate, .bufferSize = samplesPerBlockExpected });
+    appSettings.applyAudioSettingsView({ .sampleRate = sampleRate,
+                                         .bufferSize = samplesPerBlockExpected,
+                                         .pianoVoiceCount = appSettings.pianoVoiceCount });
 }
 
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) {
@@ -1215,6 +1218,7 @@ void MainComponent::handlePerformanceUiChanged() {
 }
 
 void MainComponent::applyUiStateToAudioEngine() {
+    audioEngine.setPianoVoiceCount(appSettings.pianoVoiceCount);
     applyPerformanceSettingsToAudioEngine(getPerformanceSettingsFromUi());
     audioEngine.setMetronomeEnabled(appSettings.metronomeEnabled);
     audioEngine.setMetronomeBpm(appSettings.metronomeBpm);
@@ -1342,6 +1346,7 @@ void MainComponent::syncUiFromSettings(bool publishPerformanceEvents) {
     updateStatusBar();
 }
 void MainComponent::syncSettingsFromUi() {
+    audioEngine.setPianoVoiceCount(appSettings.pianoVoiceCount);
     appSettings.applyPerformanceSettingsView(getPerformanceSettingsFromUi());
     appSettings.regionA = keyboardMidiMapper.getLayout().regionA;
     appSettings.regionB = keyboardMidiMapper.getLayout().regionB;

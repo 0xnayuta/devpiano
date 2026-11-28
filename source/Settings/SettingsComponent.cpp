@@ -59,6 +59,7 @@ void SettingsComponent::buildJiveUi() {
         audioTestButton = viewHost.find<juce::Button>("audio-test-button");
         audioSampleRateCombo = viewHost.find<juce::ComboBox>("audio-sample-rate-combo");
         audioBufferSizeCombo = viewHost.find<juce::ComboBox>("audio-buffer-size-combo");
+        pianoVoiceCountCombo = viewHost.find<juce::ComboBox>("piano-voice-count-combo");
         asioControlPanelButton = viewHost.find<juce::Button>("asio-control-panel-button");
 
         // Find other settings references
@@ -179,6 +180,26 @@ void SettingsComponent::wireAudioControls() {
             setDirty(true);
         }
     });
+
+    if (pianoVoiceCountCombo != nullptr) {
+        pianoVoiceCountCombo->setTooltip(TRANS("24 voices is opt-in; use 12/16 on low-end CPUs or at 96 kHz."));
+        pianoVoiceCountCombo->clear(juce::dontSendNotification);
+        for (const auto count : devpiano::audio::kSupportedPianoVoiceCounts) {
+            pianoVoiceCountCombo->addItem(juce::String(count), count);
+        }
+        if (model != nullptr) {
+            pianoVoiceCountCombo->setSelectedId(model->pianoVoiceCount, juce::dontSendNotification);
+        }
+        pianoVoiceCountCombo->onChange = [this] {
+            if (isUpdatingAudioControls) {
+                return;
+            }
+            const auto count = pianoVoiceCountCombo->getSelectedId();
+            if (devpiano::audio::isSupportedPianoVoiceCount(count)) {
+                editingState.setProperty("pianoVoiceCount", count, nullptr);
+            }
+        };
+    }
 
     if (asioControlPanelButton != nullptr) {
         asioControlPanelButton->onClick = [this] {
@@ -725,6 +746,10 @@ void SettingsComponent::syncEditingStateFromModel() {
     }
 
     editingState.removeListener(this);
+    if (pianoVoiceCountCombo != nullptr) {
+        pianoVoiceCountCombo->setSelectedId(model->pianoVoiceCount, juce::dontSendNotification);
+        editingState.setProperty("pianoVoiceCount", model->pianoVoiceCount, nullptr);
+    }
     if (colourModeCombo != nullptr) {
         editingState.setProperty("colourMode", colourModeCombo->getSelectedId(), nullptr);
     }
@@ -1315,6 +1340,14 @@ void SettingsComponent::changeListenerCallback(juce::ChangeBroadcaster* source) 
 
 bool SettingsComponent::applyDisplayProperty(const juce::Identifier& prop) {
     const auto& propName = prop.toString();
+    if (propName == "pianoVoiceCount") {
+        const int count = editingState[prop];
+        if (devpiano::audio::isSupportedPianoVoiceCount(count)) {
+            model->pianoVoiceCount = count;
+            return true;
+        }
+        return false;
+    }
     if (propName == "colourMode") {
         model->keyboardDisplay.colourMode = static_cast<devpiano::ui::KeyColourMode>((int)editingState[prop] - 1);
         return true;

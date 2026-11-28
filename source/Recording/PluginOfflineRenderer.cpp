@@ -146,7 +146,7 @@ bool renderTakeWithOfflinePlugin(const devpiano::recording::RecordingTake& take,
     pianoDelayLine.setDelay(safeLatency);
 
     if (anyDualLayerInTake) {
-        initialiseOfflinePianoSynth(pianoSynth, options);
+        initialiseOfflinePianoSynth(pianoSynth, options, options.pianoVoiceCount);
         activeSynth = &pianoSynth;
     }
 

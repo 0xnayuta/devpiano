@@ -23,7 +23,7 @@ namespace devpiano::test {
 namespace {
 
 using devpiano::audio::BuiltinSynthesiser;
-using devpiano::audio::kPianoVoiceCount;
+using devpiano::audio::kDefaultPianoVoiceCount;
 using devpiano::exporting::WavExportOptions;
 using devpiano::recording::PerformanceEventType;
 using devpiano::recording::RecordingEventSource;
@@ -66,13 +66,15 @@ struct ProbeSettings {
     bool benchmark = false;
     bool benchmarkOnly = false;
     bool retrigger = false;
+    bool chord = false;
+    int pianoVoiceCount = kDefaultPianoVoiceCount;
     juce::File phaseExperimentFile;
     std::vector<int> keys;
     std::vector<int> velocities;
 
     // Phase 46-4 benchmark matrix. The production voice count stays at
-    // kPianoVoiceCount; these values only configure the development probe.
-    int benchmarkPolyphony = kPianoVoiceCount;
+    // kDefaultPianoVoiceCount; these values only configure the development probe.
+    int benchmarkPolyphony = kDefaultPianoVoiceCount;
     std::vector<int> benchmarkNotes;
     bool benchmarkNotesSpecified = false;
     bool benchmarkPolyphonySpecified = false;
@@ -156,6 +158,8 @@ void printUsage() {
               << "  --benchmark-repeats <n>    Rebuild and measure n times (default: 1, max 10)\n"
               << "  --benchmark-room     Include RoomReverbEngine in the measured path\n"
               << "  --wet <0..1>         Room wet level for cases and benchmark (default: 0)\n"
+              << "  --chord              Render one dense chord from --keys for level comparison\n"
+              << "  --polyphony <12|16|20|24> Voice count for --chord (default: 16)\n"
               << "  --retrigger          Render eight C4 strikes at v41/v70/v98 (30/60/120/200 ms)\n"
               << "  --phase-experiment <json> Render 45-2 phase candidates from a JSON file\n"
               << "  --help               Show this help\n"
@@ -172,6 +176,22 @@ void printUsage() {
                             juce::MidiMessage::noteOn(1, midi, static_cast<juce::uint8>(velocity)) });
     take.events.push_back({ take.lengthSamples, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
                             juce::MidiMessage::noteOff(1, midi) });
+    return take;
+}
+
+[[nodiscard]] RecordingTake makeChordTake(const std::vector<int>& notes, int velocity, double sampleRate,
+                                          double durationSeconds) {
+    RecordingTake take;
+    take.sampleRate = sampleRate;
+    take.lengthSamples = static_cast<std::int64_t>(std::llround(durationSeconds * sampleRate));
+    for (const auto midi : notes) {
+        take.events.push_back({ 0, PerformanceEventType::midi, 0, RecordingEventSource::computerKeyboard,
+                                juce::MidiMessage::noteOn(1, midi, static_cast<juce::uint8>(velocity)) });
+    }
+    for (const auto midi : notes) {
+        take.events.push_back({ take.lengthSamples, PerformanceEventType::midi, 0,
+                                RecordingEventSource::computerKeyboard, juce::MidiMessage::noteOff(1, midi) });
+    }
     return take;
 }
 
@@ -198,6 +218,7 @@ void printUsage() {
     options.numChannels = 2;
     options.blockSize = settings.blockSize;
     options.bitsPerSample = settings.bitsPerSample;
+    options.pianoVoiceCount = settings.pianoVoiceCount;
     options.masterGain = 1.0f;
     options.adsr = { 0.01f, 0.20f, 0.80f, 0.30f };
     options.builtinTone = SettingsModel::BuiltinTone::piano;
@@ -464,7 +485,7 @@ struct PhaseCandidate {
     options.tailSeconds = 0.0;
 
     BuiltinSynthesiser synth;
-    devpiano::recording::initialiseOfflinePianoSynth(synth, options, kPianoVoiceCount);
+    devpiano::recording::initialiseOfflinePianoSynth(synth, options, kDefaultPianoVoiceCount);
     for (auto index = 0; index < synth.getNumVoices(); ++index) {
         if (auto* voice = dynamic_cast<::PianoSynthVoice*>(synth.getVoice(index))) {
             voice->setPhaseTableForExperiment(candidate.rows[0].data(), candidate.rowCount);
@@ -596,6 +617,57 @@ int runPhaseExperiment(const ProbeSettings& settings) {
     return 0;
 }
 
+int runChordProbe(const ProbeSettings& settings) {
+    auto notes = settings.keys;
+    if (notes.empty()) {
+        for (auto midi = 21; midi <= 44; ++midi) {
+            notes.push_back(midi);
+        }
+    }
+    if (!settings.outputDirectory.createDirectory()) {
+        std::cerr << "cannot create output directory: " << settings.outputDirectory.getFullPathName() << "\n";
+        return 1;
+    }
+
+    const auto options = makeOptions(settings);
+    const auto take = makeChordTake(notes, 70, settings.sampleRate, settings.durationSeconds);
+    const auto fileName = "chord_poly" + juce::String(settings.pianoVoiceCount) + "_v70.wav";
+    const auto file = settings.outputDirectory.getChildFile(fileName);
+
+    const auto start = std::chrono::steady_clock::now();
+    if (!devpiano::exporting::exportTakeAsWavFile(take, file, options)) {
+        std::cerr << "chord render failed\n";
+        return 1;
+    }
+    const auto end = std::chrono::steady_clock::now();
+    const auto exportMs = std::chrono::duration<double, std::milli>(end - start).count();
+
+    juce::Array<juce::var> noteValues;
+    for (const auto midi : notes) {
+        noteValues.add(juce::var(midi));
+    }
+
+    auto* manifest = new juce::DynamicObject();
+    manifest->setProperty("protocol", "phase48-chord");
+    manifest->setProperty("polyphony", settings.pianoVoiceCount);
+    manifest->setProperty("notes", juce::var(noteValues));
+    manifest->setProperty("sampleRate", settings.sampleRate);
+    manifest->setProperty("bitsPerSample", settings.bitsPerSample);
+    manifest->setProperty("durationSeconds", settings.durationSeconds);
+    manifest->setProperty("tailSeconds", settings.tailSeconds);
+    manifest->setProperty("file", fileName);
+    manifest->setProperty("exportMs", exportMs);
+    const auto manifestFile = settings.outputDirectory.getChildFile("manifest.json");
+    if (!manifestFile.replaceWithText(juce::JSON::toString(juce::var(manifest), true))) {
+        std::cerr << "cannot write chord manifest\n";
+        return 1;
+    }
+
+    std::cout << "Rendered chord with " << settings.pianoVoiceCount << " voices and " << notes.size() << " notes to "
+              << file.getFullPathName() << "\n";
+    return 0;
+}
+
 } // namespace
 
 int runAcousticProbe(const juce::StringArray& args) {
@@ -680,6 +752,14 @@ int runAcousticProbe(const juce::StringArray& args) {
         } else if (argument == "--benchmark-only") {
             settings.benchmark = true;
             settings.benchmarkOnly = true;
+        } else if (argument == "--chord") {
+            settings.chord = true;
+        } else if (argument == "--polyphony") {
+            const auto value = nextRequiredValue("--polyphony");
+            if (value.isEmpty()) {
+                return 1;
+            }
+            settings.pianoVoiceCount = value.getIntValue();
         } else if (argument == "--benchmark-polyphony") {
             if (!parseIntegerOption("--benchmark-polyphony", settings.benchmarkPolyphony)) {
                 return 1;
@@ -751,8 +831,8 @@ int runAcousticProbe(const juce::StringArray& args) {
         std::cerr << "47-1 currently fixes the probe sample rate at 48000 Hz\n";
         return 1;
     }
-    if (!settings.benchmarkOnly && !settings.retrigger && settings.phaseExperimentFile == juce::File()
-        && settings.durationSeconds < 1.4) {
+    if (!settings.benchmarkOnly && !settings.retrigger && !settings.chord
+        && settings.phaseExperimentFile == juce::File() && settings.durationSeconds < 1.4) {
         std::cerr << "--duration must be at least 1.4 s for the 1.1-1.3 s window\n";
         return 1;
     }
@@ -788,6 +868,15 @@ int runAcousticProbe(const juce::StringArray& args) {
         }
     }
 
+    if (!devpiano::audio::isSupportedPianoVoiceCount(settings.pianoVoiceCount)) {
+        std::cerr << "--polyphony must be one of 12/16/20/24\n";
+        return 1;
+    }
+    if (settings.chord
+        && (settings.retrigger || settings.benchmarkOnly || settings.phaseExperimentFile != juce::File())) {
+        std::cerr << "--chord cannot be combined with --retrigger, --benchmark-only or --phase-experiment\n";
+        return 1;
+    }
     if (benchmarkOptionUsed && !settings.benchmark) {
         std::cerr << "benchmark options require --benchmark or --benchmark-only\n";
         return 1;
@@ -833,6 +922,10 @@ int runAcousticProbe(const juce::StringArray& args) {
     if (settings.benchmarkNotes.size() != static_cast<std::size_t>(settings.benchmarkPolyphony)) {
         std::cerr << "--benchmark-notes count must equal --benchmark-polyphony\n";
         return 1;
+    }
+
+    if (settings.chord) {
+        return runChordProbe(settings);
     }
 
     if (settings.phaseExperimentFile != juce::File()) {

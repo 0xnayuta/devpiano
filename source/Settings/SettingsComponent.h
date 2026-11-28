@@ -105,6 +105,7 @@ private:
     juce::Button* audioTestButton = nullptr;
     juce::ComboBox* audioSampleRateCombo = nullptr;
     juce::ComboBox* audioBufferSizeCombo = nullptr;
+    juce::ComboBox* pianoVoiceCountCombo = nullptr;
     juce::Button* asioControlPanelButton = nullptr;
     bool isUpdatingAudioControls = false;
 

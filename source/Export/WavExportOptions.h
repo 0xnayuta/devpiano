@@ -2,6 +2,7 @@
 
 #include "../Audio/HammerVoicing.h"
 #include "../Audio/InstrumentLayers.h"
+#include "../Audio/PianoVoiceCount.h"
 #include "../Audio/RoomReverbEngine.h"
 #include "../Audio/TemperamentEngine.h"
 #include "../Settings/SettingsModel.h"
@@ -21,6 +22,7 @@ struct WavExportOptions {
     int numChannels = 2;
     int blockSize = 512;
     int bitsPerSample = 16;
+    int pianoVoiceCount = devpiano::audio::kDefaultPianoVoiceCount;
     float masterGain = 1.0f;
     juce::ADSR::Parameters adsr;
     // Builtin fallback tone (Phase 12-3): match realtime parameters for export parity.

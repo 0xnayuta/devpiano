@@ -81,6 +81,13 @@ juce::ValueTree makeAudioDeviceSectionTree() {
     bufferSizeCombo.setProperty("height", 24, nullptr);
     content.appendChild(settingRow(TRANS("Audio Buffer Size:"), bufferSizeCombo, "audio-buffer-size-label"), nullptr);
 
+    // Row 5b: Piano polyphony (engine resource; applies after restart)
+    auto voiceCountCombo = node("ComboBox", "piano-voice-count-combo");
+    voiceCountCombo.setProperty("width", 300, nullptr);
+    voiceCountCombo.setProperty("height", 24, nullptr);
+    content.appendChild(settingRow(TRANS("Polyphony (restart required):"), voiceCountCombo, "piano-voice-count-label"),
+                        nullptr);
+
     // Row 6: ASIO Control Panel (optional, collapsed when not in ASIO mode)
     auto asioRow = flexRow("asio-control-panel-row");
     asioRow.setProperty("height", 0, nullptr);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PianoPedalAcoustics.h"
+#include "PianoVoiceCount.h"
 #include "PianoWholeBodyBus.h"
 
 #include <array>
@@ -11,8 +12,7 @@
 
 namespace devpiano::audio {
 
-// 实时与离线共用的声部分配：Piano 为 12，Sine 保持 8。
-inline constexpr int kPianoVoiceCount = 12;
+// 实时与离线共用的声部分配：Piano 默认 16，可配置 12/16/20/24；Sine 保持 8。
 inline constexpr int kSineVoiceCount = 8;
 
 class BuiltinSynthesiser : public juce::Synthesiser {

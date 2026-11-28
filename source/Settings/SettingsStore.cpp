@@ -9,6 +9,7 @@ const char* kSectionApp = "DevPiano";
 const char* kKeyAudioXml = "audioDeviceXml";
 const char* kKeySampleRate = "sampleRate";
 const char* kKeyBufferSize = "bufferSize";
+const char* kKeyPianoVoiceCount = "pianoVoiceCount";
 const char* kKeyGain = "masterGain";
 const char* kKeyA = "adsrAttack";
 const char* kKeyD = "adsrDecay";
@@ -263,6 +264,7 @@ void SettingsStore::readNow(SettingsModel& m) {
 
     m.sampleRate = f.getDoubleValue(kKeySampleRate, m.sampleRate);
     m.bufferSize = f.getIntValue(kKeyBufferSize, m.bufferSize);
+    m.pianoVoiceCount = devpiano::audio::clampPianoVoiceCount(f.getIntValue(kKeyPianoVoiceCount, m.pianoVoiceCount));
 
     readPerformanceSettings(f, m);
 
@@ -391,6 +393,7 @@ bool SettingsStore::writeNow(const SettingsModel& m) {
 
     f.setValue(kKeySampleRate, m.sampleRate);
     f.setValue(kKeyBufferSize, m.bufferSize);
+    f.setValue(kKeyPianoVoiceCount, m.pianoVoiceCount);
 
     f.setValue(kKeyGain, m.masterGain);
     f.setValue(kKeyA, m.adsrAttack);

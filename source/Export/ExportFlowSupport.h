@@ -32,7 +32,8 @@ enum class ExportFileType : std::uint8_t { midi, wav };
 
 [[nodiscard]] WavExportOptions buildWavExportOptions(const devpiano::recording::RecordingTake& take,
                                                      const SettingsModel::PerformanceSettingsView& performance,
-                                                     double runtimeSampleRate, int runtimeBlockSize);
+                                                     double runtimeSampleRate, int runtimeBlockSize,
+                                                     int pianoVoiceCount = devpiano::audio::kDefaultPianoVoiceCount);
 
 [[nodiscard]] juce::String makeExportLogPrefix(ExportFileType type);
 /// Master bus soft-knee ceiling guard (consistent across AudioEngine and export renderers).
