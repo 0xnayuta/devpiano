@@ -2,7 +2,7 @@
 
 > 用途：维护当前候选阶段、恢复条件与实施顺序；项目状态和长期阶段顺序以 [roadmap](roadmap.md) 为准。
 > 归档口径：Phase 39、Phase 39.5、R0–R11、Phase 40–44 与 Phase 45–46 的任务、实施记录、验收、失败历史和证据已迁入 `docs/archive/`。本页不重复维护已完成阶段的历史状态，也不把归档记录当作当前默认或已通过结论。
-> 当前状态：Phase 40–44 已完成（2026-11-25）并归档（2026-11-26）；Phase 45–46 已完成（2026-11-27）并归档（2026-11-28），完整记录见 [Phase 45–46 归档](../archive/phase45-46-piano-acoustics-and-retrigger.md)。当前无进行中阶段；Phase 47-1 已完成（2026-11-27）；**Phase 47-2/47-3 仍为候选**，进入须用户明确批准。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；Phase 39.5 与 R0–R11 已完成并归档；E3 有限尾音维护任务已实现并独立记录（见 §4）。
+> 当前状态：Phase 40–44 已完成（2026-11-25）并归档（2026-11-26）；Phase 45–46 已完成（2026-11-27）并归档（2026-11-28），完整记录见 [Phase 45–46 归档](../archive/phase45-46-piano-acoustics-and-retrigger.md)。当前无进行中阶段；Phase 47-1 已完成（2026-11-27）；Phase 48 已完成（2026-11-28）；**Phase 47-2/47-3 仍为候选**，进入须用户明确批准。Phase 39 已冻结，Task 39-2 仍为 **inconclusive**，Phase 39 不记为通过；Phase 39.5 与 R0–R11 已完成并归档；E3 有限尾音维护任务已实现并独立记录（见 §4）。
 
 ## 0. 归档入口
 
@@ -15,7 +15,7 @@
 
 ## 1. 当前候选阶段（Phase 47-2/47-3）
 
-Phase 45–46 已完成并归档；Phase 47-1 已完成（2026-11-27）。Phase 47-2/47-3 尚未启动，进入须用户明确批准；47-2 按需启动，不强制排期。本页只维护尚未启动的候选与进入条件，不把规划写成已实现。
+Phase 45–46 已完成并归档；Phase 47-1 已完成（2026-11-27）；Phase 48 已完成（2026-11-28）。Phase 47-2/47-3 尚未启动，进入须用户明确批准；47-2 按需启动，不强制排期。本页只维护尚未启动的候选与进入条件，不把规划写成已实现。
 
 ### Phase 47：离线声学校准与参数单源（Offline Acoustic Calibration & Parameter SSOT）
 
@@ -33,6 +33,14 @@ Phase 45–46 已完成并归档；Phase 47-1 已完成（2026-11-27）。Phase 
 **实施边界**：不做远程 SSOT、不做自动迁移链、不把工具打进发布包、不为假想未来预建通用参数框架。
 
 **验证与出口**：工具可复现 Phase 40/44 指标；descriptor 覆盖检查通过；新增一个参数从定义到 UI/预设/持久化走通；不新增通用参数框架。
+
+### Phase 48：可配置钢琴复音（Configurable Piano Polyphony）[已完成 2026-11-28]
+
+**目标**：把钢琴 voice 预算从固定 12 改为全局可配置，默认 16，支持 12/16/20/24；24 仅 opt-in。不改变单音 DSP、88 键校准或总线所有权。
+
+**实现**：`Audio/PianoVoiceCount.h` 作为唯一事实源；`SettingsModel`/`SettingsStore` 持久化全局 `pianoVoiceCount`，缺失/非法值回退 16；设置页新增 `Polyphony (restart required)` 控件；`AudioEngine` 以 pending 值在 `prepareToPlay` 重建 voice（重启音频设备/应用生效），音频回调不重建；实时、`WavExportOptions`、`WavFileExporter`、`PluginOfflineRenderer` 与 probe 共用同一 voice 数。
+
+**验证**：当前 main Release、48 kHz/512、低音区 21–32/36/40/44 + Room 0.20、5 s × 3 repeats × 3 进程：12/16/20/24 的 p50 约 0.86/1.11/1.35/1.57 ms，p99 约 1.75/2.10/2.53/2.94 ms；安静环境下早期测得 p99 约 0.97/1.27/1.47/1.79 ms。max 多为 2.5–4.3 ms；并发工具负载下曾出现 13.9 ms 单次离群，故 20/24 仅 opt-in。周期 10.67 ms。Windows Debug/Release CTest、全量 tidy、格式检查与设置界面实际表面验证通过。用户确认默认 16、保留 12/20/24。
 
 ## 2. 研究候选与不排期
 

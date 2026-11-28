@@ -227,6 +227,7 @@ void SettingsWindowManager::showFor(MainComponent& owner) {
             layout.regionB = safe->appSettings.regionB;
             safe->keyboardMidiMapper.setLayout(std::move(layout), false);
         }
+        safe->audioEngine.setPianoVoiceCount(safe->appSettings.pianoVoiceCount);
         safe->audioEngine.setInstrumentLayers(safe->appSettings.layers);
         safe->setControlsPianoValues(safe->appSettings.builtinTone, safe->appSettings.pianoBrightness,
                                      safe->appSettings.pianoHammerHardness, safe->appSettings.pianoResonance);

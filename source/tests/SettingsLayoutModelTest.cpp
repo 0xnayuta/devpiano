@@ -70,6 +70,9 @@ private:
             auto* bufferSizeCombo
                 = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "audio-buffer-size-combo"));
             expect(bufferSizeCombo != nullptr);
+            auto* voiceCountCombo
+                = dynamic_cast<juce::ComboBox*>(findComponentById(*rootItem, "piano-voice-count-combo"));
+            expect(voiceCountCombo != nullptr);
 
             auto* asioBtn = dynamic_cast<juce::Button*>(findComponentById(*rootItem, "asio-control-panel-button"));
             expect(asioBtn != nullptr);

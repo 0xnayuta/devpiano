@@ -63,7 +63,7 @@ AudioEngine::AudioEngine() {
     }
     keyboardState.addListener(this);
     presetBoundaries.reserve(2);
-    rebuildSynth();
+    rebuildSynth(devpiano::audio::kDefaultPianoVoiceCount);
 }
 
 AudioEngine::~AudioEngine() {
@@ -82,6 +82,10 @@ void AudioEngine::setRecordingEngine(devpiano::recording::RecordingEngine* engin
 }
 
 void AudioEngine::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
+    const auto requestedVoiceCount = pendingPianoVoiceCount.load(std::memory_order_relaxed);
+    if (requestedVoiceCount != activePianoVoiceCount) {
+        rebuildSynth(requestedVoiceCount);
+    }
     currentSampleRate.store(sampleRate, std::memory_order_relaxed);
     currentBlockSize.store(samplesPerBlockExpected, std::memory_order_relaxed);
     if (recordingEngine != nullptr) {
@@ -500,6 +504,21 @@ void AudioEngine::setAdsr(float attackSeconds, float decaySeconds, float sustain
     pendingParameterMask.fetch_or(adsrParameter, std::memory_order_release);
 }
 
+void AudioEngine::setPianoVoiceCount(int voiceCount) noexcept {
+    if (!devpiano::audio::isSupportedPianoVoiceCount(voiceCount)) {
+        return;
+    }
+    pendingPianoVoiceCount.store(voiceCount, std::memory_order_relaxed);
+}
+
+int AudioEngine::getPianoVoiceCount() const noexcept {
+    return pendingPianoVoiceCount.load(std::memory_order_relaxed);
+}
+
+int AudioEngine::getActivePianoVoiceCount() const noexcept {
+    return activePianoVoiceCount;
+}
+
 void AudioEngine::setPianoParameters(float brightness, float hammerHardness, float resonance) {
     pendingBrightness.store(juce::jlimit(0.0f, 1.0f, brightness), std::memory_order_relaxed);
     pendingHammerHardness.store(juce::jlimit(0.0f, 1.0f, hammerHardness), std::memory_order_relaxed);
@@ -601,7 +620,8 @@ void AudioEngine::setBuiltinSynthTone(BuiltinSynthTone tone) {
     pendingParameterMask.fetch_or(toneParameter, std::memory_order_release);
 }
 
-void AudioEngine::rebuildSynth() {
+void AudioEngine::rebuildSynth(int voiceCount) {
+    activePianoVoiceCount = devpiano::audio::clampPianoVoiceCount(voiceCount);
     synth.clearSounds();
     synth.clearVoices();
     sineSynth.clearSounds();
@@ -610,7 +630,7 @@ void AudioEngine::rebuildSynth() {
     sineSynth.addSound(new SineSynthSound());
     synth.setPedalAcousticsEnabled(true);
     sineSynth.setPedalAcousticsEnabled(false);
-    for (int index = 0; index < devpiano::audio::kPianoVoiceCount; ++index) {
+    for (int index = 0; index < activePianoVoiceCount; ++index) {
         auto* voice = new PianoSynthVoice();
         voice->setVoiceIndex(index);
         synth.addVoice(voice);

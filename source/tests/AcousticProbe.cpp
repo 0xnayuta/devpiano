@@ -23,7 +23,7 @@ namespace devpiano::test {
 namespace {
 
 using devpiano::audio::BuiltinSynthesiser;
-using devpiano::audio::kPianoVoiceCount;
+using devpiano::audio::kDefaultPianoVoiceCount;
 using devpiano::exporting::WavExportOptions;
 using devpiano::recording::PerformanceEventType;
 using devpiano::recording::RecordingEventSource;
@@ -71,8 +71,8 @@ struct ProbeSettings {
     std::vector<int> velocities;
 
     // Phase 46-4 benchmark matrix. The production voice count stays at
-    // kPianoVoiceCount; these values only configure the development probe.
-    int benchmarkPolyphony = kPianoVoiceCount;
+    // kDefaultPianoVoiceCount; these values only configure the development probe.
+    int benchmarkPolyphony = kDefaultPianoVoiceCount;
     std::vector<int> benchmarkNotes;
     bool benchmarkNotesSpecified = false;
     bool benchmarkPolyphonySpecified = false;
@@ -198,6 +198,7 @@ void printUsage() {
     options.numChannels = 2;
     options.blockSize = settings.blockSize;
     options.bitsPerSample = settings.bitsPerSample;
+    options.pianoVoiceCount = settings.benchmarkPolyphony;
     options.masterGain = 1.0f;
     options.adsr = { 0.01f, 0.20f, 0.80f, 0.30f };
     options.builtinTone = SettingsModel::BuiltinTone::piano;
@@ -464,7 +465,7 @@ struct PhaseCandidate {
     options.tailSeconds = 0.0;
 
     BuiltinSynthesiser synth;
-    devpiano::recording::initialiseOfflinePianoSynth(synth, options, kPianoVoiceCount);
+    devpiano::recording::initialiseOfflinePianoSynth(synth, options, kDefaultPianoVoiceCount);
     for (auto index = 0; index < synth.getNumVoices(); ++index) {
         if (auto* voice = dynamic_cast<::PianoSynthVoice*>(synth.getVoice(index))) {
             voice->setPhaseTableForExperiment(candidate.rows[0].data(), candidate.rowCount);

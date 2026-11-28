@@ -3,6 +3,7 @@
 #include "../Audio/HammerVoicing.h"
 #include "../Audio/InstrumentLayers.h"
 #include "../Audio/PerspectiveProcessor.h"
+#include "../Audio/PianoVoiceCount.h"
 #include "../Audio/RoomReverbEngine.h"
 #include "../Audio/TemperamentEngine.h"
 #include "../Input/TouchVelocityCurve.h"
@@ -42,6 +43,7 @@ struct SettingsModel {
     struct AudioSettingsView {
         double sampleRate = 48000.0;
         int bufferSize = 128;
+        int pianoVoiceCount = devpiano::audio::kDefaultPianoVoiceCount;
         bool hasSerializedDeviceState = false;
     };
 
@@ -93,6 +95,7 @@ struct SettingsModel {
     // 这些值用于启动恢复与无设备时的后备值，不代表当前运行时设备一定已经采用它们。
     double sampleRate = 48000.0;
     int bufferSize = 128;
+    int pianoVoiceCount = devpiano::audio::kDefaultPianoVoiceCount;
 
     // Persisted performance parameters.
     float masterGain = 1.0f;
@@ -164,12 +167,14 @@ struct SettingsModel {
     [[nodiscard]] AudioSettingsView getAudioSettingsView() const {
         return { .sampleRate = sampleRate,
                  .bufferSize = bufferSize,
+                 .pianoVoiceCount = pianoVoiceCount,
                  .hasSerializedDeviceState = audioDeviceState != nullptr };
     }
 
     void applyAudioSettingsView(const AudioSettingsView& view) {
         sampleRate = view.sampleRate;
         bufferSize = view.bufferSize;
+        pianoVoiceCount = devpiano::audio::clampPianoVoiceCount(view.pianoVoiceCount);
     }
 
     void setSerializedAudioDeviceState(std::unique_ptr<juce::XmlElement> state) {
@@ -257,6 +262,7 @@ struct SettingsModel {
         if (this != &other) {
             sampleRate = other.sampleRate;
             bufferSize = other.bufferSize;
+            pianoVoiceCount = other.pianoVoiceCount;
             masterGain = other.masterGain;
             adsrAttack = other.adsrAttack;
             adsrDecay = other.adsrDecay;

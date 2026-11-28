@@ -282,9 +282,9 @@ void RecordingSessionController::handleExportWavClicked() {
 
             // Snapshot the take on the message thread for thread-safe background export.
             auto take = recordingSession.take;
-            auto options = devpiano::exporting::buildWavExportOptions(take, appSettings.getPerformanceSettingsView(),
-                                                                      getCurrentRuntimeSampleRate(),
-                                                                      getCurrentRuntimeBlockSize());
+            auto options = devpiano::exporting::buildWavExportOptions(
+                take, appSettings.getPerformanceSettingsView(), getCurrentRuntimeSampleRate(),
+                getCurrentRuntimeBlockSize(), appSettings.pianoVoiceCount);
             const auto dualLayerPluginRequired
                 = (options.layers.enabled && options.layers.pluginEnabled)
                 || std::ranges::any_of(take.presets, [](const auto& preset) {

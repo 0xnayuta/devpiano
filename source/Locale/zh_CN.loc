@@ -192,6 +192,7 @@ countries: cn
 "Sample rate:" = "采样率："
 "Audio Buffer Size:" = "音频缓冲区大小："
 "Audio buffer size:" = "音频缓冲区大小："
+"Polyphony (restart required):" = "复音数（重启后生效）："
 "Device Control Panel:" = "设备控制面板："
 "Control Panel" = "控制面板"
 "Open Control Panel" = "打开控制面板"

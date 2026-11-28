@@ -143,6 +143,20 @@ public:
             engine.getNextAudioBlock(info);
             expectEquals(countNonZeroSamples(buf, info.startSample, info.numSamples), 0);
         }
+        beginTest("piano polyphony applies on prepare and rejects unsupported values");
+        {
+            AudioEngine engine;
+            expectEquals(engine.getActivePianoVoiceCount(), devpiano::audio::kDefaultPianoVoiceCount);
+            engine.setPianoVoiceCount(20);
+            expectEquals(engine.getPianoVoiceCount(), 20);
+            engine.prepareToPlay(512, 44100.0);
+            expectEquals(engine.getActivePianoVoiceCount(), 20);
+            engine.setPianoVoiceCount(13);
+            expectEquals(engine.getPianoVoiceCount(), 20);
+            engine.setPianoVoiceCount(24);
+            engine.prepareToPlay(512, 44100.0);
+            expectEquals(engine.getActivePianoVoiceCount(), 24);
+        }
     }
 };
 static AudioEngineLifecycleTest audioEngineLifecycleTest;

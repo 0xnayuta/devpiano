@@ -54,6 +54,10 @@ public:
     void setMasterGain(float newGain);
     void setAdsr(float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
     void setPianoParameters(float brightness, float hammerHardness, float resonance);
+    // 全局引擎资源设置；音频线程在 prepareToPlay 重建 voice，不在回调中分配。
+    void setPianoVoiceCount(int voiceCount) noexcept;
+    [[nodiscard]] int getPianoVoiceCount() const noexcept;
+    [[nodiscard]] int getActivePianoVoiceCount() const noexcept;
     /// 三力度整音。非法配置不写入并返回 false；音频线程通过无锁序号快照读取。
     [[nodiscard]] bool setHammerVoicing(const devpiano::audio::HammerVoicing& voicing) noexcept;
     [[nodiscard]] devpiano::audio::HammerVoicing getHammerVoicing() const noexcept;
@@ -205,7 +209,7 @@ private:
     [[nodiscard]] devpiano::audio::AcousticSnapshot
     capturePendingAcousticSnapshot(const devpiano::audio::HammerVoicing& voicing) const noexcept;
     [[nodiscard]] bool tryReadHammerVoicing(devpiano::audio::HammerVoicing& voicing) const noexcept;
-    void rebuildSynth();
+    void rebuildSynth(int voiceCount);
     void applyPendingParametersIfNeeded();
     void discardWarmupInputState();
     void injectPendingAllNotesOffIfNeeded();
@@ -226,6 +230,8 @@ private:
     devpiano::recording::RecordingEngine* recordingEngine = nullptr;
     devpiano::audio::BuiltinSynthesiser synth;
     devpiano::audio::BuiltinSynthesiser sineSynth;
+    std::atomic<int> pendingPianoVoiceCount { devpiano::audio::kDefaultPianoVoiceCount };
+    int activePianoVoiceCount = devpiano::audio::kDefaultPianoVoiceCount;
     devpiano::audio::AcousticSnapshot activeAcoustic;
     devpiano::audio::BuiltinSynthesiser* activeSynth = &synth;
     float activeMasterGain = 1.0f;

@@ -34,6 +34,7 @@ SettingsModel makePopulatedModel() {
     m.hammerVoicing.anchors[0].hardnessDelta = -0.10f;
     m.hammerVoicing.anchors[2].loudnessDeltaDb = 4.25f;
     m.pianoResonance = 0.90f;
+    m.pianoVoiceCount = 20;
     m.keySignature = 5;
     m.midiTranspose = true;
     m.channelMatrix.active = true;
@@ -113,6 +114,7 @@ public:
             expectWithinAbsoluteError(loaded.hammerVoicing.anchors[0].hardnessDelta, -0.10f, 0.0001f);
             expectWithinAbsoluteError(loaded.hammerVoicing.anchors[2].loudnessDeltaDb, 4.25f, 0.0001f);
             expectWithinAbsoluteError(loaded.pianoResonance, 0.90f, 0.0001f);
+            expectEquals(loaded.pianoVoiceCount, 20);
             expectEquals(loaded.keySignature, 5);
             expect(loaded.midiTranspose, "midiTranspose must round-trip");
             expect(loaded.channelMatrix.active);
@@ -164,6 +166,24 @@ public:
             expect(mapper.handleKeyPressed(juce::KeyPress(juce::KeyPress::numberPad1), ks));
             expect(ks.isNoteOn(4, 77), "loaded regionB settings must route Num 1 note to channel 4, pitch 77");
             mapper.releaseAllHeldKeys(ks);
+        });
+
+        testCase("unsupported piano polyphony falls back to the default", [&] {
+            devpiano::test::ScopedTempDir tempDir("store-polyphony");
+            const auto settingsFile = tempDir.getChildFile("DevPianoTests.settings");
+            SettingsModel original;
+            original.pianoVoiceCount = 13;
+            {
+                SettingsStore store(settingsFile);
+                store.save(original);
+            }
+
+            SettingsModel loaded;
+            {
+                SettingsStore store(settingsFile);
+                store.load(loaded);
+            }
+            expectEquals(loaded.pianoVoiceCount, devpiano::audio::kDefaultPianoVoiceCount);
         });
 
         testCase("load keeps model defaults for fields never written", [&] {

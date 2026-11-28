@@ -52,11 +52,11 @@ void applyAcousticSnapshotToReverbAndGain(devpiano::audio::RoomReverbEngine& roo
 
 void initialiseOfflinePianoSynth(devpiano::audio::BuiltinSynthesiser& pianoSynth,
                                  const devpiano::exporting::WavExportOptions& options,
-                                 int voiceCount = devpiano::audio::kPianoVoiceCount);
+                                 int voiceCount = devpiano::audio::kDefaultPianoVoiceCount);
 
 void initialiseOfflineSynths(devpiano::audio::BuiltinSynthesiser& pianoSynth,
                              devpiano::audio::BuiltinSynthesiser& sineSynth,
                              const devpiano::exporting::WavExportOptions& options,
-                             int pianoVoiceCount = devpiano::audio::kPianoVoiceCount,
+                             int pianoVoiceCount = devpiano::audio::kDefaultPianoVoiceCount,
                              int sineVoiceCount = devpiano::audio::kSineVoiceCount);
 } // namespace devpiano::recording

@@ -200,6 +200,7 @@ void applyAcousticSnapshotToReverbAndGain(devpiano::audio::RoomReverbEngine& roo
 
 void initialiseOfflinePianoSynth(devpiano::audio::BuiltinSynthesiser& pianoSynth,
                                  const devpiano::exporting::WavExportOptions& options, int voiceCount) {
+    voiceCount = devpiano::audio::clampPianoVoiceCount(voiceCount);
     pianoSynth.clearSounds();
     pianoSynth.clearVoices();
     pianoSynth.addSound(new PianoSynthSound());
